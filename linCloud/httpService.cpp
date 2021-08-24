@@ -6680,7 +6680,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		if (!std::equal(finalLineBegin, finalLineEnd, lineStr.cbegin(), lineStr.cend()))
 			return PARSERESULT::invaild;
 
-		
+
 		if (m_bodyLen)
 		{
 			if (*m_Content_TypeBegin && *m_Content_TypeEnd)
@@ -6705,6 +6705,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				finalBodyBegin = iterFindBegin, finalBodyEnd = finalBodyBegin + m_bodyLen;
 				m_buffer->getView().setBody(finalBodyBegin, m_bodyLen);
 				hasBody = true;
+				m_messageEnd = iterFindBegin + m_bodyLen;
+				goto check_messageComplete;
 			}
 			else
 			{
@@ -6749,10 +6751,10 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//[chunk size][\r\n][chunk data][\r\n][chunk size][\r\n][chunk data][\r\n][chunk size = 0][\r\n][\r\n]
 			while (true)
 			{
-				m_chunkLen =  0;
+				m_chunkLen = 0;
 
 			find_fistCharacter:
-				if(iterFindBegin == iterFindEnd)
+				if (iterFindBegin == iterFindEnd)
 					return PARSERESULT::find_fistCharacter;
 
 
@@ -6767,7 +6769,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				{
 					iterFindThisEnd = chunkNumBegin + MAXCHUNKNUMBERLEN;
 
-					if ((chunkNumEnd = std::find_if_not(chunkNumBegin, iterFindThisEnd, std::bind(::isalnum,std::placeholders::_1))) == iterFindThisEnd)
+					if ((chunkNumEnd = std::find_if_not(chunkNumBegin, iterFindThisEnd, std::bind(::isalnum, std::placeholders::_1))) == iterFindThisEnd)
 						return PARSERESULT::invaild;
 				}
 				else
@@ -6865,10 +6867,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 		}
+		m_messageEnd = finalLineEnd;
+		goto check_messageComplete;
 	}
 	else
 		return PARSERESULT::invaild;
-	return PARSERESULT::complete;
 
 
 	
@@ -7305,7 +7308,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		if (m_messageEnd == iterFindEnd)
 			return PARSERESULT::complete;
 		m_messageBegin = m_messageEnd;
-		m_messageEnd = iterFinalEnd;
+		m_messageEnd = iterFindEnd;
 		return PARSERESULT::check_messageComplete;
 }
 
