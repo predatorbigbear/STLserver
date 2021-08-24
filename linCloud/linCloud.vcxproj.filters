@@ -1,0 +1,210 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="listener.cpp">
+      <Filter>listener</Filter>
+    </ClCompile>
+    <ClCompile Include="IOcontextPool.cpp">
+      <Filter>IOcontextPool</Filter>
+    </ClCompile>
+    <ClCompile Include="MiddleCenter.cpp">
+      <Filter>MiddleCenter</Filter>
+    </ClCompile>
+    <ClCompile Include="httpService.cpp">
+      <Filter>httpService</Filter>
+    </ClCompile>
+    <ClCompile Include="LOG.cpp">
+      <Filter>Log</Filter>
+    </ClCompile>
+    <ClCompile Include="safeList.cpp">
+      <Filter>safeList</Filter>
+    </ClCompile>
+    <ClCompile Include="readBuffer.cpp">
+      <Filter>readBuffer</Filter>
+    </ClCompile>
+    <ClCompile Include="logPool.cpp">
+      <Filter>logPool</Filter>
+    </ClCompile>
+    <ClCompile Include="multiSQLREADSW.cpp">
+      <Filter>multiSQLREADSW</Filter>
+    </ClCompile>
+    <ClCompile Include="multiSqlReadSWPool.cpp">
+      <Filter>multiSQLREADSWPOOL</Filter>
+    </ClCompile>
+    <ClCompile Include="multiRedisRead.cpp">
+      <Filter>multiREDISREAD</Filter>
+    </ClCompile>
+    <ClCompile Include="multiRedisReadPool.cpp">
+      <Filter>multiREDISREADPOOL</Filter>
+    </ClCompile>
+    <ClCompile Include="multiRedisWrite.cpp">
+      <Filter>multiREDISWRITE</Filter>
+    </ClCompile>
+    <ClCompile Include="FixedHttpServicePool.cpp">
+      <Filter>FixedHttpServicePool</Filter>
+    </ClCompile>
+    <ClCompile Include="multiRedisWritePool.cpp">
+      <Filter>multiREDISWRITEPOOL</Filter>
+    </ClCompile>
+    <ClCompile Include="multiSQLWriteSW.cpp">
+      <Filter>multiSQLWRITESW</Filter>
+    </ClCompile>
+    <ClCompile Include="multiSqlWriteSWPool.cpp">
+      <Filter>multiSQLWRITESWPOOL</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="publicHeader.h" />
+    <ClInclude Include="listener.h">
+      <Filter>listener</Filter>
+    </ClInclude>
+    <ClInclude Include="IOcontextPool.h">
+      <Filter>IOcontextPool</Filter>
+    </ClInclude>
+    <ClInclude Include="MiddleCenter.h">
+      <Filter>MiddleCenter</Filter>
+    </ClInclude>
+    <ClInclude Include="MyReqView.h" />
+    <ClInclude Include="LOG.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="safeList.h">
+      <Filter>safeList</Filter>
+    </ClInclude>
+    <ClInclude Include="templateSafeList.h">
+      <Filter>templateSaftList</Filter>
+    </ClInclude>
+    <ClInclude Include="readBuffer.h">
+      <Filter>readBuffer</Filter>
+    </ClInclude>
+    <ClInclude Include="logPool.h">
+      <Filter>logPool</Filter>
+    </ClInclude>
+    <ClInclude Include="staticString.h">
+      <Filter>staticString</Filter>
+    </ClInclude>
+    <ClInclude Include="errorMessage.h">
+      <Filter>ErrorMessage</Filter>
+    </ClInclude>
+    <ClInclude Include="regexFunction.h">
+      <Filter>regexFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="sqlCommand.h" />
+    <ClInclude Include="multiSQLREADSW.h">
+      <Filter>multiSQLREADSW</Filter>
+    </ClInclude>
+    <ClInclude Include="multiSqlReadSWPool.h">
+      <Filter>multiSQLREADSWPOOL</Filter>
+    </ClInclude>
+    <ClInclude Include="memoryPool.h">
+      <Filter>MEMORYPOOL</Filter>
+    </ClInclude>
+    <ClInclude Include="multiRedisRead.h">
+      <Filter>multiREDISREAD</Filter>
+    </ClInclude>
+    <ClInclude Include="httpinterface.h" />
+    <ClInclude Include="multiRedisReadPool.h">
+      <Filter>multiREDISREADPOOL</Filter>
+    </ClInclude>
+    <ClInclude Include="redisNameSpace.h" />
+    <ClInclude Include="STLtreeFast.h" />
+    <ClInclude Include="httpService.h">
+      <Filter>httpService</Filter>
+    </ClInclude>
+    <ClInclude Include="ContentTypeMap.h" />
+    <ClInclude Include="multiRedisWrite.h">
+      <Filter>multiREDISWRITE</Filter>
+    </ClInclude>
+    <ClInclude Include="multiRedisWritePool.h">
+      <Filter>multiREDISWRITEPOOL</Filter>
+    </ClInclude>
+    <ClInclude Include="MemoryCheck.h" />
+    <ClInclude Include="FixedHttpServicePool.h">
+      <Filter>FixedHttpServicePool</Filter>
+    </ClInclude>
+    <ClInclude Include="fixedTemplateSafeList.h">
+      <Filter>templateSaftList</Filter>
+    </ClInclude>
+    <ClInclude Include="randomParse.h">
+      <Filter>randomParse</Filter>
+    </ClInclude>
+    <ClInclude Include="multiSQLWriteSW.h">
+      <Filter>multiSQLWRITESW</Filter>
+    </ClInclude>
+    <ClInclude Include="multiSqlWriteSWPool.h">
+      <Filter>multiSQLWRITESWPOOL</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="listener">
+      <UniqueIdentifier>{8cbff115-5eba-467e-9a4e-697c0959b9a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IOcontextPool">
+      <UniqueIdentifier>{f6aff206-ff63-4967-a573-b599278441fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MiddleCenter">
+      <UniqueIdentifier>{05e0e5ca-4730-4f4e-ad52-68aeaee22e3c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="httpService">
+      <UniqueIdentifier>{5e065764-f39e-42c1-9d3b-e9285621f0a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{b1941a13-2635-465f-853f-e95cb251a2da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="templateSaftList">
+      <UniqueIdentifier>{9a509ec2-73ad-4897-b9fd-ec54c774bb63}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="safeList">
+      <UniqueIdentifier>{4e90a08f-89c6-46a6-9bc0-6c9544378a3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="readBuffer">
+      <UniqueIdentifier>{9e37f00d-88b3-447c-b6e4-42258b1f088b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="logPool">
+      <UniqueIdentifier>{39375c68-7ed0-43af-a52e-02ec6a2fd44b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="staticString">
+      <UniqueIdentifier>{2a8f4927-1ffd-4e1e-b07a-4d9b996323bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ErrorMessage">
+      <UniqueIdentifier>{ea01ab96-e800-4d4f-b889-2affaec01ffa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="regexFunction">
+      <UniqueIdentifier>{419e844a-da61-4fb0-979c-2e116f21564c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiSQLREADSW">
+      <UniqueIdentifier>{26c46bdf-6183-46e6-bc94-4f80cf4d081c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiSQLREADSWPOOL">
+      <UniqueIdentifier>{c0ed9906-3d18-4407-befe-ca63365b6f13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MEMORYPOOL">
+      <UniqueIdentifier>{10f69da4-be46-4cd0-8b02-e00ea080fea6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiREDISREAD">
+      <UniqueIdentifier>{78cbb58a-f35a-49fb-8763-60edc5611915}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiREDISREADPOOL">
+      <UniqueIdentifier>{7a5007e8-c0bf-4e1f-82e5-3b88d8710c9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiREDISWRITE">
+      <UniqueIdentifier>{4d7a1195-d128-4279-843e-fb9b94e88fd3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiREDISWRITEPOOL">
+      <UniqueIdentifier>{be8e23c1-a182-4f12-b3d0-27fb10062cc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="FixedHttpServicePool">
+      <UniqueIdentifier>{2c38d164-d3da-4275-ba49-1b7484c8138b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="randomParse">
+      <UniqueIdentifier>{2cb067b2-0689-410a-b656-424c5a2e83ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiSQLWRITESW">
+      <UniqueIdentifier>{a5b20e95-e243-4efd-80a6-1cfc06b55105}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="multiSQLWRITESWPOOL">
+      <UniqueIdentifier>{2c7ce7a6-9267-4734-84ef-4372d3555fc9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

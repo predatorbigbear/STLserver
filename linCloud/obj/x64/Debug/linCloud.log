@@ -1,0 +1,25 @@
+﻿  Validating sources
+  Copying sources remotely to '192.168.80.128'
+  Validating architecture
+  Starting remote build
+  Compiling sources:
+  FixedHttpServicePool.cpp
+  multiRedisRead.cpp
+  multiRedisReadPool.cpp
+  multiRedisWrite.cpp
+  multiRedisWritePool.cpp
+  multiSQLREADSW.cpp
+  multiSqlReadSWPool.cpp
+  httpService.cpp
+  IOcontextPool.cpp
+  listener.cpp
+  LOG.cpp
+  logPool.cpp
+  main.cpp
+  MiddleCenter.cpp
+  multiSQLWriteSW.cpp
+  multiSqlWriteSWPool.cpp
+  readBuffer.cpp
+  safeList.cpp
+  Linking objects
+  linCloud.vcxproj -> D:\linuxCloud\linCloud\linCloud\bin\x64\Debug\linCloud.out

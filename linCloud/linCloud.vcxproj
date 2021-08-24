@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x86">
+      <Configuration>Debug</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x86">
+      <Configuration>Release</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{3371a356-2157-48c9-9e1e-dcf73d5af6cb}</ProjectGuid>
+    <Keyword>Linux</Keyword>
+    <RootNamespace>linCloud</RootNamespace>
+    <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
+    <ApplicationType>Linux</ApplicationType>
+    <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
+    <TargetLinuxPlatform>Generic</TargetLinuxPlatform>
+    <LinuxProjectType>{D51BCBC9-82E9-4017-911E-C93873C4EA2B}</LinuxProjectType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <RemoteRootDir>~/projects</RemoteRootDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <RemoteCompileCommandTimeout>0</RemoteCompileCommandTimeout>
+    <LocalRemoteCopySources>true</LocalRemoteCopySources>
+    <RemoteLdCommmandTimeout>0</RemoteLdCommmandTimeout>
+    <MultiProcNumber>3</MultiProcNumber>
+    <RemoteLinkLocalCopyOutput>false</RemoteLinkLocalCopyOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <RemoteCompileCommandTimeout>0</RemoteCompileCommandTimeout>
+    <RemoteLdCommmandTimeout>0</RemoteLdCommmandTimeout>
+    <LocalRemoteCopySources>true</LocalRemoteCopySources>
+    <RemoteLinkLocalCopyOutput>false</RemoteLinkLocalCopyOutput>
+    <MultiProcNumber>1</MultiProcNumber>
+    <EnableASAN>true</EnableASAN>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="FixedHttpServicePool.cpp" />
+    <ClCompile Include="multiRedisRead.cpp" />
+    <ClCompile Include="multiRedisReadPool.cpp" />
+    <ClCompile Include="multiRedisWrite.cpp" />
+    <ClCompile Include="multiRedisWritePool.cpp" />
+    <ClCompile Include="multiSQLREADSW.cpp" />
+    <ClCompile Include="multiSqlReadSWPool.cpp" />
+    <ClCompile Include="httpService.cpp" />
+    <ClCompile Include="IOcontextPool.cpp" />
+    <ClCompile Include="listener.cpp" />
+    <ClCompile Include="LOG.cpp" />
+    <ClCompile Include="logPool.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="MiddleCenter.cpp" />
+    <ClCompile Include="multiSQLWriteSW.cpp" />
+    <ClCompile Include="multiSqlWriteSWPool.cpp" />
+    <ClCompile Include="readBuffer.cpp" />
+    <ClCompile Include="safeList.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ContentTypeMap.h" />
+    <ClInclude Include="FixedHttpServicePool.h" />
+    <ClInclude Include="fixedTemplateSafeList.h" />
+    <ClInclude Include="httpinterface.h" />
+    <ClInclude Include="MemoryCheck.h" />
+    <ClInclude Include="memoryPool.h" />
+    <ClInclude Include="multiRedisRead.h" />
+    <ClInclude Include="multiRedisReadPool.h" />
+    <ClInclude Include="multiRedisWrite.h" />
+    <ClInclude Include="multiRedisWritePool.h" />
+    <ClInclude Include="multiSQLREADSW.h" />
+    <ClInclude Include="multiSqlReadSWPool.h" />
+    <ClInclude Include="multiSQLWriteSW.h" />
+    <ClInclude Include="multiSqlWriteSWPool.h" />
+    <ClInclude Include="randomParse.h" />
+    <ClInclude Include="redisNameSpace.h" />
+    <ClInclude Include="errorMessage.h" />
+    <ClInclude Include="httpService.h" />
+    <ClInclude Include="IOcontextPool.h" />
+    <ClInclude Include="listener.h" />
+    <ClInclude Include="LOG.h" />
+    <ClInclude Include="logPool.h" />
+    <ClInclude Include="MiddleCenter.h" />
+    <ClInclude Include="MyReqView.h" />
+    <ClInclude Include="publicHeader.h" />
+    <ClInclude Include="readBuffer.h" />
+    <ClInclude Include="regexFunction.h" />
+    <ClInclude Include="safeList.h" />
+    <ClInclude Include="sqlCommand.h" />
+    <ClInclude Include="staticString.h" />
+    <ClInclude Include="STLtreeFast.h" />
+    <ClInclude Include="templateSafeList.h" />
+  </ItemGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalOptions>-D _SILENCE_CXX17_ALLOCATOR_VOID_DEPRECATION_WARNING  -D BOOST_BIND_GLOBAL_PLACEHOLDERS %(AdditionalOptions)</AdditionalOptions>
+      <Verbose>true</Verbose>
+      <AdditionalIncludeDirectories>/usr/include/mysql;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <Optimization>Disabled</Optimization>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <Link>
+      <LibraryDependencies>boost_thread;boost_system;boost_filesystem;boost_regex;boost_timer;boost_chrono;boost_date_time;boost_context;ssl;crypto;pthread;mysqlclient;jemalloc</LibraryDependencies>
+      <AdditionalOptions> -pthread -ljemalloc %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalLibraryDirectories>%(Link.AdditionalLibraryDirectories);/usr/lib64/mysql</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <DebugInformationFormat>None</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalOptions>-D _SILENCE_CXX17_ALLOCATOR_VOID_DEPRECATION_WARNING  -D BOOST_BIND_GLOBAL_PLACEHOLDERS  %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>/usr/include/mysql;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <Verbose>false</Verbose>
+      <Optimization>Full</Optimization>
+    </ClCompile>
+    <Link>
+      <LibraryDependencies>boost_thread;boost_system;boost_filesystem;boost_regex;boost_timer;boost_chrono;boost_date_time;boost_context;ssl;crypto;pthread;mysqlclient;jemalloc</LibraryDependencies>
+      <AdditionalOptions> -pthread -ljemalloc %(AdditionalOptions)</AdditionalOptions>
+      <DebuggerSymbolInformation>OmitAllSymbolInformation</DebuggerSymbolInformation>
+      <AdditionalLibraryDirectories>/usr/lib64/mysql;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <VerboseOutput>false</VerboseOutput>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>
