@@ -4506,10 +4506,6 @@ void HTTPSERVICE::prepare()
 		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
-
-	m_charMemoryPool.reset();
-	m_charPointerMemoryPool.reset();
-	m_sendMemoryPool.reset();
 }
 
 
@@ -4722,7 +4718,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 	unsigned int &accumulateLen{ m_accumulateLen };
 	std::vector<std::pair<const char*, const char*>>&dataBufferVec{ m_dataBufferVec };
-
 	std::vector<std::pair<const char*, const char*>>::const_iterator dataBufferVecBegin{}, dataBufferVecEnd{};
 
 
@@ -5014,10 +5009,20 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 				else
 				{
+					//if (dataBufferVec.empty())
+					//	dataBufferVec.emplace_back(std::make_pair(funBegin, iterFindEnd));
+					//else
+					//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 					if (dataBufferVec.empty())
-						dataBufferVec.emplace_back(std::make_pair(funBegin, iterFindEnd));
+					{
+						m_pair.first = funBegin, m_pair.second = iterFindEnd;
+					}
 					else
-						dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+					{
+						m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+					}
+					dataBufferVec.emplace_back(m_pair);
 
 					newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5220,10 +5225,20 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 				else
 				{
+					//if (dataBufferVec.empty())
+					//	dataBufferVec.emplace_back(std::make_pair(targetBegin, iterFindEnd));
+					//else
+					//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 					if (dataBufferVec.empty())
-						dataBufferVec.emplace_back(std::make_pair(targetBegin, iterFindEnd));
+					{
+						m_pair.first = targetBegin, m_pair.second = iterFindEnd;
+					}
 					else
-						dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+					{
+						m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+					}
+					dataBufferVec.emplace_back(m_pair);
 
 					newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5345,10 +5360,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					}
 					else
 					{
+						//if (dataBufferVec.empty())
+						//	dataBufferVec.emplace_back(std::make_pair(paraBegin, iterFindEnd));
+						//else
+						//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 						if (dataBufferVec.empty())
-							dataBufferVec.emplace_back(std::make_pair(paraBegin, iterFindEnd));
+						{
+							m_pair.first = paraBegin, m_pair.second = iterFindEnd;
+						}
 						else
-							dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+						{
+							m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+						}
+						dataBufferVec.emplace_back(m_pair);
+
 
 						newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5473,10 +5499,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 				else
 				{
+					//if (dataBufferVec.empty())
+					//	dataBufferVec.emplace_back(std::make_pair(httpBegin, iterFindEnd));
+					//else
+					//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 					if (dataBufferVec.empty())
-						dataBufferVec.emplace_back(std::make_pair(httpBegin, iterFindEnd));
+					{
+						m_pair.first = httpBegin, m_pair.second = iterFindEnd;
+					}
 					else
-						dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+					{
+						m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+					}
+					dataBufferVec.emplace_back(m_pair);
+
 
 					newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5594,10 +5631,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 				else
 				{
+					//if (dataBufferVec.empty())
+					//	dataBufferVec.emplace_back(std::make_pair(versionBegin, iterFindEnd));
+					//else
+					//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 					if (dataBufferVec.empty())
-						dataBufferVec.emplace_back(std::make_pair(versionBegin, iterFindEnd));
+					{
+						m_pair.first = versionBegin, m_pair.second = iterFindEnd;
+					}
 					else
-						dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+					{
+						m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+					}
+					dataBufferVec.emplace_back(m_pair);
+
 
 					newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5709,10 +5757,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 				else
 				{
+					//if (dataBufferVec.empty())
+					//	dataBufferVec.emplace_back(std::make_pair(lineBegin, iterFindEnd));
+					//else
+					//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 					if (dataBufferVec.empty())
-						dataBufferVec.emplace_back(std::make_pair(lineBegin, iterFindEnd));
+					{
+						m_pair.first = lineBegin, m_pair.second = iterFindEnd;
+					}
 					else
-						dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+					{
+						m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+					}
+					dataBufferVec.emplace_back(m_pair);
+
 
 					newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5814,10 +5873,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					}
 					else
 					{
+						//if (dataBufferVec.empty())
+						//	dataBufferVec.emplace_back(std::make_pair(headBegin, iterFindEnd));
+						//else
+						//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 						if (dataBufferVec.empty())
-							dataBufferVec.emplace_back(std::make_pair(headBegin, iterFindEnd));
+						{
+							m_pair.first = headBegin, m_pair.second = iterFindEnd;
+						}
 						else
-							dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+						{
+							m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+						}
+						dataBufferVec.emplace_back(m_pair);
+
 
 						newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -5947,10 +6017,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					}
 					else
 					{
+						//if (dataBufferVec.empty())
+						//	dataBufferVec.emplace_back(std::make_pair(wordBegin, iterFindEnd));
+						//else
+						//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 						if (dataBufferVec.empty())
-							dataBufferVec.emplace_back(std::make_pair(wordBegin, iterFindEnd));
+						{
+							m_pair.first = wordBegin, m_pair.second = iterFindEnd;
+						}
 						else
-							dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+						{
+							m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+						}
+						dataBufferVec.emplace_back(m_pair);
+
 
 						newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 
@@ -6619,10 +6700,22 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					}
 					else
 					{
+						//if (dataBufferVec.empty())
+						//	dataBufferVec.emplace_back(std::make_pair(lineBegin, iterFindEnd));
+						//else
+						//	dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+
 						if (dataBufferVec.empty())
-							dataBufferVec.emplace_back(std::make_pair(lineBegin, iterFindEnd));
+						{
+							m_pair.first = lineBegin, m_pair.second = iterFindEnd;
+						}
 						else
-							dataBufferVec.emplace_back(std::make_pair(m_readBuffer, m_readBuffer + m_maxReadLen));
+						{
+							m_pair.first = m_readBuffer, m_pair.second = m_readBuffer + m_maxReadLen;
+						}
+						dataBufferVec.emplace_back(m_pair);
+
+
 
 						newBuffer = m_charMemoryPool.getMemory(m_maxReadLen);
 

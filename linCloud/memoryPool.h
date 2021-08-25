@@ -98,7 +98,7 @@ private:
 
 	typedef typename std::forward_list<std::unique_ptr<MEMORYTYPE[]>>::iterator ITERATOR;
 
-	ITERATOR m_iter;
+	ITERATOR m_iter{ m_shadow.before_begin() };
 
 	unsigned int m_needSize{};
 };
