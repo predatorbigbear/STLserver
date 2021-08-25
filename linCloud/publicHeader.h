@@ -393,6 +393,7 @@ enum INTERFACE
 
 enum HTTPHEADER
 {
+	ONE = 1,
 	TWO = 2,
 	THREE = 3,
 	FOUR = 4,
@@ -400,12 +401,16 @@ enum HTTPHEADER
 	SIX = 6,
 	SEVEN = 7,
 	EIGHT = 8,
+	NIGHT = 9,
 	TEN = 10,
+	ELEVEN = 11,
 	TWELVE = 12,
 	THIRTEEN = 13,
 	FOURTEEN = 14,
 	FIFTEEN = 15,
+	SIXTEEN = 16,
 	SEVENTEEN = 17,
+	EIGHTTEEN = 18,
 	NINETEEN = 19
 
 };

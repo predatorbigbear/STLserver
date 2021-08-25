@@ -41,20 +41,10 @@ struct MEMORYPOOL
 			{
 				try
 				{
-					if (m_shadow.empty())
-					{
-						if (m_needSize + getLen < m_needSize || (m_needSize + getLen) < getLen)
-							return nullptr;
-						m_iter = m_shadow.emplace_after(m_shadow.cbefore_begin(), new MEMORYTYPE[getLen]);
-						m_needSize += getLen;
-					}
-					else
-					{
-						if (m_needSize + getLen < m_needSize || (m_needSize + getLen) < getLen)
-							return nullptr;
-						m_iter = m_shadow.emplace_after(m_shadow.cbefore_begin(), new MEMORYTYPE[getLen]);
-						m_needSize += getLen;
-					}
+					if (m_needSize + getLen < m_needSize || (m_needSize + getLen) < getLen)
+						return nullptr;
+					m_iter = m_shadow.emplace_after(m_iter, new MEMORYTYPE[getLen]);
+					m_needSize += getLen;
 					return m_iter->get();
 				}
 				catch (const std::exception &e)
@@ -76,6 +66,7 @@ struct MEMORYPOOL
 				m_shadow.clear();
 				m_ptr.reset(new MEMORYTYPE[m_needSize]);
 				m_ptrMaxSize = m_needSize;
+				m_iter = m_shadow.before_begin();
 			}
 			catch (const std::exception &e)
 			{
@@ -91,6 +82,7 @@ struct MEMORYPOOL
 		m_ptr.reset();
 		m_ptrMaxSize = m_ptrNowSize = m_needSize = 0;
 		m_shadow.clear();
+		m_iter = m_shadow.before_begin();
 	}
 
 

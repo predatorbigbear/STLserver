@@ -57,9 +57,6 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> l
 		if (!rsaPrivate)
 			throw std::runtime_error("rsaPrivate is null");
 
-
-
-		
 		m_randomString = new char[randomStringLen];
 
 		std::copy(randomString, randomString + randomStringLen, m_randomString);
@@ -4509,6 +4506,10 @@ void HTTPSERVICE::prepare()
 		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
+
+	m_charMemoryPool.reset();
+	m_charPointerMemoryPool.reset();
+	m_sendMemoryPool.reset();
 }
 
 
@@ -4693,7 +4694,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 	///////////////////////////////////////////////////////////////////////////////////////
-	int len{}, num{}, index{}, equalLen{};                   //累计body长度
+	int len{}, num{}, index{};                   //累计body长度
 	const char **headerPos{ m_httpHeaderMap.get() };
 	char *newBuffer{}, *newBufferBegin{}, *newBufferEnd{}, *newBufferIter{};
 	bool isDoubleQuotation{};   //判断boundaryWord首字符是否是\"
@@ -5036,10 +5037,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		if (!dataBufferVec.empty())
 		{
-			accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			{
-				return sum += std::distance(everyPair.first, everyPair.second);
-			}) + std::distance(m_readBuffer, const_cast<char*>(funEnd));
+			//因为dataBufferVec非空时，在存入的时候已经累加了长度，因此只需要加上std::distance(m_readBuffer, const_cast<char*>(funEnd))即可
+			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+			//{
+			//	return sum += std::distance(everyPair.first, everyPair.second);
+			//}) + std::distance(m_readBuffer, const_cast<char*>(funEnd));
+			accumulateLen += std::distance(m_readBuffer, const_cast<char*>(funEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5072,72 +5075,72 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		switch (std::distance(finalFunBegin, finalFunEnd))
 		{
-		case 3:
+		case HTTPHEADER::THREE:
 			switch (*finalFunBegin)
 			{
 			case 'P':
 				if (!std::equal(finalFunBegin, finalFunEnd, PUTStr.cbegin(), PUTStr.cend()))
 					return PARSERESULT::invaild;
 				m_buffer->getView().method() = METHOD::PUT;
-				m_buffer->getView().setMethod(finalFunBegin, 3);
+				m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::THREE);
 				break;
 			case 'G':
 				if (!std::equal(finalFunBegin, finalFunEnd, GETStr.cbegin(), GETStr.cend()))
 					return PARSERESULT::invaild;
 				m_buffer->getView().method() = METHOD::GET;
-				m_buffer->getView().setMethod(finalFunBegin, 3);
+				m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::THREE);
 				break;
 			default:
 				return PARSERESULT::invaild;
 				break;
 			}
 			break;
-		case 4:
+		case HTTPHEADER::FOUR:
 			switch (*finalFunBegin)
 			{
 			case 'P':
 				if (!std::equal(finalFunBegin, finalFunEnd, POSTStr.cbegin(), POSTStr.cend()))
 					return PARSERESULT::invaild;
 				m_buffer->getView().method() = METHOD::POST;
-				m_buffer->getView().setMethod(finalFunBegin, 4);
+				m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::FOUR);
 				break;
 			case 'H':
 				if (!std::equal(finalFunBegin, finalFunEnd, HEADStr.cbegin(), HEADStr.cend()))
 					return PARSERESULT::invaild;
 				m_buffer->getView().method() = METHOD::HEAD;
-				m_buffer->getView().setMethod(finalFunBegin, 4);
+				m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::FOUR);
 				break;
 			default:
 				return PARSERESULT::invaild;
 				break;
 			}
 			break;
-		case 5:
+		case HTTPHEADER::FIVE:
 			if (!std::equal(finalFunBegin, finalFunEnd, TRACEStr.cbegin(), TRACEStr.cend()))
 				return PARSERESULT::invaild;
 			m_buffer->getView().method() = METHOD::TRACE;
-			m_buffer->getView().setMethod(finalFunBegin, 5);
+			m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::FIVE);
 			break;
-		case 6:
+		case HTTPHEADER::SIX:
 			if (!std::equal(finalFunBegin, finalFunEnd, DELETEStr.cbegin(), DELETEStr.cend()))
 				return PARSERESULT::invaild;
 			m_buffer->getView().method() = METHOD::DELETE;
-			m_buffer->getView().setMethod(finalFunBegin, 6);
+			m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::SIX);
 			break;
-		case 7:
+		case HTTPHEADER::SEVEN:
 			switch (*finalFunBegin)
 			{
 			case 'C':
 				if (!std::equal(finalFunBegin, finalFunEnd, CONNECTStr.cbegin(), CONNECTStr.cend()))
 					return PARSERESULT::invaild;
 				m_buffer->getView().method() = METHOD::CONNECT;
-				m_buffer->getView().setMethod(finalFunBegin, 7);
+				m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::SEVEN);
 				break;
 			case 'O':
 				if (!std::equal(finalFunBegin, finalFunEnd, OPTIONSStr.cbegin(), OPTIONSStr.cend()))
 					return PARSERESULT::invaild;
 				m_buffer->getView().method() = METHOD::OPTIONS;
-				m_buffer->getView().setMethod(finalFunBegin, 7);
+				m_buffer->getView().setMethod(finalFunBegin, HTTPHEADER::SEVEN);
 				break;
 			default:
 				return PARSERESULT::invaild;
@@ -5241,10 +5244,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//如果很长，横跨了不同分段，那么进行整合再处理
 		if (!dataBufferVec.empty())
 		{
-			accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			{
-				return sum += std::distance(everyPair.first, everyPair.second);
-			}) + std::distance(m_readBuffer, const_cast<char*>(targetEnd));
+			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+			//{
+			//	return sum += std::distance(everyPair.first, everyPair.second);
+			//}) + std::distance(m_readBuffer, const_cast<char*>(targetEnd));
+			accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(targetEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5365,10 +5369,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				{
-					return sum += std::distance(everyPair.first, everyPair.second);
-				}) + std::distance(m_readBuffer, const_cast<char*>(paraEnd));
+				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+				//{
+				//	return sum += std::distance(everyPair.first, everyPair.second);
+				//}) + std::distance(m_readBuffer, const_cast<char*>(paraEnd));
+				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(paraEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5492,10 +5497,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//如果很长，横跨了不同分段，那么进行整合再处理
 		if (!dataBufferVec.empty())
 		{
-			accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			{
-				return sum += std::distance(everyPair.first, everyPair.second);
-			}) + std::distance(m_readBuffer, const_cast<char*>(httpEnd));
+			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+			//{
+			//	return sum += std::distance(everyPair.first, everyPair.second);
+			//}) + std::distance(m_readBuffer, const_cast<char*>(httpEnd));
+			accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(httpEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5612,10 +5618,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//如果很长，横跨了不同分段，那么进行整合再处理
 		if (!dataBufferVec.empty())
 		{
-			accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			{
-				return sum += std::distance(everyPair.first, everyPair.second);
-			}) + std::distance(m_readBuffer, const_cast<char*>(versionEnd));
+			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+			//{
+			//	return sum += std::distance(everyPair.first, everyPair.second);
+			//}) + std::distance(m_readBuffer, const_cast<char*>(versionEnd));
+			accumulateLen += std::distance(m_readBuffer, const_cast<char*>(versionEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5722,10 +5729,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		if (!dataBufferVec.empty())
 		{
-			accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			{
-				return sum += std::distance(everyPair.first, everyPair.second);
-			}) + std::distance(m_readBuffer, const_cast<char*>(lineEnd));
+			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+			//{
+			//	return sum += std::distance(everyPair.first, everyPair.second);
+			//}) + std::distance(m_readBuffer, const_cast<char*>(lineEnd));
+			accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(lineEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5829,10 +5837,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 			if (!dataBufferVec.empty())
 			{
-				accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				{
-					return sum += std::distance(everyPair.first, everyPair.second);
-				}) + std::distance(m_readBuffer, const_cast<char*>(headEnd));
+				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+				//{
+				//	return sum += std::distance(everyPair.first, everyPair.second);
+				//}) + std::distance(m_readBuffer, const_cast<char*>(headEnd));
+				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(headEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -5959,10 +5968,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				{
-					return sum += std::distance(everyPair.first, everyPair.second);
-				}) + std::distance(m_readBuffer, const_cast<char*>(wordEnd));
+				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+				//{
+				//	return sum += std::distance(everyPair.first, everyPair.second);
+				//}) + std::distance(m_readBuffer, const_cast<char*>(wordEnd));
+				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(wordEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
@@ -6630,10 +6640,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				{
-					return sum += std::distance(everyPair.first, everyPair.second);
-				}) + std::distance(m_readBuffer, const_cast<char*>(lineEnd));
+				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
+				//{
+				//	return sum += std::distance(everyPair.first, everyPair.second);
+				//}) + std::distance(m_readBuffer, const_cast<char*>(lineEnd));
+				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(lineEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
 
