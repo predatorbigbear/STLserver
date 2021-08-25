@@ -275,8 +275,6 @@ private:
 
 	std::vector<std::pair<const char*, const char*>>m_dataBufferVec;     //存储分散的某段数据的临时vector    
 
-	std::pair<const char*, const char*> m_pair;
-
 
 	unsigned int m_accumulateLen{};          //累积长度
 
@@ -439,9 +437,6 @@ private:
 
 	const char *m_sendBuffer{};
 	unsigned int m_sendLen{};
-
-	const char *m_sendBegin{};
-	const char *m_sendEnd{};
 
 private:
 
