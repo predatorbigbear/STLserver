@@ -5681,7 +5681,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					{
 						if (std::distance(lineBegin, lineEnd) == 4)
 						{
-							m_messageEnd = lineEnd;
+							m_messageBegin = lineEnd;
 							goto check_messageComplete;
 						}
 					}
@@ -5689,7 +5689,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					{
 						if (std::distance(dataBufferVec.front().first, dataBufferVec.front().second) + std::distance(m_readBuffer, const_cast<char*>(lineEnd)) == 4)
 						{
-							m_messageEnd = lineEnd;
+							m_messageBegin = lineEnd;
 							goto check_messageComplete;
 						}
 					}
@@ -6588,7 +6588,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						{
 							if (std::distance(lineBegin, lineEnd) == 4)
 							{
-								m_messageEnd = lineEnd;
+								m_messageBegin = lineEnd;
 								goto check_messageComplete;
 							}
 						}
@@ -6596,7 +6596,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						{
 							if (std::distance(dataBufferVec.front().first, dataBufferVec.front().second) + std::distance(m_readBuffer, const_cast<char*>(lineEnd)) == 4)
 							{
-								m_messageEnd = lineEnd;
+								m_messageBegin = lineEnd;
 								goto check_messageComplete;
 							}
 						}
@@ -6705,7 +6705,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				finalBodyBegin = iterFindBegin, finalBodyEnd = finalBodyBegin + m_bodyLen;
 				m_buffer->getView().setBody(finalBodyBegin, m_bodyLen);
 				hasBody = true;
-				m_messageEnd = iterFindBegin + m_bodyLen;
+				m_messageBegin = iterFindBegin + m_bodyLen;
 				goto check_messageComplete;
 			}
 			else
@@ -6814,7 +6814,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 				if (!m_chunkLen)
 				{
-					m_messageEnd = chunkNumEnd + len;
+					m_messageBegin = chunkNumEnd + len;
 					goto check_messageComplete;
 				}
 
@@ -6867,7 +6867,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 		}
-		m_messageEnd = finalLineEnd;
+		m_messageBegin = finalLineEnd;
 		goto check_messageComplete;
 	}
 	else
@@ -7295,7 +7295,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 			if (m_bodyLen - std::distance(iterFindBegin, findBoundaryBegin) == 4)
 			{
-				m_messageEnd = findBoundaryBegin;
+				m_messageBegin = findBoundaryBegin;
 				goto check_messageComplete;
 			}
 
@@ -7305,9 +7305,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		// 检查是否有额外信息
 	check_messageComplete:
-		if (m_messageEnd == iterFindEnd)
+		if (m_messageBegin == iterFindEnd)
 			return PARSERESULT::complete;
-		m_messageBegin = m_messageEnd;
 		m_messageEnd = iterFindEnd;
 		return PARSERESULT::check_messageComplete;
 }
