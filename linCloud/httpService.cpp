@@ -4983,7 +4983,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		// 这样在能够在一块读取buffer内读取完的特定数据段可以直接用指针指向，只有对于跨越不同读取内存块位置的数据段才需要进行一次copy，
 		// 同时兼顾性能与扩展性
 
-		if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXMETHODLEN)
+		len = std::distance(iterFindBegin, iterFindEnd);
+		if (accumulateLen + len >= MAXMETHODLEN)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXMETHODLEN - accumulateLen);
 
@@ -4995,13 +4996,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 		else
 		{
-			iterFindThisEnd = iterFindEnd;
+			funEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_not<>(), std::bind(isupper, std::placeholders::_1)));
 
-			funEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_not<>(), std::bind(isupper, std::placeholders::_1)));
-
-			if (funEnd == iterFindThisEnd)
+			if (funEnd == iterFindEnd)
 			{
-				accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+				accumulateLen += len;
 				if (iterFindEnd != iterFinalEnd)
 				{
 					m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5033,11 +5032,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		if (!dataBufferVec.empty())
 		{
-			//因为dataBufferVec非空时，在存入的时候已经累加了长度，因此只需要加上std::distance(m_readBuffer, const_cast<char*>(funEnd))即可
-			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			//{
-			//	return sum += std::distance(everyPair.first, everyPair.second);
-			//}) + std::distance(m_readBuffer, const_cast<char*>(funEnd));
+			//因为dataBufferVec非空时，在存入的时候已经累加了长度，因此只需要加上std::distance(m_readBuffer, const_cast<char*>(funEnd)) 本次解析长度即可
 			accumulateLen += std::distance(m_readBuffer, const_cast<char*>(funEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5188,7 +5183,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		///////////////////////////////////////////////////////////////  begin时无需存储，begin到end才需要存储 ////////////////////////////////////////////////////
 
 	find_targetEnd:
-		if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXTARGETLEN)
+		len = std::distance(iterFindBegin, iterFindEnd);
+		if (accumulateLen + len >= MAXTARGETLEN)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXTARGETLEN - accumulateLen);
 
@@ -5201,14 +5197,13 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 		else
 		{
-			iterFindThisEnd = iterFindEnd;
 
-			targetEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+			targetEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 				std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
 
-			if (targetEnd == iterFindThisEnd)
+			if (targetEnd == iterFindEnd)
 			{
-				accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+				accumulateLen += len;
 				if (iterFindEnd != iterFinalEnd)
 				{
 					m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5240,10 +5235,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//如果很长，横跨了不同分段，那么进行整合再处理
 		if (!dataBufferVec.empty())
 		{
-			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			//{
-			//	return sum += std::distance(everyPair.first, everyPair.second);
-			//}) + std::distance(m_readBuffer, const_cast<char*>(targetEnd));
 			accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(targetEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5313,7 +5304,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			accumulateLen = 0;
 
 		find_paraEnd:
-			if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXFIRSTBODYLEN)
+			len = std::distance(iterFindBegin, iterFindEnd);
+			if (accumulateLen + len >= MAXFIRSTBODYLEN)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXFIRSTBODYLEN - accumulateLen);
 
@@ -5326,14 +5318,13 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			}
 			else
 			{
-				iterFindThisEnd = iterFindEnd;
-
-				paraEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				
+				paraEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 					std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
-				if (paraEnd == iterFindThisEnd)
+				if (paraEnd == iterFindEnd)
 				{
-					accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+					accumulateLen += len;
 					if (iterFindEnd != iterFinalEnd)
 					{
 						m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5366,10 +5357,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				//{
-				//	return sum += std::distance(everyPair.first, everyPair.second);
-				//}) + std::distance(m_readBuffer, const_cast<char*>(paraEnd));
+			
 				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(paraEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5442,7 +5430,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	find_httpEnd:
-		if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXHTTPLEN)
+		len = std::distance(iterFindBegin, iterFindEnd);
+		if (accumulateLen + len >= MAXHTTPLEN)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXHTTPLEN - accumulateLen);
 
@@ -5455,14 +5444,13 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 		else
 		{
-			iterFindThisEnd = iterFindEnd;
-
-			httpEnd = std::find_if_not(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
+			
+			httpEnd = std::find_if_not(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
 				std::bind(less_equal<>(), std::placeholders::_1, 'Z')));
 
-			if (httpEnd == iterFindThisEnd)
+			if (httpEnd == iterFindEnd)
 			{
-				accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+				accumulateLen += len;
 				if (iterFindEnd != iterFinalEnd)
 				{
 					m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5495,10 +5483,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//如果很长，横跨了不同分段，那么进行整合再处理
 		if (!dataBufferVec.empty())
 		{
-			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			//{
-			//	return sum += std::distance(everyPair.first, everyPair.second);
-			//}) + std::distance(m_readBuffer, const_cast<char*>(httpEnd));
+			
 			accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(httpEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5566,7 +5551,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	find_versionEnd:
-		if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXVERSIONLEN)
+		len = std::distance(iterFindBegin, iterFindEnd);
+		if (accumulateLen + len >= MAXVERSIONLEN)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXVERSIONLEN - accumulateLen);
 
@@ -5578,13 +5564,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 		else
 		{
-			iterFindThisEnd = iterFindEnd;
+			
+			versionEnd = std::find(iterFindBegin, iterFindEnd, '\r');
 
-			versionEnd = std::find(iterFindBegin, iterFindThisEnd, '\r');
-
-			if (versionEnd == iterFindThisEnd)
+			if (versionEnd == iterFindEnd)
 			{
-				accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+				accumulateLen += len;
 				if (iterFindEnd != iterFinalEnd)
 				{
 					m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5617,10 +5602,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		//如果很长，横跨了不同分段，那么进行整合再处理
 		if (!dataBufferVec.empty())
 		{
-			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			//{
-			//	return sum += std::distance(everyPair.first, everyPair.second);
-			//}) + std::distance(m_readBuffer, const_cast<char*>(versionEnd));
 			accumulateLen += std::distance(m_readBuffer, const_cast<char*>(versionEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5661,7 +5642,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 	find_lineEnd:
-		if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXLINELEN)
+		len = std::distance(iterFindBegin, iterFindEnd);
+		if (accumulateLen + len >= MAXLINELEN)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXLINELEN - accumulateLen);
 
@@ -5674,12 +5656,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 		else
 		{
-			iterFindThisEnd = iterFindEnd;
-
-			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			
+			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
-			if (lineEnd == iterFindThisEnd)
+			if (lineEnd == iterFindEnd)
 			{
 				if (!m_bodyLen)
 				{
@@ -5700,7 +5681,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						}
 					}
 				}
-				accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+				accumulateLen += len;
 				if (iterFindEnd != iterFinalEnd)
 				{
 					m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5729,10 +5710,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		if (!dataBufferVec.empty())
 		{
-			//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-			//{
-			//	return sum += std::distance(everyPair.first, everyPair.second);
-			//}) + std::distance(m_readBuffer, const_cast<char*>(lineEnd));
+			
 			accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(lineEnd));
 
 			newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5786,7 +5764,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 		find_headEnd:
-			if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXHEADLEN)
+			len = std::distance(iterFindBegin, iterFindEnd);
+			if (accumulateLen + len >= MAXHEADLEN)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXHEADLEN - accumulateLen);
 
@@ -5799,14 +5778,13 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			}
 			else
 			{
-				iterFindThisEnd = iterFindEnd;
-
-				headEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
+				
+				headEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
 					std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
-				if (headEnd == iterFindThisEnd)
+				if (headEnd == iterFindEnd)
 				{
-					accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+					accumulateLen += len;
 					if (iterFindEnd != iterFinalEnd)
 					{
 						m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5838,10 +5816,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 			if (!dataBufferVec.empty())
 			{
-				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				//{
-				//	return sum += std::distance(everyPair.first, everyPair.second);
-				//}) + std::distance(m_readBuffer, const_cast<char*>(headEnd));
+				
 				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(headEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5875,7 +5850,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 		find_wordBegin:
-			if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXWORDBEGINLEN)
+			len = std::distance(iterFindBegin, iterFindEnd);
+			if (accumulateLen + len >= MAXWORDBEGINLEN)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXWORDBEGINLEN - accumulateLen);
 
@@ -5887,13 +5863,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			}
 			else
 			{
-				iterFindThisEnd = iterFindEnd;
+				
+				wordBegin = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
 
-				wordBegin = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
-
-				if (wordBegin == iterFindThisEnd)
+				if (wordBegin == iterFindEnd)
 				{
-					accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+					accumulateLen += len;
 					if (iterFindEnd != iterFinalEnd)
 					{
 						m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5922,7 +5897,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			accumulateLen = 0;
 
 		find_wordEnd:
-			if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXWORDLEN)
+			len = std::distance(iterFindBegin, iterFindEnd);
+			if (accumulateLen + len >= MAXWORDLEN)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXWORDLEN - accumulateLen);
 
@@ -5934,13 +5910,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			}
 			else
 			{
-				iterFindThisEnd = iterFindEnd;
+				
+				wordEnd = find(iterFindBegin, iterFindEnd, '\r');
 
-				wordEnd = find(iterFindBegin, iterFindThisEnd, '\r');
-
-				if (wordEnd == iterFindThisEnd)
+				if (wordEnd == iterFindEnd)
 				{
-					accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+					accumulateLen += len;
 					if (iterFindEnd != iterFinalEnd)
 					{
 						m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -5970,10 +5945,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				//{
-				//	return sum += std::distance(everyPair.first, everyPair.second);
-				//}) + std::distance(m_readBuffer, const_cast<char*>(wordEnd));
+				
 				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(wordEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -6256,7 +6228,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				switch (*finalHeadBegin)
 				{
 				case 'c':
-
 				case 'C':
 					// "Connection"
 					if (std::equal(finalHeadBegin, finalHeadEnd, Connection.cbegin(), Connection.cend(),
@@ -6574,7 +6545,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			accumulateLen = 0;
 
 		find_secondLineEnd:
-			if (accumulateLen + std::distance(iterFindBegin, iterFindEnd) >= MAXLINELEN)
+			len = std::distance(iterFindBegin, iterFindEnd);
+			if (accumulateLen + len >= MAXLINELEN)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXLINELEN - accumulateLen);
 
@@ -6587,12 +6559,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			}
 			else
 			{
-				iterFindThisEnd = iterFindEnd;
-
-				lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+				
+				lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 					std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
-				if (lineEnd == iterFindThisEnd)
+				if (lineEnd == iterFindEnd)
 				{
 					if (!m_bodyLen && !hasChunk)
 					{
@@ -6613,7 +6584,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 							}
 						}
 					}
-					accumulateLen += std::distance(iterFindBegin, iterFindEnd);
+					accumulateLen += len;
 					if (iterFindEnd != iterFinalEnd)
 					{
 						m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
@@ -6643,10 +6614,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				//accumulateLen = std::accumulate(dataBufferVec.cbegin(), dataBufferVec.cend(), 0, [](auto &sum, auto const &everyPair)
-				//{
-				//	return sum += std::distance(everyPair.first, everyPair.second);
-				//}) + std::distance(m_readBuffer, const_cast<char*>(lineEnd));
+				
 				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(lineEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -6779,7 +6747,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 			find_chunkNumEnd:
-				if (std::distance(chunkNumBegin, iterFindEnd) >= MAXCHUNKNUMBERLEN)
+				len = std::distance(chunkNumBegin, iterFindEnd);
+				if (len >= MAXCHUNKNUMBERLEN)
 				{
 					iterFindThisEnd = chunkNumBegin + MAXCHUNKNUMBERLEN;
 
@@ -6788,12 +6757,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 				else
 				{
-					iterFindThisEnd = iterFindEnd;
 
-					if ((chunkNumEnd = std::find_if_not(chunkNumBegin, iterFindThisEnd, std::bind(::isalnum, std::placeholders::_1))) == iterFindThisEnd)
+					if ((chunkNumEnd = std::find_if_not(chunkNumBegin, iterFindEnd, std::bind(::isalnum, std::placeholders::_1))) == iterFindEnd)
 					{
 						std::copy(chunkNumBegin, iterFindEnd, m_readBuffer);
-						m_startPos = std::distance(chunkNumBegin, iterFindEnd);
+						m_startPos = len;
 						return PARSERESULT::find_chunkNumEnd;
 					}
 				}
@@ -6815,10 +6783,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			find_thirdLineEnd:
 				// \r\n   \r\n\r\n
 				len = (m_chunkLen ? 2 : 4);
-				if (std::distance(chunkNumEnd, iterFinalEnd) < len)
+				index = std::distance(chunkNumEnd, iterFindEnd);
+				if (index < len)
 				{
 					std::copy(chunkNumEnd, iterFindEnd, m_readBuffer);
-					m_startPos = std::distance(chunkNumEnd, iterFindEnd);
+					m_startPos = index;
 					return PARSERESULT::find_thirdLineEnd;
 				}
 
@@ -6862,10 +6831,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 			find_fourthLineEnd:
-				if (std::distance(chunkDataEnd, iterFindEnd) < 2)
+				len = std::distance(chunkDataEnd, iterFindEnd);
+				if (len < 2)
 				{
 					std::copy(chunkDataEnd, iterFindEnd, m_readBuffer);
-					m_startPos = std::distance(chunkDataEnd, iterFindEnd);
+					m_startPos = len;
 					return PARSERESULT::find_fourthLineEnd;
 				}
 
@@ -7344,9 +7314,9 @@ void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 {
 	boost::asio::async_write(*m_buffer->getSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code &err, std::size_t size)
 	{
+		m_sendMemoryPool.prepare();
 		if (err)
 		{
-			m_sendMemoryPool.prepare();
 			m_log->writeLog(__FILE__, __LINE__, err.value(), err.message());
 			// 修复发生错误时不会触发回收的情况
 			if (err != boost::asio::error::operation_aborted)
@@ -7375,7 +7345,6 @@ void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 				parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
 				break;
 			}
-			m_sendMemoryPool.prepare();
 		}
 	});
 }
