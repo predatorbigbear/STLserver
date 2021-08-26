@@ -91,6 +91,8 @@ private:
 
 	LOG& operator<<(const char ch);
 
+	LOG& operator<<(const std::string_view log);
+
 	template<typename T, size_t N>
 	LOG& operator<<(const T(&arr)[N])
 	{

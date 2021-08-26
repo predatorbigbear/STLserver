@@ -311,6 +311,8 @@ private:
 	AES_KEY aes_encryptkey;                  //加密AES
 	AES_KEY aes_decryptkey;                  //解密AES
 
+	std::string_view m_message{};
+
 	/////////////////////////////////////////
 
 private:
@@ -422,6 +424,9 @@ private:
 
 		check_fileBoundaryEnd2
 	};
+
+
+	
 
 
 	char *m_randomString{};       // 每个对象里面都有自己的字符串进行随机处理

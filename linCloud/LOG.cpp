@@ -959,6 +959,34 @@ LOG & LOG::operator<<(const char ch)
 }
 
 
+LOG & LOG::operator<<(const std::string_view log)
+{
+	// TODO: 在此处插入 return 语句
+	if (!log.empty())
+	{
+		m_num = log.size();
+		if (m_bufferSize - m_nowSize > m_num)
+		{
+			std::copy(log.cbegin(), log.cend(), m_Buffer.get() + m_nowSize);
+			m_nowSize += m_num;
+			m_hasLog = true;
+		}
+		else
+		{
+			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+			m_nowSize = 0;
+			if (m_bufferSize > m_num)
+			{
+				std::copy(log.cbegin(), log.cend(), m_Buffer.get());
+				m_nowSize += m_num;
+				m_hasLog = true;
+			}
+		}
+	}
+	return *this;
+}
+
+
 
 
 
