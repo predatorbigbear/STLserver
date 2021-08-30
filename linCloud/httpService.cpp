@@ -4690,7 +4690,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 	static std::string Content_Disposition{ "content-disposition" };
 	static std::string Name{ "name" };
 	static std::string Filename{ "filename" };
-
+	static std::string boundaryFinal{ "--\r\n" };
 
 
 
@@ -4738,6 +4738,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		m_boundaryHeaderPos = 0;
 		m_buffer->getView().method() = 0;
 		break;
+
+
 	case PARSERESULT::find_funBegin:
 		goto find_funBegin;
 		break;
@@ -4800,13 +4802,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		break;
 
 	case PARSERESULT::find_finalBodyEnd:
-		iterFindBegin = bodyBegin;
 		goto find_finalBodyEnd;
 		break;
 
 
 	case PARSERESULT::begin_checkBoundaryBegin:
-		m_findBoundaryBegin = iterFindBegin;
 		goto begin_checkBoundaryBegin;
 		break;
 
@@ -4870,6 +4870,15 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		goto find_boundaryHeaderBegin2;
 		break;
 
+	case PARSERESULT::find_nextboundaryHeaderBegin2:
+		goto find_nextboundaryHeaderBegin2;
+		break;
+
+
+	case PARSERESULT::find_nextboundaryHeaderBegin3:
+		goto find_nextboundaryHeaderBegin3;
+		break;
+
 
 	case PARSERESULT::find_boundaryHeaderEnd:
 		goto find_boundaryHeaderEnd;
@@ -4878,6 +4887,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 	case PARSERESULT::find_boundaryWordBegin:
 		goto find_boundaryWordBegin;
+		break;
+
+
+	case PARSERESULT::find_boundaryWordBegin2:
+		goto find_boundaryWordBegin2;
 		break;
 
 
@@ -4897,33 +4911,22 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 	case PARSERESULT::find_fileBoundaryBegin:
-		findBoundaryBegin = iterFindBegin = m_readBuffer;
 		goto find_fileBoundaryBegin;
 		break;
 
 
+	case PARSERESULT::find_fileBoundaryBegin2:
+		goto find_fileBoundaryBegin2;
+		break;
+
 	case PARSERESULT::check_fileBoundaryEnd:
-		findBoundaryBegin = iterFindBegin = m_readBuffer;
 		goto check_fileBoundaryEnd;
 		break;
 
 
 	case PARSERESULT::check_fileBoundaryEnd2:
-		findBoundaryBegin = iterFindBegin = m_readBuffer;
 		goto check_fileBoundaryEnd2;
 		break;
-
-
-	case PARSERESULT::find_nextboundaryHeaderBegin2:
-		goto find_nextboundaryHeaderBegin2;
-		break;
-
-
-	case PARSERESULT::find_nextboundaryHeaderBegin3:
-		goto find_nextboundaryHeaderBegin3;
-		break;
-
-
 
 	default:
 		break;
@@ -7193,12 +7196,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 		m_boundaryHeaderPos = 0;
 		*m_Boundary_NameBegin = *m_Boundary_FilenameBegin = *m_Boundary_ContentTypeBegin = *m_Boundary_ContentDispositionBegin = nullptr;
-
-
+		findBoundaryBegin = iterFindBegin;
 
 	find_boundaryBegin:
 		if (findBoundaryBegin == iterFindEnd)
 		{
+			m_startPos = 0;
 			m_bodyLen -= iterFindEnd - iterFindBegin;
 			if (m_bodyLen <= 0)
 			{
@@ -7206,7 +7209,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				return PARSERESULT::invaild;
 			}
 			findBoundaryBegin = m_readBuffer;
-			m_startPos = 0;
 			return PARSERESULT::find_boundaryBegin;
 		}
 
@@ -7224,18 +7226,17 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			return PARSERESULT::invaild;
 		}
 
-
 		len = std::distance(findBoundaryBegin, iterFindEnd);
 		if (len < m_boundaryLen)
 		{
+			m_bodyLen -= iterFindEnd - iterFindBegin - len;
+			if (m_bodyLen <= 0)
+			{
+				m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin m_bodyLen <= 0");
+				return PARSERESULT::invaild;
+			}
 			if (findBoundaryBegin != m_readBuffer)
 			{
-				m_bodyLen -= iterFindEnd - iterFindBegin - len;
-				if (m_bodyLen <= 0)
-				{
-					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin m_bodyLen <= 0");
-					return PARSERESULT::invaild;
-				}
 				std::copy(findBoundaryBegin, iterFindEnd, m_readBuffer);
 				findBoundaryBegin = m_readBuffer;
 			}
@@ -7250,8 +7251,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			return PARSERESULT::invaild;
 		}
 
-
-
 		//如果相等
 
 		findBoundaryBegin += m_boundaryLen;
@@ -7264,14 +7263,14 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		len = std::distance(findBoundaryBegin, iterFindEnd);
 		if (len < 2)
 		{
+			m_bodyLen -= iterFindEnd - iterFindBegin - len;
+			if (m_bodyLen <= 0)
+			{
+				m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderBegin m_bodyLen <= 0");
+				return PARSERESULT::invaild;
+			}
 			if (findBoundaryBegin != m_readBuffer)
 			{
-				m_bodyLen -= iterFindEnd - iterFindBegin - len;
-				if (m_bodyLen <= 0)
-				{
-					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderBegin m_bodyLen <= 0");
-					return PARSERESULT::invaild;
-				}
 				std::copy(findBoundaryBegin, iterFindEnd, m_readBuffer);
 				findBoundaryBegin = m_readBuffer;
 			}
@@ -7305,49 +7304,35 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 				boundaryHeaderEnd = boundaryHeaderBegin;
-
 			find_boundaryHeaderEnd:
+				len = std::distance(boundaryHeaderEnd, iterFindEnd);
+				iterFindThisEnd = len >= MAXBOUNDARYHEADERNLEN ? (boundaryHeaderEnd + MAXBOUNDARYHEADERNLEN) : iterFindEnd;
 
-				len = std::distance(boundaryHeaderBegin, iterFindEnd);
-
-				if (len >= MAXBOUNDARYHEADERNLEN)
+				if ((boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')))) == iterFindEnd)
 				{
-					iterFindThisEnd = boundaryHeaderEnd + MAXBOUNDARYHEADERNLEN;
-
-					boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')));
-
-					if (boundaryHeaderEnd == iterFindThisEnd)
+					if (std::distance(boundaryHeaderBegin, boundaryHeaderEnd) >= MAXBOUNDARYHEADERNLEN)
 					{
 						m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd >= MAXBOUNDARYHEADERNLEN");
 						return PARSERESULT::invaild;
 					}
-				}
-				else
-				{
-					boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')));
-
-					if (boundaryHeaderEnd == iterFindEnd)
+					else
 					{
+						m_bodyLen -= iterFindEnd - iterFindBegin - len;
+						if (m_bodyLen <= 0)
+						{
+							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd m_bodyLen <= 0");
+							return PARSERESULT::invaild;
+						}
 						if (boundaryHeaderBegin != m_readBuffer)
 						{
-							m_bodyLen -= iterFindEnd - iterFindBegin - len;
-							if (m_bodyLen <= 0)
-							{
-								m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd m_bodyLen <= 0");
-								return PARSERESULT::invaild;
-							}
-
 							std::copy(boundaryHeaderBegin, boundaryHeaderEnd, m_readBuffer);
+							boundaryHeaderEnd = m_readBuffer + std::distance(boundaryHeaderBegin, boundaryHeaderEnd);
 							boundaryHeaderBegin = m_readBuffer;
 						}
+						m_startPos = len;
+						return PARSERESULT::find_boundaryHeaderEnd;
 					}
-					m_startPos = len;
-					boundaryHeaderEnd = m_readBuffer + m_startPos;
-
-					return PARSERESULT::find_boundaryHeaderEnd;
 				}
-
-
 
 				// 4  8  12  19  
 				switch (std::distance(boundaryHeaderBegin, boundaryHeaderEnd))
@@ -7434,12 +7419,27 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					isDoubleQuotation = false;
 				}
 
+
+			find_boundaryWordBegin2:
+				if (boundaryWordBegin == iterFindEnd)
+				{
+					m_bodyLen -= iterFindEnd - iterFindBegin;
+					if (m_bodyLen <= 0)
+					{
+						m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordBegin2 m_bodyLen <= 0");
+						return PARSERESULT::invaild;
+					}
+					m_startPos = 0;
+					boundaryWordBegin = m_readBuffer;
+					return PARSERESULT::find_boundaryWordBegin2;
+				}
+
 				thisBoundaryWordBegin = boundaryWordEnd = boundaryWordBegin;
 
-			
-			find_boundaryWordEnd:
+
 				if (isDoubleQuotation)
 				{
+				find_boundaryWordEnd:
 					if ((boundaryWordEnd = std::find(boundaryWordEnd, iterFindEnd, '\"')) == iterFindEnd)
 					{
 						len = std::distance(thisBoundaryWordBegin, boundaryWordEnd);
@@ -7448,19 +7448,19 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd len == m_maxReadLen");
 							return PARSERESULT::invaild;
 						}
+						m_bodyLen -= iterFindEnd - iterFindBegin - len;
+						if (m_bodyLen <= 0)
+						{
+							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd m_bodyLen <= 0");
+							return PARSERESULT::invaild;
+						}
 						if (thisBoundaryWordBegin != m_readBuffer)
 						{
-							m_bodyLen -= iterFindEnd - iterFindBegin - len;
-							if (m_bodyLen <= 0)
-							{
-								m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd m_bodyLen <= 0");
-								return PARSERESULT::invaild;
-							}
 							std::copy(thisBoundaryWordBegin, boundaryWordEnd, m_readBuffer);
+							boundaryWordEnd = m_readBuffer + std::distance(thisBoundaryWordBegin, boundaryWordEnd);
 							thisBoundaryWordBegin = m_readBuffer;
 						}
 						m_startPos = len;
-						boundaryWordEnd = m_readBuffer + m_startPos;
 						return PARSERESULT::find_boundaryWordEnd;
 					}
 
@@ -7468,50 +7468,53 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				}
 
 
-				/////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 			find_boundaryWordEnd2:
 				if ((boundaryWordEnd = std::find_if(boundaryWordEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ';'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r')))) == iterFindEnd)
 				{
 					len = std::distance(thisBoundaryWordBegin, boundaryWordEnd);
-					if (len == m_maxReadLen)
-					{
-						m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 len == m_maxReadLen");
-						return PARSERESULT::invaild;
-					}
 					if (isDoubleQuotation)
 					{
+						m_bodyLen -= iterFindEnd - iterFindBegin - len;
+						if (m_bodyLen <= 0)
+						{
+							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0");
+							return PARSERESULT::invaild;
+						}
+						// 修复此处再次读取时thisBoundaryWordBegin失效问题
+						// 来到这里的时候thisBoundaryWordBegin肯定已经有值，thisBoundaryWordEnd也肯定已经有值，于是拷贝后在这里再次设置确保thisBoundaryWordBegin和thisBoundaryWordEnd不失效
 						if (thisBoundaryWordBegin != m_readBuffer)
 						{
-							m_bodyLen -= iterFindEnd - iterFindBegin - len;
-							if (m_bodyLen <= 0)
-							{
-								m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0");
-								return PARSERESULT::invaild;
-							}
 							std::copy(thisBoundaryWordBegin, boundaryWordEnd, m_readBuffer);
 							thisBoundaryWordEnd = m_readBuffer + std::distance(thisBoundaryWordBegin, thisBoundaryWordEnd);
+							boundaryWordEnd= m_readBuffer + std::distance(thisBoundaryWordBegin, boundaryWordEnd);
 							thisBoundaryWordBegin = m_readBuffer;
 						}
+						m_startPos = len;
+						return PARSERESULT::find_boundaryWordEnd2;
 					}
 					else
 					{
+						if (len == m_maxReadLen)
+						{
+							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 len == m_maxReadLen");
+							return PARSERESULT::invaild;
+						}
+						m_bodyLen -= iterFindEnd - iterFindBegin - len;
+						if (m_bodyLen <= 0)
+						{
+							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0 2");
+							return PARSERESULT::invaild;
+						}
 						if (thisBoundaryWordBegin != m_readBuffer)
 						{
-							m_bodyLen -= iterFindEnd - iterFindBegin - len;
-							if (m_bodyLen <= 0)
-							{
-								m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0");
-								return PARSERESULT::invaild;
-							}
-							std::copy(thisBoundaryWordBegin, boundaryWordEnd, m_readBuffer);
+							std::copy(thisBoundaryWordBegin, iterFindEnd, m_readBuffer);
+							boundaryWordEnd = m_readBuffer + std::distance(thisBoundaryWordBegin, boundaryWordEnd);
 							thisBoundaryWordBegin = m_readBuffer;
 						}
+						// 修复当本次内容不足时thisBoundaryWordBegin指向失效问题
+						m_startPos = len;
+						return PARSERESULT::find_boundaryWordEnd2;
 					}
-					m_startPos = len;
-					boundaryWordEnd = m_readBuffer + m_startPos;
-
-					return PARSERESULT::find_boundaryWordEnd2;
 				}
 
 
@@ -7574,18 +7577,16 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				else if (*boundaryWordEnd == '\r')
 				{
 				find_nextboundaryHeaderBegin2:
-
-					len = std::distance(boundaryWordEnd, iterFindEnd);
-					if (len < 2)
+					if ((len = std::distance(boundaryWordEnd, iterFindEnd)) < 2)
 					{
+						m_bodyLen -= iterFindEnd - iterFindBegin - len;
+						if (m_bodyLen <= 0)
+						{
+							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_nextboundaryHeaderBegin m_bodyLen <= 0");
+							return PARSERESULT::invaild;
+						}
 						if (boundaryWordEnd != m_readBuffer)
 						{
-							m_bodyLen -= iterFindEnd - iterFindBegin - len;
-							if (m_bodyLen <= 0)
-							{
-								m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_nextboundaryHeaderBegin m_bodyLen <= 0");
-								return PARSERESULT::invaild;
-							}
 							std::copy(boundaryWordEnd, iterFindEnd, m_readBuffer);
 							boundaryWordEnd = m_readBuffer;
 						}
@@ -7617,14 +7618,15 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			len = std::distance(boundaryHeaderBegin, iterFindEnd);
 			if (len < 2)
 			{
+				m_bodyLen -= iterFindEnd - iterFindBegin - len;
+				if (m_bodyLen <= 0)
+				{
+					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBegin m_bodyLen <= 0");
+					return PARSERESULT::invaild;
+				}
+
 				if (boundaryHeaderBegin != m_readBuffer)
 				{
-					m_bodyLen -= iterFindEnd - iterFindBegin - len;
-					if (m_bodyLen <= 0)
-					{
-						m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBegin m_bodyLen <= 0");
-						return PARSERESULT::invaild;
-					}
 					std::copy(boundaryHeaderBegin, iterFindEnd, m_readBuffer);
 					boundaryHeaderBegin = m_readBuffer;
 				}
@@ -7636,12 +7638,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 			findBoundaryBegin = boundaryHeaderBegin;
 
-			boundaryHeaderBegin = findBoundaryBegin;
 
-		find_fileBoundaryBegin:
-	////////////////////////////////////////////////////////////   这里待优化
+
+	
 			do
 			{
+			find_fileBoundaryBegin:
 				if ((findBoundaryBegin = std::find(findBoundaryBegin, iterFindEnd, *m_boundaryBegin)) == iterFindEnd)
 				{
 					//boundaryHeaderBegin 到 findBoundaryBegin 为文件内容
@@ -7654,11 +7656,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBoundaryBegin m_bodyLen <= 0 1");
 						return PARSERESULT::invaild;
 					}
-					m_startPos = 0;
+					m_startPos = 0; 
+					findBoundaryBegin = m_readBuffer;
 					return PARSERESULT::find_fileBoundaryBegin;
 				}
 
-
+			find_fileBoundaryBegin2:
 				if (std::distance(findBoundaryBegin, iterFindEnd) < m_boundaryLen)
 				{
 					//boundaryHeaderBegin 到 findBoundaryBegin  为文件内容
@@ -7670,9 +7673,13 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBoundaryBegin m_bodyLen <= 0 2");
 						return PARSERESULT::invaild;
 					}
-					std::copy(findBoundaryBegin, iterFindEnd, m_readBuffer);
+					if (findBoundaryBegin != m_readBuffer)
+					{
+						std::copy(findBoundaryBegin, iterFindEnd, m_readBuffer);
+						findBoundaryBegin = m_readBuffer;
+					}
 					m_startPos = len;
-					return PARSERESULT::find_fileBoundaryBegin;
+					return PARSERESULT::find_fileBoundaryBegin2;
 				}
 
 				if (std::equal(findBoundaryBegin, findBoundaryBegin + m_boundaryLen, m_boundaryBegin, m_boundaryEnd))
@@ -7706,6 +7713,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					return PARSERESULT::invaild;
 				}
 				m_startPos = 0;
+				findBoundaryBegin = m_readBuffer;
 				return PARSERESULT::check_fileBoundaryEnd;
 			}
 
@@ -7725,12 +7733,16 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd2 m_bodyLen <= 0");
 					return PARSERESULT::invaild;
 				}
-				std::copy(findBoundaryBegin, iterFindEnd, m_readBuffer);
+				if (findBoundaryBegin != m_readBuffer)
+				{
+					std::copy(findBoundaryBegin, iterFindEnd, m_readBuffer);
+					findBoundaryBegin = m_readBuffer;
+				}
 				m_startPos = len;
 				return PARSERESULT::check_fileBoundaryEnd2;
 			}
 
-			if (m_bodyLen - std::distance(iterFindBegin, findBoundaryBegin) == 4)
+			if (m_bodyLen - std::distance(iterFindBegin, findBoundaryBegin) == 4 || std::equal(findBoundaryBegin, findBoundaryBegin + 4, boundaryFinal.cbegin(), boundaryFinal.cend()))
 			{
 				m_messageBegin = findBoundaryBegin;
 				goto check_messageComplete;

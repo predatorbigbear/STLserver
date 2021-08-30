@@ -374,7 +374,7 @@ private:
 
 		find_thirdLineEnd,
 
-	    find_chunkDataBegin,
+		find_chunkDataBegin,
 
 		find_chunkDataEnd,
 
@@ -420,13 +420,13 @@ private:
 
 		find_fileBoundaryBegin,
 
+		find_fileBoundaryBegin2,
+
 		check_fileBoundaryEnd,
 
 		check_fileBoundaryEnd2
 	};
 
-
-	
 
 
 	char *m_randomString{};       // 每个对象里面都有自己的字符串进行随机处理
