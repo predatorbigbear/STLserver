@@ -871,6 +871,18 @@ struct STLtreeFast
 	// 是否需要对body部分做AES加密
 	// 自定义http header头部操作函数类型
 
+	//一条http消息回复 比如  HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:长度\r\n\r\njson结构字符串
+	//拆成三块看，第一块为HTTP到Content-Length:    第二部分为长度和\r\n\r\n   第三部分为json结构字符串
+	//STLTreeFast在插入字符串时仅保存json指针串，并且将指定转码的指针存入m_transformPtr中，并存入预判所需的空间m_strSize
+	//生成时，利用m_strSize计算出长度所需空间大小
+	//那么整条HTTP回复所需预判空间为HTTP到Content-Length:所需空间  长度所需空间+\r\n\r\n所需空间  +json所需空间
+	//一次性获取该大小的空间，跳到json空间起始位置根据指针串生成json，根据模板参数T的标志判断是否需要处理json转义
+	//生成json字符串后，根据实际生产json串首尾位置获取真正所需的长度，计算长度所需空间大小
+	//计算整条HTTP回复所需预判空间为HTTP到Content-Length:所需空间  长度所需空间+\r\n\r\n所需空间，从json起始位置往前跳生成整条http消息
+	//返回http消息起始位置和长度用于发送
+	//如果某些http header需要自定义办法写入，则设置HTTPFLAG，在httpWrite传入写入lambda ，类型为(char*&)   httpLen为自定义http header加内容长度
+	//则会在检测HTTPFLAG类型后再写入长度之后，返回指针位置进行自定义写入
+	//利用此算法一次性生成http json回复，对于常规的生成算法具有绝对性能优势
 template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, typename HTTPFUNCTION = void*,  typename ...ARG>
 	bool make_json(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen , AES_KEY *enctyptKey , const char *httpVersionBegin, const char *httpVersionEnd,
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args)

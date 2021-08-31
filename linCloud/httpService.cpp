@@ -292,6 +292,10 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
+	case INTERFACE::testPingPongJson:
+		testPingPongJson();
+		break;
+
 
 		//默认，不匹配任何接口情况
 	default:
@@ -459,7 +463,9 @@ void HTTPSERVICE::testPingPong()
 	{
 		int needLen{ HTTPRESPONSEREADY::http10OKConyentLengthLen + stringLen(bodyLen) + HTTPRESPONSE::newlineLen };
 		char *bodyBegin{ const_cast<char*>(&*(m_buffer->getView().body().cbegin())) }, *httpBegin{}, *httpEnd{};
-		if (std::distance(m_buffer->getBuffer(), bodyBegin) >= needLen)
+		// 如果bodyBegin所在指针处于http请求消息的buffer内，并且从http消息开始到body部分的长度可以容纳返回http回复从头到\r\n\r\n部分的长度，
+		// 如果不符合则分配内存
+		if (bodyBegin >= m_buffer->getBuffer() && bodyBegin <= (m_buffer->getBuffer() + m_maxReadLen) && std::distance(m_buffer->getBuffer(), bodyBegin) >= needLen)
 		{
 			httpBegin = bodyBegin - needLen;
 			httpEnd = bodyBegin + bodyLen;
@@ -532,6 +538,22 @@ void HTTPSERVICE::testPingPong()
 			}
 		}
 	}
+}
+
+
+void HTTPSERVICE::testPingPongJson()
+{
+	int bodyLen{ m_buffer->getView().body().size() };
+
+	if (!bodyLen)
+		return startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+
+	STLtreeFast &st1{ m_STLtreeFastVec[0] };
+
+	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, &*m_buffer->getView().body().cbegin(),&*m_buffer->getView().body().cend()))
+		return startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+
+	makeSendJson<TRANSFORMTYPE>(st1);
 }
 
 

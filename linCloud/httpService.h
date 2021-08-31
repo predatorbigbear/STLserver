@@ -481,6 +481,10 @@ private:
 
 	void testPingPong();
 
+	//以json格式返回ping pong信息
+	void testPingPongJson();
+
+
 	void handleERRORMESSAGE(ERRORMESSAGE em);
 
 

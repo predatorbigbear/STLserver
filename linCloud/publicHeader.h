@@ -387,7 +387,9 @@ enum INTERFACE
 
 	testMultiPartFormData = 16,
 
-	successUpload = 17
+	successUpload = 17,
+
+	testPingPongJson =18
 };
 
 
@@ -1335,6 +1337,9 @@ namespace HTTPRESPONSEREADY
 	static size_t http10OKLen{ strlen(http10OK) };
 
 	//////////////////////////////////////////////////////////
+
+	static const char *http10OKNoBodyJson{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
+	static size_t http10OKNoBodyJsonLen{ strlen(http10OKNoBodyJson) };
 
 
 	static const char *http10OKNoBody{ "HTTP/1.0 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
