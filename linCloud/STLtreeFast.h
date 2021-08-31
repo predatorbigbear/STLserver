@@ -163,7 +163,7 @@ struct STLtreeFast
 			return false;
 		
 
-		m_transformPtr = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_resize));
+		//m_transformPtr = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_resize));
 
 		if (!m_transformPtr)
 			return false;
@@ -171,8 +171,7 @@ struct STLtreeFast
 		m_maxSize = m_maxTransformSize = m_resize;
 
 		m_strSize = 0;
-		m_pos = 0;
-		m_transformPos = 0;
+		m_pos = m_transformPos = 0;
 		index = -1;
 		m_empty = m_transformEmpty = true;
 
@@ -437,6 +436,7 @@ struct STLtreeFast
 
 
 	//确定不存在转换字符的情况下不需要管默认参数T，否则填入TRANSFORMTYPE
+	//"left":"right"
 	template<typename T = void>
 	bool put(const char * str1Begin, const char * str1End, const char * str2Begin, const char * str2End)
 	{
@@ -505,7 +505,6 @@ struct STLtreeFast
 		*ptr++ = MAKEJSON::putStrMiddle;
 		*ptr++ = MAKEJSON::putStrMiddle + MAKEJSON::putStrMiddleLen;
 
-		//m_strSize += MAKEJSON::doubleQuotationLen + MAKEJSON::putStrMiddleLen;
 
 		if (len2)
 		{
@@ -515,8 +514,6 @@ struct STLtreeFast
 
 		*ptr++ = MAKEJSON::doubleQuotation;
 		*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
-
-		//m_strSize += MAKEJSON::doubleQuotationLen;
 
 		m_strSize += 5 + len1 + len2;
 		

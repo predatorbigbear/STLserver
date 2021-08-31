@@ -545,15 +545,29 @@ void HTTPSERVICE::testPingPongJson()
 {
 	int bodyLen{ m_buffer->getView().body().size() };
 
-	if (!bodyLen)
-		return startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
 
+	if (!bodyLen)
+	{
+		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+		return;
+	}
+	
 	STLtreeFast &st1{ m_STLtreeFastVec[0] };
 
-	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, &*m_buffer->getView().body().cbegin(),&*m_buffer->getView().body().cend()))
-		return startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+	if (!st1.clear())
+	{
+		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+		return;
+	}
+
+	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, &*m_buffer->getView().body().cbegin(), &*m_buffer->getView().body().cend()))
+	{
+		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+		return;
+	}
 
 	makeSendJson<TRANSFORMTYPE>(st1);
+	
 }
 
 
