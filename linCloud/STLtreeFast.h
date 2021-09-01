@@ -264,7 +264,7 @@ struct STLtreeFast
 
 			*(m_transformPtr + m_transformPos++) = begin;
 			m_transformEmpty = false;
-			len *= 2;
+			len *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -339,7 +339,7 @@ struct STLtreeFast
 
 				*(m_transformPtr + m_transformPos++) = begin;
 				m_transformEmpty = false;
-				len *= 2;
+				len *= 6;
 			}
 
 			const char **ptr{ m_ptr + m_pos };
@@ -406,7 +406,7 @@ struct STLtreeFast
 
 			*(m_transformPtr + m_transformPos++) = begin;
 			m_transformEmpty = false;
-			len *= 2;
+			len *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -483,8 +483,8 @@ struct STLtreeFast
 			*(m_transformPtr + m_transformPos++) = str1Begin;
 			*(m_transformPtr + m_transformPos++) = str2Begin;
 			m_transformEmpty = false;
-			len1 *= 2;
-			len2 *= 2;
+			len1 *= 6;
+			len2 *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -592,7 +592,7 @@ struct STLtreeFast
 			}
 
 			m_transformEmpty = false;
-			len1 *= 2;
+			len1 *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -712,8 +712,6 @@ struct STLtreeFast
 			*ptr++ = MAKEJSON::doubleQuotation;
 			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
 
-			//m_strSize += MAKEJSON::doubleQuotationLen * 2;
-			//m_strSize += 2;
 		}
 		else
 		{
@@ -727,9 +725,6 @@ struct STLtreeFast
 
 			*ptr++ = MAKEJSON::rightBracket;
 			*ptr++ = MAKEJSON::rightBracket + MAKEJSON::rightBracketLen;
-
-			//m_strSize += MAKEJSON::leftBracketLen + MAKEJSON::rightBracketLen;
-			//m_strSize += 2;
 		}
 
 		m_strSize += 2 + len;
@@ -810,7 +805,7 @@ struct STLtreeFast
 			}
 
 			m_transformEmpty = false;
-			len1 *= 2;
+			len1 *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -1103,6 +1098,7 @@ template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, t
 
 
 		unsigned int i{}, pos{ m_pos };
+		unsigned char uchar{};
 		char *iterEnd{ newResultPtr + needFrontLen }, *iterBegin{ newResultPtr + needFrontLen };
 
 		const char **begin{ m_ptr }, **end{ m_ptr + pos }, **transformBegin{ m_transformPtr }, **transformEnd{ m_transformPtr + m_transformPos };
@@ -1155,7 +1151,20 @@ template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, t
 						*iterEnd++ = 't';
 						break;
 					default:
-						*iterEnd++ = *iterTempBegin;
+						uchar = static_cast<unsigned char>(*iterTempBegin);
+						if (uchar < 0x20)
+						{
+							*iterEnd++ = '\\';
+							*iterEnd++ = 'u';
+							*iterEnd++ = '0';
+							*iterEnd++ = '0';
+							*iterEnd++ = uchar / 16 + '0';
+							*iterEnd++ = (uchar % 16) < 10 ? (uchar % 16 + '0') : (uchar % 16 - 10 + 'a');
+						}
+						else
+						{
+							*iterEnd++ = *iterTempBegin;
+						}
 						break;
 					}
 					++iterTempBegin;

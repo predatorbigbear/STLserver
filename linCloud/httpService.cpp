@@ -554,12 +554,14 @@ void HTTPSERVICE::testPingPongJson()
 	
 	STLtreeFast &st1{ m_STLtreeFastVec[0] };
 
+	// 使用前先clear
 	if (!st1.clear())
 	{
 		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
 		return;
 	}
 
+	//设置json转换标志，会进行转义处理，如果确定没有转义字符出现，可以不写<TRANSFORMTYPE>
 	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, &*m_buffer->getView().body().cbegin(), &*m_buffer->getView().body().cend()))
 	{
 		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
