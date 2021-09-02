@@ -32,6 +32,11 @@ namespace HTTPINTERFACENUM
 		funcData = 4
 	};
 
+	enum TESTMAKEJSON
+	{
+		jsonType = 0
+	};
+
 	//////////////////////////////////////////////////////   2
 };
 

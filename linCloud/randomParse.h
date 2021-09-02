@@ -27,6 +27,14 @@ namespace HTTPBODYKEY
 		static constexpr int usernameLen{ 8 };
 		static constexpr int passwordLen{ 8 };
 	};
+
+
+	namespace TESTMAKEJSON
+	{
+		static const char *jsonType{ "jsonType" };
+
+		static constexpr int jsonTypeLen{ 8 };
+	};
 };
 
 

@@ -607,8 +607,8 @@ private:
 	//测试解析chunk格式数据
 	void readyParseChunkData();
 
-
-
+	//json格式生成演示
+	void testMakeJson();
 
 
 
@@ -1188,7 +1188,7 @@ inline void HTTPSERVICE::testVerify()
 			m_maxReadLen = m_defaultReadLen;
 			m_dataBufferVec.clear();
 			m_availableLen = m_buffer->getSock()->available();
-			m_sendBuffer = const_cast<char*>(HTTPRESPONSEREADY::http10invaild), m_sendLen = HTTPRESPONSEREADY::http10invaildLen;
+			m_sendBuffer = const_cast<char*>(HTTPRESPONSEREADY::http11invaild), m_sendLen = HTTPRESPONSEREADY::http11invaildLen;
 			cleanData();
 		}
 	}

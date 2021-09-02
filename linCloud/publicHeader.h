@@ -389,7 +389,9 @@ enum INTERFACE
 
 	successUpload = 17,
 
-	testPingPongJson =18
+	testPingPongJson =18,
+
+	testMakeJson=19
 };
 
 
@@ -1328,158 +1330,158 @@ namespace HTTPRESPONSE
 
 namespace HTTPRESPONSEREADY
 {
-	static const char *http10bodyToLong{ "HTTP/1.0 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nBody length is too long" };
-	static size_t http10bodyToLongLen{ strlen(http10bodyToLong) };
+	static const char *http11bodyToLong{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nBody length is too long" };
+	static size_t http11bodyToLongLen{ strlen(http11bodyToLong) };
 
 	////////////////////////////////////////////////
 
-	static const char *http10OK{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nHTTP request is OK" };
-	static size_t http10OKLen{ strlen(http10OK) };
+	static const char *http11OK{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nHTTP request is OK" };
+	static size_t http11OKLen{ strlen(http11OK) };
 
 	//////////////////////////////////////////////////////////
 
-	static const char *http10OKNoBodyJson{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
-	static size_t http10OKNoBodyJsonLen{ strlen(http10OKNoBodyJson) };
+	static const char *http11OKNoBodyJson{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
+	static size_t http11OKNoBodyJsonLen{ strlen(http11OKNoBodyJson) };
 
 
-	static const char *http10OKNoBody{ "HTTP/1.0 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
-	static size_t http10OKNoBodyLen{ strlen(http10OKNoBody) };
+	static const char *http11OKNoBody{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
+	static size_t http11OKNoBodyLen{ strlen(http11OKNoBody) };
 
-	static const char *http10OKConyentLength{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:" };
-	static size_t http10OKConyentLengthLen{ strlen(http10OKConyentLength) };
+	static const char *http11OKConyentLength{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:" };
+	static size_t http11OKConyentLengthLen{ strlen(http11OKConyentLength) };
 
 
 	//////////////////////////////////////////////////
 
-	static const char *http10invaild{ "HTTP/1.0 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nHTTP request is invaild" };
-	static size_t http10invaildLen{ strlen(http10invaild) };
+	static const char *http11invaild{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nHTTP request is invaild" };
+	static size_t http11invaildLen{ strlen(http11invaild) };
 
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////
 
-	static const char *http10sqlRow0{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nRow number is 0" };
-	static size_t http10sqlRow0Len{ strlen(http10sqlRow0) };
+	static const char *http11sqlRow0{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nRow number is 0" };
+	static size_t http11sqlRow0Len{ strlen(http11sqlRow0) };
 
 
 	///////////////////////////////////////////////////////////////////////////////
 
-	static const char *http10sqlField0{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nField number is 0" };
-	static size_t http10sqlField0Len{ strlen(http10sqlField0) };
+	static const char *http11sqlField0{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nField number is 0" };
+	static size_t http11sqlField0Len{ strlen(http11sqlField0) };
 
 
 	///////////////////////////////////////////////////////////////////////////////
 
-	static const char *http10sqlError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:9\r\n\r\nSql error" };
-	static size_t http10sqlErrorLen{ strlen(http10sqlError) };
+	static const char *http11sqlError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:9\r\n\r\nSql error" };
+	static size_t http11sqlErrorLen{ strlen(http11sqlError) };
 
 
 	//////////////////////////////////////////////////////////////////////////////////
 
-	static const char *http10sqlSizeTooBig{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSql size is too big" };
-	static size_t http10sqlSizeTooBigLen{ strlen(http10sqlSizeTooBig) };
+	static const char *http11sqlSizeTooBig{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSql size is too big" };
+	static size_t http11sqlSizeTooBigLen{ strlen(http11sqlSizeTooBig) };
 
 
 	///////////////////////////////////////////////////////////////////////////////////
 
 
-	static const char *http10Pong{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:4\r\n\r\nPong" };
-	static size_t http10PongLen{ strlen(http10Pong) };
+	static const char *http11Pong{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:4\r\n\r\nPong" };
+	static size_t http11PongLen{ strlen(http11Pong) };
 
 
-	static const char *http10SqlQueryError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL query error" };
-	static size_t http10SqlQueryErrorLen{ strlen(http10SqlQueryError) };
+	static const char *http11SqlQueryError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL query error" };
+	static size_t http11SqlQueryErrorLen{ strlen(http11SqlQueryError) };
 
 
-	static const char *http10SqlNetAsyncError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSQL net async error" };
-	static size_t http10SqlNetAsyncErrorLen{ strlen(http10SqlNetAsyncError) };
+	static const char *http11SqlNetAsyncError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSQL net async error" };
+	static size_t http11SqlNetAsyncErrorLen{ strlen(http11SqlNetAsyncError) };
 
 
-	static const char *http10SqlResNull{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL res is null" };
-	static size_t http10SqlResNullLen{ strlen(http10SqlResNull) };
+	static const char *http11SqlResNull{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL res is null" };
+	static size_t http11SqlResNullLen{ strlen(http11SqlResNull) };
 
 
-	static const char *http10SqlQueryRowZero{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nSQL query row zero" };
-	static size_t http10SqlQueryRowZeroLen{ strlen(http10SqlQueryRowZero) };
+	static const char *http11SqlQueryRowZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nSQL query row zero" };
+	static size_t http11SqlQueryRowZeroLen{ strlen(http11SqlQueryRowZero) };
 
 
-	static const char *http10SqlQueryFieldZero{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nSQL query field zero" };
-	static size_t http10SqlQueryFieldZeroLen{ strlen(http10SqlQueryFieldZero) };
+	static const char *http11SqlQueryFieldZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nSQL query field zero" };
+	static size_t http11SqlQueryFieldZeroLen{ strlen(http11SqlQueryFieldZero) };
 
 
-	static const char *httpUnknownError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nUnknown error" };
+	static const char *httpUnknownError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nUnknown error" };
 	static size_t httpUnknownErrorLen{ strlen(httpUnknownError) };
 
 
-	static const char *httpFailToInsertSql{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nFail to insert Sql" };
+	static const char *httpFailToInsertSql{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nFail to insert Sql" };
 	static size_t httpFailToInsertSqlLen{ strlen(httpFailToInsertSql) };
 
-	static const char *httpFailToInsertRedis{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nFail to insert Redis" };
+	static const char *httpFailToInsertRedis{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nFail to insert Redis" };
 	static size_t httpFailToInsertRedisLen{ strlen(httpFailToInsertRedis) };
 
 
-	static const char *httpInsertSqlWrite{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:31\r\n\r\nSuccess to insert sqlWrite list" };
+	static const char *httpInsertSqlWrite{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:31\r\n\r\nSuccess to insert sqlWrite list" };
 	static size_t httpInsertSqlWriteLen{ strlen(httpInsertSqlWrite) };
 
-	static const char *httpSTDException{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nSTD exception" };
+	static const char *httpSTDException{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nSTD exception" };
 	static size_t httpSTDExceptionLen{ strlen(httpSTDException) };
 
 
-	static const char *httpPasswordIsWrong{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nPassword is wrong" };
+	static const char *httpPasswordIsWrong{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nPassword is wrong" };
 	static size_t httpPasswordIsWrongLen{ strlen(httpPasswordIsWrong) };
 
 	
-	static const char *httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis async write error" };
+	static const char *httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis async write error" };
 	static size_t httpREDIS_ASYNC_WRITE_ERRORLen{ strlen(httpREDIS_ASYNC_WRITE_ERROR) };
 
 
-	static const char *httpREDIS_ASYNC_READ_ERROR{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nRedis async read error" };
+	static const char *httpREDIS_ASYNC_READ_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nRedis async read error" };
 	static size_t httpREDIS_ASYNC_READ_ERRORLen{ strlen(httpREDIS_ASYNC_READ_ERROR) };
 
 
-	static const char *httpCHECK_REDIS_MESSAGE_ERROR{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:25\r\n\r\nCheck redis message error" };
+	static const char *httpCHECK_REDIS_MESSAGE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:25\r\n\r\nCheck redis message error" };
 	static size_t httpCHECK_REDIS_MESSAGE_ERRORLen{ strlen(httpCHECK_REDIS_MESSAGE_ERROR) };
 
 
-	static const char *httpREDIS_READY_QUERY_ERROR{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis ready query error" };
+	static const char *httpREDIS_READY_QUERY_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis ready query error" };
 	static size_t httpREDIS_READY_QUERY_ERRORLen{ strlen(httpREDIS_READY_QUERY_ERROR) };
 
-	static const char *httpNO_KEY{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:6\r\n\r\nNo key" };
+	static const char *httpNO_KEY{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:6\r\n\r\nNo key" };
 	static size_t httpNO_KEYLen{ strlen(httpNO_KEY) };
 
 
-	static const char *httpNoMessage{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:10\r\n\r\nNo message" };
+	static const char *httpNoMessage{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:10\r\n\r\nNo message" };
 	static size_t httpNoMessageLen{ strlen(httpNoMessage) };
 
 
-	static const char *http404Nofile{ "HTTP/1.0 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
+	static const char *http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
 	static size_t http404NofileLen{ strlen(http404Nofile) };
 
 
-	static const char *httpNoRecordInSql{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nNo record in sql" };
+	static const char *httpNoRecordInSql{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nNo record in sql" };
 	static size_t httpNoRecordInSqlLen{ strlen(httpNoRecordInSql) };
 
 
-	static const char *http10WrongPublicKey{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nWrong publicKey" };
-	static size_t http10WrongPublicKeyLen{ strlen(http10WrongPublicKey) };
+	static const char *http11WrongPublicKey{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nWrong publicKey" };
+	static size_t http11WrongPublicKeyLen{ strlen(http11WrongPublicKey) };
 
 
-	static const char *http10InvaildHash{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:12\r\n\r\nInvaild hash" };
-	static size_t http10InvaildHashLen{ strlen(http10InvaildHash) };
+	static const char *http11InvaildHash{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:12\r\n\r\nInvaild hash" };
+	static size_t http11InvaildHashLen{ strlen(http11InvaildHash) };
 
 
-	static const char *httpRSAencryptFail{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA encrypt fail" };
+	static const char *httpRSAencryptFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA encrypt fail" };
 	static size_t httpRSAencryptFailLen{ strlen(httpRSAencryptFail) };
 
 
-	static const char *httpRSAdecryptFail{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA decrypt fail" };
+	static const char *httpRSAdecryptFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA decrypt fail" };
 	static size_t httpRSAdecryptFailLen{ strlen(httpRSAdecryptFail) };
 
 
-	static const char *httpAESsetKeyFail{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nFail to set AES key" };
+	static const char *httpAESsetKeyFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nFail to set AES key" };
 	static size_t httpAESsetKeyFailLen{ strlen(httpAESsetKeyFail) };
 
 
-	static const char *httpFailToVerify{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFail to verify" };
+	static const char *httpFailToVerify{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFail to verify" };
 	static size_t httpFailToVerifyLen{ strlen(httpFailToVerify) };
 }
 

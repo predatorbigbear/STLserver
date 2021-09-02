@@ -64,6 +64,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<io_context> ioc, std::shared_ptr<
 //连接成功的情况下，检查请求是否符合要求
 
 //先进行插入到m_waitMessageList中
+//如果没有正在进行的请求则直接发起请求，否则插入到待处理队列中，稍后进行流水线命令封装发射
 
 
 //   using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
@@ -3135,7 +3136,7 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code &err, const std
 }
 
 
-
+//pipline流水线命令封装函数
 //设置一个while循环来判断
 //加锁首先直接尝试取commandSize个元素，如果队列为空，则退出，设置处理状态为否
 //如果获取到元素，则遍历计算需要的空间为多少

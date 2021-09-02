@@ -5,6 +5,9 @@
 #include "publicHeader.h"
 
 
+
+//  void HTTPSERVICE::testMakeJson()  展示如何使用STLtreeFast拼凑json
+
 namespace MAKEJSON
 {
 	static const char *comma{ "," };
@@ -21,6 +24,12 @@ namespace MAKEJSON
 
 	static const char *pushBackMiddle1{ "\":" };
 	static const unsigned int pushBackMiddle1Len{ strlen(pushBackMiddle1) };
+
+	static const char *pushBackObject{ "\":{" };
+	static const unsigned int pushBackObjectLen{ strlen(pushBackObject) };
+
+	static const char *pushBackArray{ "\":[" };
+	static const unsigned int pushBackArrayLen{ strlen(pushBackArray) };
 
 
 	static const char *leftBracket{ "{" };
@@ -436,14 +445,19 @@ struct STLtreeFast
 
 
 	//确定不存在转换字符的情况下不需要管默认参数T，否则填入TRANSFORMTYPE
+	//默认STRTYPE用于value为字符的情况，对于数字，布尔，null可以设置STRTYPE为非void
 	//"left":"right"
-	template<typename T = void>
+	//put函数拆开处理几种数据类型比较好
+	template<typename T = void,typename STRTYPE =void>
 	bool put(const char * str1Begin, const char * str1End, const char * str2Begin, const char * str2End)
 	{
 		int len1{ ((str1End && str1Begin) ? str1End - str1Begin : 0) }, len2{ ((str2End && str2Begin) ? str2End - str2Begin : 0) };
-		if (!len1)
-			return false;
-		int thisSize{ 12 };
+		int thisSize{ 6 };   //  12 " 1 ":" 2 ",
+		if (len1)
+			thisSize += 4;
+		if(len2)
+			thisSize += 2;
+
 		if (m_maxSize - m_pos < thisSize)
 		{
 			const char **ch{};
@@ -466,7 +480,7 @@ struct STLtreeFast
 			m_ptr = ch;
 		}
 
-		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value && std::is_same<STRTYPE, void>::value)
 		{
 			if (m_maxTransformSize < (m_transformPos + 2))
 			{
@@ -480,8 +494,10 @@ struct STLtreeFast
 				m_transformPtr = ch;
 			}
 
-			*(m_transformPtr + m_transformPos++) = str1Begin;
-			*(m_transformPtr + m_transformPos++) = str2Begin;
+			if(len1)
+				*(m_transformPtr + m_transformPos++) = str1Begin;
+			if(len2)
+				*(m_transformPtr + m_transformPos++) = str2Begin;
 			m_transformEmpty = false;
 			len1 *= 6;
 			len2 *= 6;
@@ -496,14 +512,37 @@ struct STLtreeFast
 
 			++m_strSize;
 		}
-		*ptr++ = MAKEJSON::doubleQuotation;
-		*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
 
-		*ptr++ = str1Begin;
-		*ptr++ = str1End;
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
 
-		*ptr++ = MAKEJSON::putStrMiddle;
-		*ptr++ = MAKEJSON::putStrMiddle + MAKEJSON::putStrMiddleLen;
+			*ptr++ = str1Begin;
+			*ptr++ = str1End;
+		}
+
+		if (std::is_same<STRTYPE, void>::value)
+		{
+			if (len1)
+			{
+				*ptr++ = MAKEJSON::putStrMiddle;
+				*ptr++ = MAKEJSON::putStrMiddle + MAKEJSON::putStrMiddleLen;
+			}
+			else
+			{
+				*ptr++ = MAKEJSON::doubleQuotation;
+				*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+			}
+		}
+		else
+		{
+			if (len1)
+			{
+				*ptr++ = MAKEJSON::pushBackMiddle1;
+				*ptr++ = MAKEJSON::pushBackMiddle1 + MAKEJSON::pushBackMiddle1Len;
+			}
+		}
 
 
 		if (len2)
@@ -512,10 +551,22 @@ struct STLtreeFast
 			*ptr++ = str2End;
 		}
 
-		*ptr++ = MAKEJSON::doubleQuotation;
-		*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+		if (std::is_same<STRTYPE, void>::value)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+		}
 
-		m_strSize += 5 + len1 + len2;
+		if (std::is_same<STRTYPE, void>::value)
+		{
+			m_strSize += 2 + len1 + len2;
+		}
+		else
+		{
+			m_strSize += len1 + len2;
+		}
+		if (len1)
+			m_strSize += 3;
 		
 		m_pos += std::distance(ptrBegin, ptr);
 		m_empty = false;
@@ -523,7 +574,257 @@ struct STLtreeFast
 	}
 
 
+
 	template<typename T = void>
+	bool putObject(const char * begin, const char * end, const STLtreeFast &other)
+	{
+		int len1{ (end && begin ? end - begin : 0) }, len2{ static_cast<int>(other.m_strSize) };
+		int thisSize{ 6 + static_cast<int>(other.m_pos) };   //  12 " 1 ":" 2 ",
+		if (len1)
+			thisSize += 4;
+
+		if (m_maxSize - m_pos < thisSize)
+		{
+			const char **ch{};
+			if (m_maxSize * 2 - m_pos > thisSize)
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize *= 2;
+			}
+			else
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize += thisSize * 2;
+			}
+			std::copy(m_ptr, m_ptr + m_pos, ch);
+			m_ptr = ch;
+		}
+
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		{
+			if (!other.isTransformEmpty())
+			{
+				if (m_maxTransformSize < (m_transformPos + other.m_transformPos))
+				{
+					const char **ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2 + other.m_transformPos));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+					m_maxTransformSize += other.m_transformPos;
+
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+
+				*(m_transformPtr + m_transformPos++) = begin;
+				std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
+				m_transformPos += other.m_transformPos;
+			}
+			else
+			{
+				if (m_maxTransformSize == m_transformPos)
+				{
+					const char **ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+				if(len1)
+					*(m_transformPtr + m_transformPos++) = begin;
+			}
+
+			m_transformEmpty = false;
+			len1 *= 6;
+		}
+
+		const char **ptr{ m_ptr + m_pos };
+		const char **ptrBegin{ ptr };
+
+		if (++index)
+		{
+			*ptr++ = MAKEJSON::comma;
+			*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+			++m_strSize;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+			*ptr++ = begin;
+			*ptr++ = end;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::pushBackObject;
+			*ptr++ = MAKEJSON::pushBackObject + MAKEJSON::pushBackObjectLen;
+		}
+		else
+		{
+			*ptr++ = MAKEJSON::leftBracket;
+			*ptr++ = MAKEJSON::leftBracket + MAKEJSON::leftBracketLen;
+		}
+
+		if (!other.isEmpty())
+		{
+			std::copy(other.m_ptr, other.m_ptr + other.m_pos, ptr);
+			ptr += other.m_pos;
+		}
+
+		*ptr++ = MAKEJSON::rightBracket;
+		*ptr++ = MAKEJSON::rightBracket + MAKEJSON::rightBracketLen;
+
+		m_strSize += 2 + len1 + len2;
+		if (len1)
+			m_strSize += 3;
+
+		m_pos += std::distance(ptrBegin, ptr);
+		m_empty = false;
+		return true;
+	}
+
+
+
+
+	template<typename T = void>
+	bool putArray(const char * begin, const char * end, const STLtreeFast &other)
+	{
+		int len1{ (end && begin ? end - begin : 0) }, len2{ static_cast<int>(other.m_strSize) };
+		int thisSize{ 6 + static_cast<int>(other.m_pos) };   //  12 " 1 ":" 2 ",
+		if (len1)
+			thisSize += 4;
+	
+		if (m_maxSize - m_pos < thisSize)
+		{
+			const char **ch{};
+			if (m_maxSize * 2 - m_pos > thisSize)
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize *= 2;
+			}
+			else
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize += thisSize * 2;
+			}
+			std::copy(m_ptr, m_ptr + m_pos, ch);
+			m_ptr = ch;
+		}
+
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		{
+			if (!other.isTransformEmpty())
+			{
+				if (m_maxTransformSize < (m_transformPos + other.m_transformPos))
+				{
+					const char **ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2 + other.m_transformPos));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+					m_maxTransformSize += other.m_transformPos;
+
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+
+				*(m_transformPtr + m_transformPos++) = begin;
+				std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
+				m_transformPos += other.m_transformPos;
+			}
+			else
+			{
+				if (m_maxTransformSize == m_transformPos)
+				{
+					const char **ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+				if(len1)
+					*(m_transformPtr + m_transformPos++) = begin;
+			}
+
+			m_transformEmpty = false;
+			len1 *= 6;
+		}
+
+		const char **ptr{ m_ptr + m_pos };
+		const char **ptrBegin{ ptr };
+
+		if (++index)
+		{
+			*ptr++ = MAKEJSON::comma;
+			*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+			++m_strSize;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+			*ptr++ = begin;
+			*ptr++ = end;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::pushBackArray;
+			*ptr++ = MAKEJSON::pushBackArray + MAKEJSON::pushBackArrayLen;
+		}
+		else
+		{
+			*ptr++ = MAKEJSON::leftAngle;
+			*ptr++ = MAKEJSON::leftAngle + MAKEJSON::leftAngleLen;
+		}
+
+		if (!other.isEmpty())
+		{
+			std::copy(other.m_ptr, other.m_ptr + other.m_pos, ptr);
+			ptr += other.m_pos;
+		}
+
+		
+		*ptr++ = MAKEJSON::rightAngle;
+		*ptr++ = MAKEJSON::rightAngle + MAKEJSON::rightAngleLen;
+
+		m_strSize += 2 + len1 + len2;
+		if (len1)
+			m_strSize += 3;
+		m_pos += std::distance(ptrBegin, ptr);
+		m_empty = false;
+		return true;
+	}
+
+
+
+	template<typename T = void, typename STRTYPE = void>
 	bool push_back(const char * begin, const char * end, const STLtreeFast &other)
 	{
 		int len1{ ((begin && end) ? end - begin : 0) }, len2{ static_cast<int>(other.m_strSize) };
@@ -551,7 +852,7 @@ struct STLtreeFast
 			m_ptr = ch;
 		}
 
-		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value && std::is_same<STRTYPE, void>::value)
 		{
 			if (!other.isTransformEmpty())
 			{

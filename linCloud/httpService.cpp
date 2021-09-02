@@ -159,7 +159,7 @@ void HTTPSERVICE::checkMethod()
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+			startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		}
 		break;
 
@@ -170,14 +170,14 @@ void HTTPSERVICE::checkMethod()
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+			startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		}
 		break;
 
 
 	default:
 
-		startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		break;
 	}
 }
@@ -297,9 +297,14 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
+	case INTERFACE::testMakeJson:
+		testMakeJson();
+		break;
+
+
 		//默认，不匹配任何接口情况
 	default:
-		startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		break;
 	}
 }
@@ -311,10 +316,10 @@ void HTTPSERVICE::switchPOSTInterface()
 void HTTPSERVICE::testBody()
 {
 	if (!hasBody)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 	
 	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 
 	m_buffer->setBodyLen(m_len);
@@ -322,9 +327,9 @@ void HTTPSERVICE::testBody()
 
 	const char *source{ &*m_buffer->getView().body().cbegin() };
 	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 	
-	startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
@@ -361,7 +366,7 @@ void HTTPSERVICE::testRandomBody()
 	if (hasPara)
 	{
 		if (!UrlDecodeWithTransChinese(m_buffer->getView().para().cbegin(), m_buffer->getView().para().size(), m_len))
-			return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 		m_buffer->setBodyLen(m_len);
 
@@ -390,11 +395,11 @@ void HTTPSERVICE::testRandomBody()
 				numberStr.swap(sw);
 			}
 
-			startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+			startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		}
 	}
 
@@ -403,7 +408,7 @@ void HTTPSERVICE::testRandomBody()
 	else if(hasBody)
 	{
 		if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-			return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 		m_buffer->setBodyLen(m_len);
 
@@ -431,11 +436,11 @@ void HTTPSERVICE::testRandomBody()
 				numberStr.swap(sw);
 			}
 
-			startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+			startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		}
 	}
 	else
@@ -443,7 +448,7 @@ void HTTPSERVICE::testRandomBody()
 		//   没有Query Params ，也没有body，表明这个接口如果有参数的话，则参数全部为空的情况，自己做处理
 
 
-		startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+		startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 	}
 }
 
@@ -457,11 +462,11 @@ void HTTPSERVICE::testPingPong()
 	int bodyLen{ m_buffer->getView().body().size() };
 	if (!bodyLen)
 	{
-		startWrite(HTTPRESPONSEREADY::http10OKNoBody, HTTPRESPONSEREADY::http10OKNoBodyLen);
+		startWrite(HTTPRESPONSEREADY::http11OKNoBody, HTTPRESPONSEREADY::http11OKNoBodyLen);
 	}
 	else
 	{
-		int needLen{ HTTPRESPONSEREADY::http10OKConyentLengthLen + stringLen(bodyLen) + HTTPRESPONSE::newlineLen };
+		int needLen{ HTTPRESPONSEREADY::http11OKConyentLengthLen + stringLen(bodyLen) + HTTPRESPONSE::newlineLen };
 		char *bodyBegin{ const_cast<char*>(&*(m_buffer->getView().body().cbegin())) }, *httpBegin{}, *httpEnd{};
 		// 如果bodyBegin所在指针处于http请求消息的buffer内，并且从http消息开始到body部分的长度可以容纳返回http回复从头到\r\n\r\n部分的长度，
 		// 如果不符合则分配内存
@@ -469,8 +474,8 @@ void HTTPSERVICE::testPingPong()
 		{
 			httpBegin = bodyBegin - needLen;
 			httpEnd = bodyBegin + bodyLen;
-			std::copy(HTTPRESPONSEREADY::http10OKConyentLength, HTTPRESPONSEREADY::http10OKConyentLength + HTTPRESPONSEREADY::http10OKConyentLengthLen, httpBegin);
-			httpBegin += HTTPRESPONSEREADY::http10OKConyentLengthLen;
+			std::copy(HTTPRESPONSEREADY::http11OKConyentLength, HTTPRESPONSEREADY::http11OKConyentLength + HTTPRESPONSEREADY::http11OKConyentLengthLen, httpBegin);
+			httpBegin += HTTPRESPONSEREADY::http11OKConyentLengthLen;
 
 			if (bodyLen > 99999999)
 				*httpBegin++ = bodyLen / 100000000 + '0';
@@ -504,8 +509,8 @@ void HTTPSERVICE::testPingPong()
 			{
 				httpBegin = newBuffer;
 
-				std::copy(HTTPRESPONSEREADY::http10OKConyentLength, HTTPRESPONSEREADY::http10OKConyentLength + HTTPRESPONSEREADY::http10OKConyentLengthLen, httpBegin);
-				httpBegin += HTTPRESPONSEREADY::http10OKConyentLengthLen;
+				std::copy(HTTPRESPONSEREADY::http11OKConyentLength, HTTPRESPONSEREADY::http11OKConyentLength + HTTPRESPONSEREADY::http11OKConyentLengthLen, httpBegin);
+				httpBegin += HTTPRESPONSEREADY::http11OKConyentLengthLen;
 
 				if (bodyLen > 99999999)
 					*httpBegin++ = bodyLen / 100000000 + '0';
@@ -548,7 +553,7 @@ void HTTPSERVICE::testPingPongJson()
 
 	if (!bodyLen)
 	{
-		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
 		return;
 	}
 	
@@ -557,14 +562,14 @@ void HTTPSERVICE::testPingPongJson()
 	// 使用前先clear
 	if (!st1.clear())
 	{
-		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
 		return;
 	}
 
 	//设置json转换标志，会进行转义处理，如果确定没有转义字符出现，可以不写<TRANSFORMTYPE>
 	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, &*m_buffer->getView().body().cbegin(), &*m_buffer->getView().body().cend()))
 	{
-		startWrite(HTTPRESPONSEREADY::http10OKNoBodyJson, HTTPRESPONSEREADY::http10OKNoBodyJsonLen);
+		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
 		return;
 	}
 
@@ -1151,18 +1156,18 @@ void HTTPSERVICE::handleTestGET(bool result, ERRORMESSAGE em)
 void HTTPSERVICE::testLogin()
 {
 	if (!hasBody)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 	
 	
 	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	
 	m_buffer->setBodyLen(m_len);
 
 	const char *source{ &*m_buffer->getView().body().cbegin() };
 	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::username, STATICSTRING::usernameLen, STATICSTRING::password, STATICSTRING::passwordLen))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char **BodyBuffer{ m_buffer->bodyPara() };
 
@@ -1170,7 +1175,7 @@ void HTTPSERVICE::testLogin()
 		passwordView{ *(BodyBuffer + HTTPINTERFACENUM::TESTLOGIN::password),*(BodyBuffer + HTTPINTERFACENUM::TESTLOGIN::password + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTLOGIN::password) };
 
 	if (usernameView.empty() || passwordView.empty())
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	//hmget user password:usernameView  session:usernameView  sessionEX:usernameView
 	// hmget user:usernameView password session
@@ -2206,10 +2211,10 @@ void HTTPSERVICE::testGetClientPublicKey()
 		return startWrite(HTTPRESPONSEREADY::httpFailToVerify, HTTPRESPONSEREADY::httpFailToVerifyLen);
 
 	if (!hasBody)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 
 	m_buffer->setBodyLen(m_len);
@@ -2218,7 +2223,7 @@ void HTTPSERVICE::testGetClientPublicKey()
 	const char *source{ &*m_buffer->getView().body().cbegin() };
 	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::publicKey, STATICSTRING::publicKeyLen,
 		STATICSTRING::hashValue, STATICSTRING::hashValueLen, STATICSTRING::randomString, STATICSTRING::randomStringLen))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 
 	const char **BodyBuffer{ m_buffer->bodyPara() };
@@ -2233,7 +2238,7 @@ void HTTPSERVICE::testGetClientPublicKey()
 	///////////////////////////////////////////////////////////
 
 	if(hashValueView.size()!= STATICSTRING::serverHashLen)
-		return startWrite(HTTPRESPONSEREADY::http10InvaildHash, HTTPRESPONSEREADY::http10InvaildHashLen);
+		return startWrite(HTTPRESPONSEREADY::http11InvaildHash, HTTPRESPONSEREADY::http11InvaildHashLen);
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//先判断服务器随机字符串长度与RSA_size的关系 
@@ -2336,13 +2341,13 @@ void HTTPSERVICE::testGetClientPublicKey()
 	//完全匹配用这个
 	if (!std::equal(iter, iterEnd, hashValueView.cbegin(), hashValueView.cend()))
 	{
-		return startWrite(HTTPRESPONSEREADY::http10InvaildHash, HTTPRESPONSEREADY::http10InvaildHashLen);
+		return startWrite(HTTPRESPONSEREADY::http11InvaildHash, HTTPRESPONSEREADY::http11InvaildHashLen);
 		m_hasMakeRandom = false;
 	}
 
 	//不区分大小写用这个
 	//if (!std::equal(iter, iterEnd, hashValueView.cbegin(), hashValueView.cend(),std::bind(std::equal_to<>(),std::bind(::toupper,std::placeholders::_2), std::placeholders::_1)))
-	//	return startWrite(HTTPRESPONSEREADY::http10InvaildHash, HTTPRESPONSEREADY::http10InvaildHashLen);
+	//	return startWrite(HTTPRESPONSEREADY::http11invaildHash, HTTPRESPONSEREADY::http11invaildHashLen);
 
 
 
@@ -2362,14 +2367,14 @@ void HTTPSERVICE::testGetClientPublicKey()
 	}
 
 	if (!(m_bio = BIO_new_mem_buf(&*publicKeyView.cbegin(), publicKeyView.size())))       //从字符串读取RSA公钥
-		return startWrite(HTTPRESPONSEREADY::http10WrongPublicKey, HTTPRESPONSEREADY::http10WrongPublicKeyLen);
+		return startWrite(HTTPRESPONSEREADY::http11WrongPublicKey, HTTPRESPONSEREADY::http11WrongPublicKeyLen);
 
 
 	m_rsaClientPublic = PEM_read_bio_RSA_PUBKEY(m_bio, nullptr, nullptr, nullptr);   //从bio结构中得到rsa结构
 	if (!m_rsaClientPublic)
 	{
 		BIO_free_all(m_bio);
-		return startWrite(HTTPRESPONSEREADY::http10WrongPublicKey, HTTPRESPONSEREADY::http10WrongPublicKeyLen);
+		return startWrite(HTTPRESPONSEREADY::http11WrongPublicKey, HTTPRESPONSEREADY::http11WrongPublicKeyLen);
 	}
 
 	m_rsaClientSize = RSA_size(m_rsaClientPublic);
@@ -2499,7 +2504,7 @@ void HTTPSERVICE::testFirstTime()
 {
 	m_firstTime = std::chrono::system_clock::to_time_t(std::chrono::high_resolution_clock::now());
 
-	return startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+	return startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
@@ -2507,7 +2512,7 @@ void HTTPSERVICE::testFirstTime()
 void HTTPSERVICE::testGetEncryptKey()
 {
 	if(!m_firstTime || !hasBody || !UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	
 	m_buffer->setBodyLen(m_len);
@@ -2515,7 +2520,7 @@ void HTTPSERVICE::testGetEncryptKey()
 
 	const char *source{ &*m_buffer->getView().body().cbegin() };
 	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::encryptKey, STATICSTRING::encryptKeyLen))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 
 	const char **BodyBuffer{ m_buffer->bodyPara() };
@@ -2523,7 +2528,7 @@ void HTTPSERVICE::testGetEncryptKey()
 	std::string_view encryptKeyView{ *(BodyBuffer + HTTPINTERFACENUM::TESTGETENCRYPTKEY::encryptKey),*(BodyBuffer + HTTPINTERFACENUM::TESTGETENCRYPTKEY::encryptKey + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTGETENCRYPTKEY::encryptKey) };
 
 	if (encryptKeyView.size() != STATICSTRING::serverRSASize)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 
 	int resultLen = RSA_private_decrypt(STATICSTRING::serverRSASize, reinterpret_cast<unsigned char*>(const_cast<char*>(&*encryptKeyView.cbegin())),
@@ -2535,11 +2540,11 @@ void HTTPSERVICE::testGetEncryptKey()
 	std::string_view::const_iterator AESBegin{ encryptKeyView.cbegin() }, AESEnd{}, keyTimeBegin{}, keyTimeEnd{};
 
 	if((AESEnd=std::find(AESBegin, encryptKeyView.cend(),0))== encryptKeyView.cend())
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	if((keyTimeBegin=std::find_if(AESEnd, encryptKeyView.cend(),std::bind(std::logical_and<>(),std::bind(std::greater_equal<>(),std::placeholders::_1,'0'),
 		std::bind(std::less_equal<>(), std::placeholders::_1, '9'))))== encryptKeyView.cend())
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	keyTimeEnd = std::find_if_not(keyTimeBegin, encryptKeyView.cend(), std::bind(std::logical_and<>(), std::bind(std::greater_equal<>(), std::placeholders::_1, '0'),
 		std::bind(std::less_equal<>(), std::placeholders::_1, '9')));
@@ -2547,7 +2552,7 @@ void HTTPSERVICE::testGetEncryptKey()
 	int AESLen{ AESEnd - AESBegin };
 
 	if(AESLen!=16 || AESLen!=24 || AESLen!=32)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	int index{ -1 };
 	time_t baseNum{ 1 }, ten{ 10 };
@@ -2559,7 +2564,7 @@ void HTTPSERVICE::testGetEncryptKey()
 	});
 	
 	if(m_thisTime <= m_firstTime)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	if(AES_set_encrypt_key(reinterpret_cast<const unsigned char*>(&*AESBegin), AESLen * 8, &aes_encryptkey))
 		return startWrite(HTTPRESPONSEREADY::httpAESsetKeyFail, HTTPRESPONSEREADY::httpAESsetKeyFailLen);
@@ -2595,12 +2600,12 @@ void HTTPSERVICE::testEncryptLogin()
 		return startWrite(HTTPRESPONSEREADY::httpFailToVerify, HTTPRESPONSEREADY::httpFailToVerifyLen);
 
 	if(!hasBody || !UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	m_buffer->setBodyLen(m_len);
 
 	if(std::distance(m_buffer->getView().body().cbegin(), m_buffer->getView().body().cbegin()+ m_buffer->getBodyLen()) % 16)
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	char *decryptBegin{ const_cast<char*>(&*m_buffer->getView().body().cbegin()) }, *decryptEnd{ const_cast<char*>(&*m_buffer->getView().body().cbegin()) + m_buffer->getBodyLen() };
 
@@ -2616,7 +2621,7 @@ void HTTPSERVICE::testEncryptLogin()
 
 	const char *source{ &*m_buffer->getView().body().cbegin()+ m_buffer->getBodyFrontLen() };
 	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::username, STATICSTRING::usernameLen, STATICSTRING::password, STATICSTRING::passwordLen))
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	//////////////////////////////////////////////////////////////////////////////////
 	//接下来处理逻辑和testLogin的类似
@@ -2627,7 +2632,7 @@ void HTTPSERVICE::testEncryptLogin()
 		passwordView{ *(BodyBuffer + HTTPINTERFACENUM::TESTLOGIN::password),*(BodyBuffer + HTTPINTERFACENUM::TESTLOGIN::password + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTLOGIN::password) };
 
 	if (usernameView.empty() || passwordView.empty())
-		return startWrite(HTTPRESPONSEREADY::http10invaild, HTTPRESPONSEREADY::http10invaildLen);
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 
 	//hmget user password:usernameView  session:usernameView  sessionEX:usernameView
@@ -3505,7 +3510,7 @@ void HTTPSERVICE::handleTestLoginSqlSlaveEncrypt(bool result, ERRORMESSAGE em)
 
 void HTTPSERVICE::testBusiness()
 {
-	startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
@@ -3573,6 +3578,209 @@ void HTTPSERVICE::readyParseChunkData()
 	m_parseStatus = PARSERESULT::begin_checkChunkData;
 
 	parseReadData(m_readBuffer, m_bodyEnd - m_bodyBegin);
+}
+
+
+
+
+//  keyValue   {"key":"value"}
+//  
+
+void HTTPSERVICE::testMakeJson()
+{
+	if(!hasBody)
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	m_buffer->setBodyLen(m_len);
+
+	const char *source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char **BodyBuffer{ m_buffer->bodyPara() };
+
+	std::string_view jsonTypeView{ *(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType),*(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType) };
+
+	STLtreeFast &st1{ m_STLtreeFastVec[0] }, &st2{ m_STLtreeFastVec[1] };
+
+	if (!st1.clear())
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	if (!st2.clear())
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	static const char *key1Str{ "key1" }, *value1Str{ "value1" }, *key2Str{ "key2" }, *value2Str{ "value2" }, *value3Str{ "value3" }, *key3Str{ "key3" }, *nullStr{ "null" };
+
+	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
+		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
+
+	bool success{ false }, innerSuccess{false};
+
+	char *newbuffer{};
+
+	int needLen{};
+
+	do
+	{
+		switch (jsonTypeView.size())
+		{
+			// {"key1":"value1"}
+		case STATICSTRING::keyValueLen:
+			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::keyValue, STATICSTRING::keyValue + STATICSTRING::keyValueLen))
+				break;
+			if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+				break;
+			innerSuccess = true;
+			break;
+
+			//{"key1":"value1","key2":"value2"}
+			//{"key1":{}}
+			//{"key1":[{"key1":"value1","key2":"","key3":true},{"key1":"value1","key2":"","key3":true},{"key1":"value1","key2":"","key3":true}]}
+		case STATICSTRING::doubleValueLen:
+			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::doubleValue, STATICSTRING::doubleValue + STATICSTRING::doubleValueLen))
+			{
+				if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+					break;
+				if (!st1.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, value2Str, value2Str + value2StrLen))
+					break;
+			}
+			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyObject, STATICSTRING::emptyObject + STATICSTRING::emptyObjectLen))
+			{
+				if (!st1.putObject<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
+					break;
+			}
+			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::objectArray, STATICSTRING::objectArray + STATICSTRING::objectArrayLen))
+			{
+				if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+					break;
+				if (!st1.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+					break;
+				if (!st1.put<TRANSFORMTYPE, int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+					break;
+				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
+					break;
+				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
+					break;
+				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
+					break;
+				if (!st1.clear())
+					break;
+				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
+					break;
+			}
+			else
+				break;
+			innerSuccess = true;
+			break;
+
+			//{"key1":""}
+			//{"key1":{}}
+			//{"key1":["value1","value2","value3"]}
+		case STATICSTRING::emptyValueLen:
+			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyValue, STATICSTRING::emptyValue + STATICSTRING::emptyValueLen))
+			{
+				if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, nullptr, nullptr))
+					break;
+			}
+			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyObject, STATICSTRING::emptyObject + STATICSTRING::emptyObjectLen))
+			{
+				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
+					break;
+			}
+			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
+			{
+				if (!st2.put<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
+					break;
+				if (!st2.put<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
+					break;
+				if (!st2.put<TRANSFORMTYPE>(nullptr, nullptr, value3Str, value3Str + value3StrLen))
+					break;
+				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
+					break;
+			}
+			else
+				break;
+			innerSuccess = true;
+			break;
+			// {"key1":null}
+		case STATICSTRING::jsonNullLen:
+			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonNull, STATICSTRING::jsonNull + STATICSTRING::jsonNullLen))
+				break;
+			if (!st1.put<TRANSFORMTYPE,int>(key1Str, key1Str + key1StrLen, nullStr, nullStr + nullStrLen))
+				break;
+			innerSuccess = true;
+			break;
+
+			//{"key1":true,"key2":false}
+		case STATICSTRING::jsonBooleanLen:
+			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonBoolean, STATICSTRING::jsonBoolean + STATICSTRING::jsonBooleanLen))
+				break;
+			if (!st1.put<TRANSFORMTYPE, int>(key1Str, key1Str + key1StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+				break;
+			if (!st1.put<TRANSFORMTYPE, int>(key2Str, key2Str + key2StrLen, STATICSTRING::jsonFalse, STATICSTRING::jsonFalse + STATICSTRING::jsonFalseLen))
+				break;
+			innerSuccess = true;
+			break;
+
+			//{"key1":30}
+			//{"key1":{"key1":"value1","key2":"","key3":true}}
+		case STATICSTRING::jsonNumberLen:
+			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonNumber, STATICSTRING::jsonNumber + STATICSTRING::jsonNumberLen))
+			{
+				newbuffer = NumToString(30, needLen, m_charMemoryPool);
+				if (!newbuffer || !needLen)
+					break;
+				if (!st1.put<TRANSFORMTYPE, int>(key1Str, key1Str + key1StrLen, newbuffer, newbuffer + needLen))
+					break;
+			}
+			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonObject, STATICSTRING::jsonObject + STATICSTRING::jsonObjectLen))
+			{
+				if (!st2.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+					break;
+				if (!st2.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+					break;
+				if (!st2.put<TRANSFORMTYPE,int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+					break;
+				if (!st1.putObject<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
+					break;
+			}
+			else
+				break;
+			innerSuccess = true;
+			break;
+
+			//{"key1":["key1":"value1","key2":"","key3":true]}
+		case STATICSTRING::jsonArrayLen:
+			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonArray, STATICSTRING::jsonArray + STATICSTRING::jsonArrayLen))
+				break;
+			if (!st2.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+				break;
+			if (!st2.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+				break;
+			if (!st2.put<TRANSFORMTYPE, int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+				break;
+			if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
+				break;
+			innerSuccess = true;
+			break;
+			
+
+		default:
+			break;
+		}
+		
+		if (!innerSuccess)
+			break;
+
+		success = true;
+	} while (false);
+	if(success)
+		makeSendJson<TRANSFORMTYPE>(st1);
+	else
+		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 }
 
 
@@ -4271,31 +4479,31 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 	switch (em)
 	{
 	case ERRORMESSAGE::OK:
-		startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+		startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 		break;
 
 	case ERRORMESSAGE::SQL_QUERY_ERROR:
-		startWrite(HTTPRESPONSEREADY::http10SqlQueryError, HTTPRESPONSEREADY::http10SqlQueryErrorLen);
+		startWrite(HTTPRESPONSEREADY::http11SqlQueryError, HTTPRESPONSEREADY::http11SqlQueryErrorLen);
 		break;
 
 	case ERRORMESSAGE::SQL_NET_ASYNC_ERROR:
-		startWrite(HTTPRESPONSEREADY::http10SqlNetAsyncError, HTTPRESPONSEREADY::http10SqlNetAsyncErrorLen);
+		startWrite(HTTPRESPONSEREADY::http11SqlNetAsyncError, HTTPRESPONSEREADY::http11SqlNetAsyncErrorLen);
 		break;
 
 	case ERRORMESSAGE::SQL_MYSQL_RES_NULL:
-		startWrite(HTTPRESPONSEREADY::http10SqlResNull, HTTPRESPONSEREADY::http10SqlResNullLen);
+		startWrite(HTTPRESPONSEREADY::http11SqlResNull, HTTPRESPONSEREADY::http11SqlResNullLen);
 		break;
 
 	case ERRORMESSAGE::SQL_QUERY_ROW_ZERO:
-		startWrite(HTTPRESPONSEREADY::http10SqlQueryRowZero, HTTPRESPONSEREADY::http10SqlQueryRowZeroLen);
+		startWrite(HTTPRESPONSEREADY::http11SqlQueryRowZero, HTTPRESPONSEREADY::http11SqlQueryRowZeroLen);
 		break;
 
 	case ERRORMESSAGE::SQL_QUERY_FIELD_ZERO:
-		startWrite(HTTPRESPONSEREADY::http10SqlQueryFieldZero, HTTPRESPONSEREADY::http10SqlQueryFieldZeroLen);
+		startWrite(HTTPRESPONSEREADY::http11SqlQueryFieldZero, HTTPRESPONSEREADY::http11SqlQueryFieldZeroLen);
 		break;
 
 	case ERRORMESSAGE::SQL_RESULT_TOO_LAGGE:
-		startWrite(HTTPRESPONSEREADY::http10sqlSizeTooBig, HTTPRESPONSEREADY::http10sqlSizeTooBigLen);
+		startWrite(HTTPRESPONSEREADY::http11sqlSizeTooBig, HTTPRESPONSEREADY::http11sqlSizeTooBigLen);
 		break;
 
 	case ERRORMESSAGE::REDIS_ASYNC_WRITE_ERROR:
@@ -4404,7 +4612,7 @@ void HTTPSERVICE::clean()
 
 void HTTPSERVICE::sendOK()
 {
-	startWrite(HTTPRESPONSEREADY::http10OK, HTTPRESPONSEREADY::http10OKLen);
+	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
@@ -4617,7 +4825,7 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 			m_maxReadLen = m_defaultReadLen;
 			m_dataBufferVec.clear();
 			m_availableLen = m_buffer->getSock()->available();
-			m_sendBuffer = HTTPRESPONSEREADY::http10invaild, m_sendLen = HTTPRESPONSEREADY::http10invaildLen;
+			m_sendBuffer = HTTPRESPONSEREADY::http11invaild, m_sendLen = HTTPRESPONSEREADY::http11invaildLen;
 			cleanData();
 			break;
 
@@ -4680,7 +4888,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 #define MAXBOUNDARYHEADERNLEN 30
 
 	static std::string HTTPStr{ "HTTP" };
-	static std::string HTTP10{ "1.0" }, HTTP11{ "1.1" };
+	static std::string http11{ "1.0" }, HTTP11{ "1.1" };
 	static std::string lineStr{ "\r\n\r\n" };
 	static std::string PUTStr{ "PUT" }, GETStr{ "GET" };                                         // 3                
 	static std::string POSTStr{ "POST" }, HEADStr{ "HEAD" };                    // 4                     
@@ -5775,10 +5983,10 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 
 
-		if (!std::equal(finalVersionBegin, finalVersionEnd, HTTP10.cbegin(), HTTP10.cend()) &&
+		if (!std::equal(finalVersionBegin, finalVersionEnd, http11.cbegin(), http11.cend()) &&
 			!std::equal(finalVersionBegin, finalVersionEnd, HTTP11.cbegin(), HTTP11.cend()))
 		{
-			m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal HTTP10 HTTP11");
+			m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal http11 HTTP11");
 			return PARSERESULT::invaild;
 		}
 

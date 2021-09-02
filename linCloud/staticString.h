@@ -138,6 +138,39 @@ namespace STATICSTRING
 
 	static const char *success_upload{ "success upload" };
 
+	static const char *jsonType{ "jsonType" };
+
+	static constexpr char *keyValue{ "keyValue" };
+
+	static constexpr char *doubleValue{ "doubleValue" };
+
+	static constexpr char *emptyValue{ "emptyValue" };
+
+	static constexpr char *jsonNull{ "null" };
+
+	static constexpr char *jsonBoolean{ "Boolean" };
+
+	static constexpr char *jsonTrue{ "true" };
+
+	static constexpr char *jsonFalse{ "false" };
+
+	static constexpr char *jsonNumber{ "number" };
+
+	static constexpr char *jsonObject{ "object" };
+
+	static constexpr char *jsonArray{ "array" };
+
+	static constexpr char *emptyObject{ "emptyObject" };
+
+	static constexpr char *emptyArray{ "emptyArray" };
+
+	static constexpr char *objectArray{ "objectArray" };
+
+	static constexpr char *valueArray{ "valueArray" };
+
+
+
+
 
 
 
@@ -260,4 +293,35 @@ namespace STATICSTRING
 	static size_t str17Len{ strlen(str17) };
 
 	static size_t success_uploadLen{ strlen(success_upload) };
-}
+
+	static size_t jsonTypeLen{ strlen(jsonType) };
+
+	static constexpr size_t keyValueLen{ strlen(keyValue) };
+
+	static constexpr size_t doubleValueLen{ strlen(doubleValue) };
+
+	static constexpr size_t emptyValueLen{ strlen(emptyValue) };
+
+	static constexpr size_t jsonNullLen{ strlen(jsonNull) };
+
+	static constexpr size_t jsonBooleanLen{ strlen(jsonBoolean) };
+
+	static constexpr size_t jsonTrueLen{ strlen(jsonTrue) };
+
+	static constexpr size_t jsonFalseLen{ strlen(jsonFalse) };
+
+	static constexpr size_t jsonNumberLen{ strlen(jsonNumber) };
+
+	static constexpr size_t jsonObjectLen{ strlen(jsonObject) };
+
+	static constexpr size_t jsonArrayLen{ strlen(jsonArray) };
+
+	static constexpr size_t emptyObjectLen{ strlen(emptyObject) };
+
+	static constexpr size_t emptyArrayLen{ strlen(emptyArray) };
+
+	static constexpr size_t objectArrayLen{ strlen(objectArray) };
+
+	static constexpr size_t valueArrayLen{ strlen(valueArray) };
+
+};
