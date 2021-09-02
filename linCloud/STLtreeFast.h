@@ -622,8 +622,8 @@ struct STLtreeFast
 					m_transformPtr = ch;
 				}
 
-
-				*(m_transformPtr + m_transformPos++) = begin;
+				if (len1)
+					*(m_transformPtr + m_transformPos++) = begin;
 				std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
 				m_transformPos += other.m_transformPos;
 			}
@@ -747,8 +747,8 @@ struct STLtreeFast
 					m_transformPtr = ch;
 				}
 
-
-				*(m_transformPtr + m_transformPos++) = begin;
+				if (len1)
+					*(m_transformPtr + m_transformPos++) = begin;
 				std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
 				m_transformPos += other.m_transformPos;
 			}
