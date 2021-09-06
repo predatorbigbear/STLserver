@@ -466,84 +466,27 @@ void HTTPSERVICE::testPingPong()
 	}
 	else
 	{
-		int needLen{ HTTPRESPONSEREADY::http11OKConyentLengthLen + stringLen(bodyLen) + HTTPRESPONSE::newlineLen };
-		char *bodyBegin{ const_cast<char*>(&*(m_buffer->getView().body().cbegin())) }, *httpBegin{}, *httpEnd{};
-		// 如果bodyBegin所在指针处于http请求消息的buffer内，并且从http消息开始到body部分的长度可以容纳返回http回复从头到\r\n\r\n部分的长度，
-		// 如果不符合则分配内存
-		if (bodyBegin >= m_buffer->getBuffer() && bodyBegin <= (m_buffer->getBuffer() + m_maxReadLen) && std::distance(m_buffer->getBuffer(), bodyBegin) >= needLen)
+		STLtreeFast &st1{ m_STLtreeFastVec[0] };
+
+		char *sendBuffer{};
+		unsigned int sendLen{};
+
+		if (st1.make_pingPongResppnse(sendBuffer, sendLen, nullptr, 0,
+			MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
+			m_finalBodyBegin, m_finalBodyEnd,
+			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
+			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
 		{
-			httpBegin = bodyBegin - needLen;
-			httpEnd = bodyBegin + bodyLen;
-			std::copy(HTTPRESPONSEREADY::http11OKConyentLength, HTTPRESPONSEREADY::http11OKConyentLength + HTTPRESPONSEREADY::http11OKConyentLengthLen, httpBegin);
-			httpBegin += HTTPRESPONSEREADY::http11OKConyentLengthLen;
-
-			if (bodyLen > 99999999)
-				*httpBegin++ = bodyLen / 100000000 + '0';
-			if (bodyLen > 9999999)
-				*httpBegin++ = bodyLen / 10000000 % 10 + '0';
-			if (bodyLen > 999999)
-				*httpBegin++ = bodyLen / 1000000 % 10 + '0';
-			if (bodyLen > 99999)
-				*httpBegin++ = bodyLen / 100000 % 10 + '0';
-			if (bodyLen > 9999)
-				*httpBegin++ = bodyLen / 10000 % 10 + '0';
-			if (bodyLen > 999)
-				*httpBegin++ = bodyLen / 1000 % 10 + '0';
-			if (bodyLen > 99)
-				*httpBegin++ = bodyLen / 100 % 10 + '0';
-			if (bodyLen > 9)
-				*httpBegin++ = bodyLen / 10 % 10 + '0';
-			*httpBegin++ = bodyLen % 10 + '0';
-
-			std::copy(HTTPRESPONSE::newline, HTTPRESPONSE::newline + HTTPRESPONSE::newlineLen, httpBegin);
-			httpBegin += HTTPRESPONSE::newlineLen;
-
-			httpBegin -= needLen;
-
-			startWrite(httpBegin, httpEnd- httpBegin);
+			startWrite(sendBuffer, sendLen);
 		}
 		else
 		{
-			char *newBuffer(m_charMemoryPool.getMemory(needLen + bodyLen));
-			if (newBuffer)
-			{
-				httpBegin = newBuffer;
-
-				std::copy(HTTPRESPONSEREADY::http11OKConyentLength, HTTPRESPONSEREADY::http11OKConyentLength + HTTPRESPONSEREADY::http11OKConyentLengthLen, httpBegin);
-				httpBegin += HTTPRESPONSEREADY::http11OKConyentLengthLen;
-
-				if (bodyLen > 99999999)
-					*httpBegin++ = bodyLen / 100000000 + '0';
-				if (bodyLen > 9999999)
-					*httpBegin++ = bodyLen / 10000000 % 10 + '0';
-				if (bodyLen > 999999)
-					*httpBegin++ = bodyLen / 1000000 % 10 + '0';
-				if (bodyLen > 99999)
-					*httpBegin++ = bodyLen / 100000 % 10 + '0';
-				if (bodyLen > 9999)
-					*httpBegin++ = bodyLen / 10000 % 10 + '0';
-				if (bodyLen > 999)
-					*httpBegin++ = bodyLen / 1000 % 10 + '0';
-				if (bodyLen > 99)
-					*httpBegin++ = bodyLen / 100 % 10 + '0';
-				if (bodyLen > 9)
-					*httpBegin++ = bodyLen / 10 % 10 + '0';
-				*httpBegin++ = bodyLen % 10 + '0';
-
-				std::copy(HTTPRESPONSE::newline, HTTPRESPONSE::newline + HTTPRESPONSE::newlineLen, httpBegin);
-				httpBegin += HTTPRESPONSE::newlineLen;
-
-				std::copy(m_buffer->getView().body().cbegin(), m_buffer->getView().body().cend(), httpBegin);
-
-				startWrite(newBuffer, needLen + bodyLen);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
+			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);	
 		}
 	}
 }
+
 
 
 void HTTPSERVICE::testPingPongJson()
@@ -574,7 +517,6 @@ void HTTPSERVICE::testPingPongJson()
 	}
 
 	makeSendJson<TRANSFORMTYPE>(st1);
-	
 }
 
 
@@ -1285,27 +1227,13 @@ void HTTPSERVICE::handleTestLoginRedisSlave(bool result, ERRORMESSAGE em)
 			rowField.clear();
 			result.clear();
 
-			int sqlNeedLen{ SQLCOMMAND::testTestLoginSQLLen + 1 + usernameView.size() };
-
-			char *buffer{ m_charMemoryPool.getMemory(sqlNeedLen) }, *bufferBegin{};
-
-			if (!buffer)
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			bufferBegin = buffer;
-
-			std::copy(SQLCOMMAND::testTestLoginSQL, SQLCOMMAND::testTestLoginSQL + SQLCOMMAND::testTestLoginSQLLen, bufferBegin);
-			bufferBegin += SQLCOMMAND::testTestLoginSQLLen;
-
-			std::copy(usernameView.cbegin(), usernameView.cend(), bufferBegin);
-			bufferBegin += usernameView.size();
-
-			*bufferBegin = '\'';
-
-
 			try
 			{
-				sqlCommand.emplace_back(std::string_view(buffer, sqlNeedLen));
+				//本意是为了避免在插入sql查询前命令进行一次无谓的拷贝，在sql发送最终批量命令前才进行真正的copy，之前通过string_view传入，
+				//复用预定义字符串 + body里面的已有字符串，如果有多个命令，那么中间需要加；,复用已有buffer字符串内容到极致
+				sqlCommand.emplace_back(std::string_view(SQLCOMMAND::testTestLoginSQL, SQLCOMMAND::testTestLoginSQLLen));
+				sqlCommand.emplace_back(usernameView);
+				sqlCommand.emplace_back(std::string_view(STATICSTRING::doubleQuotation, STATICSTRING::doubleQuotationLen));
 
 				std::get<1>(*sqlRequest) = 1;
 				std::get<5>(*sqlRequest) = std::bind(&HTTPSERVICE::handleTestLoginSqlSlave, this, std::placeholders::_1, std::placeholders::_2);
@@ -2744,27 +2672,14 @@ void HTTPSERVICE::handleTestLoginRedisSlaveEncrypt(bool result, ERRORMESSAGE em)
 			rowField.clear();
 			result.clear();
 
-			int sqlNeedLen{ SQLCOMMAND::testTestLoginSQLLen + 1 + usernameView.size() };
-
-			char *buffer{ m_charMemoryPool.getMemory(sqlNeedLen) }, *bufferBegin{};
-
-			if (!buffer)
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			bufferBegin = buffer;
-
-			std::copy(SQLCOMMAND::testTestLoginSQL, SQLCOMMAND::testTestLoginSQL + SQLCOMMAND::testTestLoginSQLLen, bufferBegin);
-			bufferBegin += SQLCOMMAND::testTestLoginSQLLen;
-
-			std::copy(usernameView.cbegin(), usernameView.cend(), bufferBegin);
-			bufferBegin += usernameView.size();
-
-			*bufferBegin = '\'';
-
 
 			try
 			{
-				sqlCommand.emplace_back(std::string_view(buffer, sqlNeedLen));
+				//本意是为了避免在插入sql查询前命令进行一次无谓的拷贝，在sql发送最终批量命令前才进行真正的copy，之前通过string_view传入，
+				//复用预定义字符串 + body里面的已有字符串，如果有多个命令，那么中间需要加；,复用已有buffer字符串内容到极致
+				sqlCommand.emplace_back(std::string_view(SQLCOMMAND::testTestLoginSQL, SQLCOMMAND::testTestLoginSQLLen));
+				sqlCommand.emplace_back(usernameView);
+				sqlCommand.emplace_back(std::string_view(STATICSTRING::doubleQuotation, STATICSTRING::doubleQuotationLen));
 
 				std::get<1>(*sqlRequest) = 1;
 				std::get<5>(*sqlRequest) = std::bind(&HTTPSERVICE::handleTestLoginSqlSlaveEncrypt, this, std::placeholders::_1, std::placeholders::_2);

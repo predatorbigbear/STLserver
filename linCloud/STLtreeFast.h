@@ -1580,6 +1580,117 @@ template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, t
 	}
 
 
+
+	//一次性生成普通body http回复的函数
+	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
+	bool make_pingPongResppnse(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
+		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, const char *httpBodyBegin, const char *httpBodyEnd, ARG&&...args)
+	{
+			int parSize{ sizeof...(args) }, httpHeadLen{};
+			if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !httpBodyBegin || !httpBodyEnd || !calLength(httpHeadLen, args...))
+				return false;
+
+			int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)
+				+ MAKEJSON::spaceLen + std::distance(httpResultBegin,httpResultEnd) + MAKEJSON::halfNewLineLen + httpHeadLen + MAKEJSON::ContentLengthLen + MAKEJSON::colonLen };
+
+			if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
+			{
+				needLength += httpLen + MAKEJSON::halfNewLineLen;
+			}
+
+			resultPtr = nullptr, resultLen = 0;
+
+			int thisbodyLen{ std::distance(httpBodyBegin,httpBodyEnd) };
+
+			unsigned int needFrontLen{ needLength + stringLen(thisbodyLen) + MAKEJSON::newLineLen };
+
+			unsigned int needLen{ needFrontLen + thisbodyLen };     //93
+
+			/////////////////////////////
+
+			//////////////////////////////////////////////////
+
+
+			char *newResultPtr{ m_sendMemoryPool->getMemory(needLen) };
+
+			if (!newResultPtr)
+				return false;
+
+			resultPtr = newResultPtr, resultLen = needLen;
+
+			std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, newResultPtr);
+			newResultPtr += MAKEJSON::httpFrontLen;
+
+
+			std::copy(httpVersionBegin, httpVersionEnd, newResultPtr);
+			newResultPtr += std::distance(httpVersionBegin, httpVersionEnd);
+
+
+			std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, newResultPtr);
+			newResultPtr += MAKEJSON::spaceLen;
+
+
+			std::copy(httpCodeBegin, httpCodeEnd, newResultPtr);
+			newResultPtr += std::distance(httpCodeBegin, httpCodeEnd);
+
+
+			std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, newResultPtr);
+			newResultPtr += MAKEJSON::spaceLen;
+
+
+			std::copy(httpResultBegin, httpResultEnd, newResultPtr);
+			newResultPtr += std::distance(httpResultBegin, httpResultEnd);
+
+
+			std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+			newResultPtr += MAKEJSON::halfNewLineLen;
+
+			packAgeHttpHeader(newResultPtr, args...);
+
+			std::copy(MAKEJSON::ContentLength, MAKEJSON::ContentLength + MAKEJSON::ContentLengthLen, newResultPtr);
+			newResultPtr += MAKEJSON::ContentLengthLen;
+
+
+			std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, newResultPtr);
+			newResultPtr += MAKEJSON::colonLen;
+
+
+			if (thisbodyLen > 99999999)
+				*newResultPtr++ = thisbodyLen / 100000000 + '0';
+			if (thisbodyLen > 9999999)
+				*newResultPtr++ = thisbodyLen / 10000000 % 10 + '0';
+			if (thisbodyLen > 999999)
+				*newResultPtr++ = thisbodyLen / 1000000 % 10 + '0';
+			if (thisbodyLen > 99999)
+				*newResultPtr++ = thisbodyLen / 100000 % 10 + '0';
+			if (thisbodyLen > 9999)
+				*newResultPtr++ = thisbodyLen / 10000 % 10 + '0';
+			if (thisbodyLen > 999)
+				*newResultPtr++ = thisbodyLen / 1000 % 10 + '0';
+			if (thisbodyLen > 99)
+				*newResultPtr++ = thisbodyLen / 100 % 10 + '0';
+			if (thisbodyLen > 9)
+				*newResultPtr++ = thisbodyLen / 10 % 10 + '0';
+			*newResultPtr++ = thisbodyLen % 10 + '0';
+
+
+			if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
+			{
+				std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+				newResultPtr += MAKEJSON::halfNewLineLen;
+				httpWrite(newResultPtr);
+			}
+
+			std::copy(MAKEJSON::newLine, MAKEJSON::newLine + MAKEJSON::newLineLen, newResultPtr);
+			newResultPtr += MAKEJSON::newLineLen;
+
+			std::copy(httpBodyBegin, httpBodyEnd, newResultPtr);
+			newResultPtr += thisbodyLen;
+
+			return true;
+	}
+
+
 	const unsigned int jsonLen()
 	{
 		return m_strSize + 2;
