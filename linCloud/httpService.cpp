@@ -472,7 +472,7 @@ void HTTPSERVICE::testPingPong()
 		unsigned int sendLen{};
 
 		if (st1.make_pingPongResppnse(sendBuffer, sendLen, nullptr, 0,
-			MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 			m_finalBodyBegin, m_finalBodyEnd,
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
@@ -1430,7 +1430,7 @@ void HTTPSERVICE::handleTestLoginRedisSlave(bool result, ERRORMESSAGE em)
 
 			}, 
 				MAKEJSON::SetCookieLen + 1 + setCookValueLen,nullptr,
-				MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+				m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 				MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 				MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 				MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -1654,7 +1654,7 @@ void HTTPSERVICE::handleTestLoginRedisSlave(bool result, ERRORMESSAGE em)
 
 		},
 			MAKEJSON::SetCookieLen + 1 + setCookValueLen,nullptr,
-			MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -1953,7 +1953,7 @@ void HTTPSERVICE::handleTestLoginSqlSlave(bool result, ERRORMESSAGE em)
 
 		},
 			MAKEJSON::SetCookieLen + 1 + setCookValueLen,nullptr,
-			MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -2090,7 +2090,7 @@ void HTTPSERVICE::testLogout()
 		*bufferBegin++ = '/';
 	},
 		MAKEJSON::SetCookieLen + 1 + setCookValueLen, nullptr,
-		MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+		m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 		MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 		MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -2876,7 +2876,7 @@ void HTTPSERVICE::handleTestLoginRedisSlaveEncrypt(bool result, ERRORMESSAGE em)
 
 			},
 				MAKEJSON::SetCookieLen + 1 + setCookValueLen, &aes_encryptkey,
-				MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+				m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 				MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 				MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 				MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -3100,7 +3100,7 @@ void HTTPSERVICE::handleTestLoginRedisSlaveEncrypt(bool result, ERRORMESSAGE em)
 
 		},
 			MAKEJSON::SetCookieLen + 1 + setCookValueLen, &aes_encryptkey,
-			MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -3396,7 +3396,7 @@ void HTTPSERVICE::handleTestLoginSqlSlaveEncrypt(bool result, ERRORMESSAGE em)
 
 		},
 			MAKEJSON::SetCookieLen + 1 + setCookValueLen, &aes_encryptkey,
-			MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
+			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
@@ -4710,7 +4710,7 @@ void HTTPSERVICE::startRead()
 
 
 //发生异常时还原置位，开启新的监听
-
+//m_startPos 集中在外层设置，表示下次的起始读取位置
 void HTTPSERVICE::parseReadData(const char *source, const int size)
 {
 	try
@@ -4721,24 +4721,29 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 			m_startPos = 0;
 			m_readBuffer = m_buffer->getBuffer();
 			m_maxReadLen = m_defaultReadLen;
-			m_dataBufferVec.clear();
-			checkMethod();
+			//https://www.cnblogs.com/wmShareBlog/p/5924144.html
+			//解决Expect:100-continue 问题			
+			if (expect_continue)
+			{
+				startWrite(HTTPRESPONSEREADY::http100Continue, HTTPRESPONSEREADY::http100ContinueLen);
+			}
+			else
+			{
+				checkMethod();
+			}
 			break;
 
 
 		case PARSERESULT::check_messageComplete:
 			m_startPos = 0;
-			m_dataBufferVec.clear();
 			checkMethod();
 			break;
 
 
 		case PARSERESULT::invaild:
 			m_startPos = 0;
-			hasChunk = false;
 			m_readBuffer = m_buffer->getBuffer();
 			m_maxReadLen = m_defaultReadLen;
-			m_dataBufferVec.clear();
 			m_availableLen = m_buffer->getSock()->available();
 			m_sendBuffer = HTTPRESPONSEREADY::http11invaild, m_sendLen = HTTPRESPONSEREADY::http11invaildLen;
 			cleanData();
@@ -4761,11 +4766,10 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 	}
 	catch (const std::exception &e)
 	{
+		m_parseStatus = PARSERESULT::complete;
 		m_startPos = 0;
-		hasChunk = false;
 		m_readBuffer = m_buffer->getBuffer();
 		m_maxReadLen = m_defaultReadLen;
-		m_dataBufferVec.clear();
 		m_availableLen = m_buffer->getSock()->available();
 		m_sendBuffer = HTTPRESPONSEREADY::httpSTDException, m_sendLen = HTTPRESPONSEREADY::httpSTDExceptionLen;
 		cleanData();
@@ -4801,6 +4805,7 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 #define MAXCHUNKFinalEndLEN 4
 #define MAXTHIRDLENLEN 2
 #define MAXBOUNDARYHEADERNLEN 30
+#define KEEPALIVELEN 10
 
 	static std::string HTTPStr{ "HTTP" };
 	static std::string http11{ "1.0" }, HTTP11{ "1.1" };
@@ -4847,11 +4852,18 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 	static std::string chunked{ "chunked" };
 	static std::string multipartform_data{ "multipart/form-data" };
 	static std::string boundary{ "boundary=" };
+	static std::string Expect100_continue{ "100-continue" };
+	static std::string ConnectionKeep_alive{ "Keep-Alive" };
+	static std::string ConnectionClose{ "close" };
+
 
 	static std::string Content_Disposition{ "content-disposition" };
 	static std::string Name{ "name" };
 	static std::string Filename{ "filename" };
 	static std::string boundaryFinal{ "--\r\n" };
+
+
+
 
 
 
@@ -4894,10 +4906,11 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 	case PARSERESULT::invaild:
 	case PARSERESULT::complete:
 		m_buffer->getView().clear();
-		hasBody = hasChunk = hasPara = false;
+		hasBody = hasChunk = hasPara = expect_continue = keep_alive = false;
 		m_bodyLen = 0;
 		m_boundaryHeaderPos = 0;
 		m_buffer->getView().method() = 0;
+		m_dataBufferVec.clear();
 		break;
 
 
@@ -6451,6 +6464,10 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_ExpectBegin is not nullptr");
 							return PARSERESULT::invaild;
 						}
+						//  https://www.cnblogs.com/yesok/p/12658499.html
+						//添加对except=100-continue解析处理
+						if (std::equal(finalWordBegin, finalWordEnd, Expect100_continue.cbegin(), Expect100_continue.cend()))
+							expect_continue = true;
 						*m_ExpectBegin = finalWordBegin;
 						*m_ExpectEnd = finalWordEnd;
 					}
@@ -6599,6 +6616,9 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 							m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
 							return PARSERESULT::invaild;
 						}
+						if (std::equal(finalWordBegin, finalWordEnd, ConnectionKeep_alive.cbegin(), ConnectionKeep_alive.cend()))
+							keep_alive = true;
+
 						*m_ConnectionBegin = finalWordBegin;
 						*m_ConnectionEnd = finalWordEnd;
 					}
@@ -7957,7 +7977,6 @@ void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 		}
 		else
 		{
-			//  https://blog.csdn.net/weixin_43827934/article/details/86362985?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-5.base&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-5.base
 			switch (m_parseStatus)
 			{
 			case PARSERESULT::complete:

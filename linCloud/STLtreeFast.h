@@ -85,6 +85,9 @@ namespace MAKEJSON
 	static unsigned int http200Len{ strlen(http200) };
 
 
+	
+
+
 	static const char *httpOK{ "OK" };
 	static unsigned int httpOKLen{ strlen(httpOK) };
 
@@ -1587,7 +1590,7 @@ template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, t
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, const char *httpBodyBegin, const char *httpBodyEnd, ARG&&...args)
 	{
 			int parSize{ sizeof...(args) }, httpHeadLen{};
-			if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !httpBodyBegin || !httpBodyEnd || !calLength(httpHeadLen, args...))
+			if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !calLength(httpHeadLen, args...))
 				return false;
 
 			int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)

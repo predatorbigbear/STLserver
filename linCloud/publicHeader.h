@@ -434,6 +434,32 @@ enum HTTPBOUNDARYHEADERLEN
 
 
 
+//url编码规则请看   https://baike.baidu.com/item/URL%E7%BC%96%E7%A0%81/3703727?fr=aladdin&qq-pf-to=pcqq.group  
+
+static const std::unordered_map<std::string_view, char>urlMap         
+{
+{"%08",'\b'} ,{"%09",'\t'},{"%0A",'\n'},{"%0a",'\n'},{"%0D",'\r'},{"%0d",'\r'},
+{"%20",' '}, { "%21",'!'},{"%22",'\"'} ,{"%23",'#'} ,{ "%24",'$'} ,{"%25",'%'} ,{"%26",'&' } ,{"%27", '\''} ,{"%28",'('}, {"%29",')'} ,
+{"%2A",'*'},{"%2a",'*'},{"%2B",'+'} ,{"%2b",'+'} ,{"%2C",','},{"%2c",','},{"%2D",'-'},{"%2d",'-'},{"%2E",'.'},{"%2e",'.'},{"%2F",'/'},{"%2f",'/'},
+{"%30",'0'},{"%31",'1'},{"%32",'2'},{"%33",'3'},{"%34",'4'},{"%35",'5'},{"%36",'6'},{"%37",'7'},{"%38",'8'},{"%39",'9'},
+{"%3A",':'},{ "%3B",';'},{"%3C",'<'},{ "%3D",'='},{"%3E",'>'},{"%3F",'?'},
+{"%3a",':'},{ "%3b",';'},{"%3c",'<'},{ "%3d",'='},{"%3e",'>'},{"%3f",'?'},
+{"%40",'@'},{"%41",'A'},{"%42",'B'},{"%43",'C'},{"%44",'D'},{"%45",'E'},{"%46",'F'},{"%47",'G'},{"%48",'H'},{"%49",'I'},
+{"%4A",'J'},{"%4B",'K'},{"%4C",'L'},{"%4D",'M'},{"%4E",'N'},{"%4F",'O'},
+{"%4a",'J'},{"%4b",'K'},{"%4c",'L'},{"%4d",'M'},{"%4e",'N'},{"%4f",'O'},
+{"%50",'P'},{"%51",'Q'},{"%52",'R'},{"%53",'S'},{"%54",'T'},{"%55",'U'},{"%56",'V'},{"%57",'W'},{"%58",'X'},{"%59",'Y'},
+{"%5A",'Z'},{"%5B",'['},{"%5C",'\\'}, {"%5D",']' },{"%5E",'^'}, {"%5F",'_'},
+{"%5a",'Z'},{"%5b",'['},{"%5c",'\\'}, {"%5d",']' },{"%5e",'^'}, {"%5f",'_'},
+{"%60",'`'},{"%61",'a'},{"%62",'b'},{"%63",'c'},{"%64",'d'},{"%65",'e'},{"%66",'f'},{"%67",'g'},{"%68",'h'},{"%69",'i'},
+{"%6A",'j'},{"%6B",'k'},{"%6C",'l'}, {"%6D",'m' },{"%6E",'n'}, {"%6F",'o'},
+{"%6a",'j'},{"%6b",'k'},{"%6c",'l'}, {"%6d",'m' },{"%6e",'n'}, {"%6f",'o'},
+{"%70",'p'},{"%71",'q'},{"%72",'r'},{"%73",'s'},{"%74",'t'},{"%75",'u'},{"%76",'v'},{"%77",'w'},{"%78",'x'},{"%79",'y'},
+{"%7A",'z'}, {"%7B",'{'}, {"%7C",'|'},{"%7D",'}'},{"%7E",'~'},
+{"%7b",'{'}, {"%7c",'|'},{"%7d",'}'},{"%7e",'~'}
+};
+
+
+
 
 //测试版  同时处理url转码和中文转换
 static bool UrlDecodeWithTransChinese(const char *source, const int len, char * des, int &desLen, const int maxDesLen)
@@ -445,18 +471,6 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 	{
 		try
 		{
-			static const std::unordered_map<std::string_view, char>urlMap         //url编码规则请看   https://baike.baidu.com/item/URL%E7%BC%96%E7%A0%81/3703727?fr=aladdin&qq-pf-to=pcqq.group  
-			{
-			{"%09",'	'},{"%0A",'\n'},
-			{"%20",' '}, { "%21",'!'},{"%22",'\"'} ,{"%23",'#'} ,{ "%24",'$'} ,{"%25",'%'} ,{"%26",'&' } ,{"%27", '\''} ,{"%28",'('}, {"%29",')'} ,{"%2A",'*'},
-			{"%2B",'+'} ,{"%2C",','},{"%2D",'-'},{"%2E",'.'},{"%2F",'/'},
-			{"%3A",':'},{ "%3B",';'},{"%3C",'<'},{ "%3D",'='},{"%3E",'>'},{"%3F",'?'},
-			{"%40",'@'},
-			{"%5B",'['},{"%5C",'\\'}, {"%5D",']' },{"%5E",'^'}, {"%5F",'_'},
-			{"%60",'`'},
-			{"%7B",'{'}, {"%7C",'|'},{"%7D",'}'}
-			};
-
 			const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
 			decltype(urlMap)::const_iterator iter;
 			int index{};
@@ -603,18 +617,6 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 	{
 		try
 		{
-			static const std::unordered_map<std::string_view, char>urlMap         //url编码规则请看   https://baike.baidu.com/item/URL%E7%BC%96%E7%A0%81/3703727?fr=aladdin&qq-pf-to=pcqq.group  
-			{
-			{"%09",'	'},{"%0A",'\n'},
-			{"%20",' '}, { "%21",'!'},{"%22",'\"'} ,{"%23",'#'} ,{ "%24",'$'} ,{"%25",'%'} ,{"%26",'&' } ,{"%27", '\''} ,{"%28",'('}, {"%29",')'} ,{"%2A",'*'},
-			{"%2B",'+'} ,{"%2C",','},{"%2D",'-'},{"%2E",'.'},{"%2F",'/'},
-			{"%3A",':'},{ "%3B",';'},{"%3C",'<'},{ "%3D",'='},{"%3E",'>'},{"%3F",'?'},
-			{"%40",'@'},
-			{"%5B",'['},{"%5C",'\\'}, {"%5D",']' },{"%5E",'^'}, {"%5F",'_'},
-			{"%60",'`'},
-			{"%7B",'{'}, {"%7C",'|'},{"%7D",'}'}
-			};
-
 			const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
 			desLen = len;
 			decltype(urlMap)::const_iterator iter;
@@ -847,66 +849,6 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 		}
 	}
 	return true;
-}
-
-
-
-static std::string mime_type(const std::string& path)
-{
-	if (!path.empty())
-	{
-		try
-		{
-
-			auto const pos = path.rfind(".");
-			if (pos == string::npos)
-				return path;
-			else
-			{
-				std::string temp{ path.cbegin(), path.cbegin() + pos };
-				std::transform(temp.begin(), temp.end(), temp.begin(), [](const int elem)
-				{
-					if (elem >= 'A'&& elem <= 'Z')return tolower(static_cast<char>(elem));
-					return elem;
-				});
-
-				static std::unordered_map<std::string, std::string> mime_typeMap
-				{
-					{".htm","text/html"},
-					{".html","text/html"},
-					{".php", "text/html"},
-					{".css", "text/css"},
-					{".txt", "text/plain"},
-					{".js",  "application/javascript"},
-					{".json","application/json"},
-					{".xml",  "application/xml"},
-					{".swf",  "application/x-shockwave-flash"},
-					{".flv",  "video/x-flv"},
-					{".png",  "image/png"},
-					{".jpe",  "image/jpeg"},
-					{".jpeg", "image/jpeg"},
-					{".jpg",  "image/jpeg"},
-					{".gif",  "image/gif"},
-					{".bmp",  "image/bmp"},
-					{".ico",  "image/vnd.microsoft.icon"},
-					{".tiff", "image/tiff"},
-					{".tif",  "image/tiff"},
-					{".svg",  "image/svg+xml"},
-					{".svgz", "image/svg+xml"}
-				};
-
-				auto iter = mime_typeMap.find(std::move(temp));
-				if (iter != mime_typeMap.cend())
-					return iter->second;
-				return "application/text";
-			}
-		}
-		catch (const std::exception &e)
-		{
-			return "application/text";
-		}
-	}
-	return "application/text";
 }
 
 
@@ -1483,6 +1425,11 @@ namespace HTTPRESPONSEREADY
 
 	static const char *httpFailToVerify{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFail to verify" };
 	static size_t httpFailToVerifyLen{ strlen(httpFailToVerify) };
+
+	//用于对100-continue做出处理
+	//https://blog.csdn.net/taoshihan/article/details/104273017?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link
+	static const char *http100Continue{ "HTTP/1.1 100 Continue\r\n\r\n" };
+	static size_t http100ContinueLen{ strlen(http100Continue) };
 }
 
 

@@ -168,6 +168,8 @@ namespace STATICSTRING
 
 	static constexpr char *valueArray{ "valueArray" };
 
+	static constexpr char *doubleQuotation{ "\"" };
+
 
 
 
@@ -323,5 +325,7 @@ namespace STATICSTRING
 	static constexpr size_t objectArrayLen{ strlen(objectArray) };
 
 	static constexpr size_t valueArrayLen{ strlen(valueArray) };
+
+	static constexpr size_t doubleQuotationLen{ strlen(doubleQuotation) };
 
 };

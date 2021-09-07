@@ -215,6 +215,10 @@ private:
 
 	bool hasChunk{ false };
 
+	bool expect_continue{ false };
+
+	bool keep_alive{ false };
+
 	std::unique_ptr<const char*[]>m_httpHeaderMap{};
 
 
