@@ -4,7 +4,7 @@
 
 
 
-HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> log, 
+HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> log, const std::string &doc_root,
 	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWSlave,
 	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster, std::shared_ptr<MULTIREDISREAD>multiRedisReadSlave,
 	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
@@ -13,7 +13,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> l
 	char *publicKeyBegin, char *publicKeyEnd, int publicKeyLen, char *privateKeyBegin, char *privateKeyEnd, int privateKeyLen,
 	RSA* rsaPublic, RSA* rsaPrivate
 	)
-	:m_ioc(ioc), m_log(log),
+	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
 	m_multiSqlReadSWSlave(multiSqlReadSWSlave),m_multiSqlReadSWMaster(multiSqlReadSWMaster),m_multiRedisReadSlave(multiRedisReadSlave), 
 	m_multiRedisReadMaster(multiRedisReadMaster),m_multiRedisWriteMaster(multiRedisWriteMaster),m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut),
@@ -56,6 +56,8 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> l
 			throw std::runtime_error("rsaPublic is null");
 		if (!rsaPrivate)
 			throw std::runtime_error("rsaPrivate is null");
+		if (m_doc_root.empty())
+			throw std::runtime_error("m_doc_root is empty");
 
 		m_randomString = new char[randomStringLen];
 
@@ -1001,7 +1003,14 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 
 
 
-//获取文件  应该支持若干个文件的获取，然后mget  chunk返回
+//获取文件  
+//暂定支持每次获取一个
+//先获取文件锁存不存在，如果文件锁不存在或者值为Y则去磁盘获取（文件锁仅在初次上传文件到redis中时设置）
+
+//先用strlen 判断获取长度并判断文件是否存在于redis中
+//如果有，则根据需要设置发送缓冲区（1024大小），反复发送直至发送完毕为止
+//如果没有，则尝试读取硬盘，判断存不存在，不存在返回404状态码，存在的话获取文件大小
+//异步append文件到redis中
 void HTTPSERVICE::testGET()
 {
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
@@ -1018,16 +1027,21 @@ void HTTPSERVICE::testGET()
 	resultNumVec.clear();
 	try
 	{
-		command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
+		//如果是/，则设置一个默认路径，这里假定默认为login.html
+		command.emplace_back(std::string_view(REDISNAMESPACE::hget, REDISNAMESPACE::hgetLen));
 		if (std::equal(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), STATICSTRING::forwardSlash, STATICSTRING::forwardSlash + STATICSTRING::forwardSlashLen))
-			command.emplace_back(std::string_view(STATICSTRING::loginHtml, STATICSTRING::loginHtmlLen));
-		else
-			command.emplace_back(m_buffer->getView().target());
-		commandSize.emplace_back(2);
+			m_buffer->getView().setTarget(STATICSTRING::loginHtml, STATICSTRING::loginHtmlLen);
+		command.emplace_back(std::string_view(STATICSTRING::fileLock, STATICSTRING::fileLockLen));
+		auto targetBegin{ std::find_if(m_buffer->getView().target().cbegin(),m_buffer->getView().target().cend(),std::bind(std::not_equal_to<>(), std::placeholders::_1, '/')) };
+		m_buffer->getView().setTarget(targetBegin, m_buffer->getView().target().size() - std::distance(m_buffer->getView().target().cbegin(), targetBegin));
+		command.emplace_back(m_buffer->getView().target());
+
+
+		commandSize.emplace_back(3);
 
 		std::get<1>(*redisRequest) = 1;
 		std::get<3>(*redisRequest) = 1;
-		std::get<6>(*redisRequest) = std::bind(&HTTPSERVICE::handleTestGET, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<6>(*redisRequest) = std::bind(&HTTPSERVICE::handleTestGETFileLock, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiRedisReadSlave->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
@@ -1037,6 +1051,138 @@ void HTTPSERVICE::testGET()
 		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
 }
+
+
+//如果文件锁不存在或者值为Y则去磁盘获取（文件锁仅在初次上传文件到redis中时设置）
+void HTTPSERVICE::handleTestGETFileLock(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+
+	if (result)
+	{
+		if (em == ERRORMESSAGE::NO_KEY)
+		{
+			//要去读取文件内容了
+			handleTestGETCheckFileExist(true);
+		}
+		else
+		{
+			std::cout << "has key\n";
+
+
+		}
+	}
+	else
+	{
+		if (em == ERRORMESSAGE::REDIS_ERROR)
+		{
+			std::cout << "redis error\n";
+
+
+		}
+		else
+			handleERRORMESSAGE(em);
+	}
+}
+
+
+//如果shouldWriteRedis为true，则优先设置好文件内容进redis，再返回给客户端，
+//否则直接进行读取返回给客户端
+void HTTPSERVICE::handleTestGETCheckFileExist(bool shouldWriteRedis)
+{
+	int needLen{ m_doc_root.size() + m_buffer->getView().target().size() + 1 };
+	//检查doc_root尾部与target前面是否为/
+	
+	char *newBuffer{ m_charMemoryPool.getMemory(needLen) };
+	if(!newBuffer)
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	char *newBufferIter{ newBuffer };
+
+	std::copy(m_doc_root.cbegin(), m_doc_root.cend(), newBufferIter);
+	newBufferIter += m_doc_root.size();
+	*newBufferIter++ = '/';
+
+	std::copy(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), newBufferIter);
+	newBufferIter += m_buffer->getView().target().size();
+
+	m_buffer->setFileName(newBuffer, needLen);
+
+    //判断文件存不存在
+	std::error_code err{};
+	if(!fs::exists(m_buffer->fileName(), err))
+		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+	m_fileLen = fs::file_size(m_buffer->fileName(), err);
+
+	char *sendBuffer{};
+	unsigned int fileBodyBeginPos{};
+
+	int fileSeconds{ 99999 };
+
+	shouldWriteRedis = false;
+	if (shouldWriteRedis)
+	{
+
+
+
+	}
+	else
+	{
+		if (!makeFileFront<CUSTOMTAG>(m_buffer->fileName(), m_fileLen, m_defaultReadLen, sendBuffer, fileBodyBeginPos, [fileSeconds](char *&buffer)
+		{
+			std::copy(MAKEJSON::CacheControl, MAKEJSON::CacheControl + MAKEJSON::CacheControlLen, buffer);
+			buffer += MAKEJSON::CacheControlLen;
+			*buffer++ = ':';
+
+			std::copy(MAKEJSON::maxAge, MAKEJSON::maxAge + MAKEJSON::maxAgeLen, buffer);
+			buffer += MAKEJSON::maxAgeLen;
+
+			*buffer++ = '=';
+
+			if (fileSeconds > 99999999)
+				*buffer++ = fileSeconds / 100000000 + '0';
+			if (fileSeconds > 9999999)
+				*buffer++ = fileSeconds / 10000000 % 10 + '0';
+			if (fileSeconds > 999999)
+				*buffer++ = fileSeconds / 1000000 % 10 + '0';
+			if (fileSeconds > 99999)
+				*buffer++ = fileSeconds / 100000 % 10 + '0';
+			if (fileSeconds > 9999)
+				*buffer++ = fileSeconds / 10000 % 10 + '0';
+			if (fileSeconds > 999)
+				*buffer++ = fileSeconds / 1000 % 10 + '0';
+			if (fileSeconds > 99)
+				*buffer++ = fileSeconds / 100 % 10 + '0';
+			if (fileSeconds > 9)
+				*buffer++ = fileSeconds / 10 % 10 + '0';
+			*buffer++ = fileSeconds % 10 + '0';
+
+			*buffer++ = ',';
+
+			std::copy(MAKEJSON::publicStr, MAKEJSON::publicStr + MAKEJSON::publicStrLen, buffer);
+			buffer += MAKEJSON::publicStrLen;
+		},
+			MAKEJSON::CacheControlLen + 1 + MAKEJSON::maxAgeLen + 1 + stringLen(fileSeconds) + 1 + MAKEJSON::publicStrLen,
+			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
+			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
+			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
+			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
+		{
+			return startWrite(HTTPRESPONSEREADY::httpFileGetError, HTTPRESPONSEREADY::httpFileGetErrorLen);
+		}
+		else
+		{
+			std::cout << "yes\n";
+
+
+		}
+	}
+}
+
+
 
 
 
@@ -1052,20 +1198,14 @@ void HTTPSERVICE::handleTestGET(bool result, ERRORMESSAGE em)
 		{
 			//std::cout << "no key\n";
 
-			makeFileResPonse<REDISNOKEY>(MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
-				MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
-				MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
-				MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen);
+			
 
 		}
 		else
 		{
 			//std::cout << "has key\n";
 
-			makeFileResPonse(MAKEJSON::httpOneZero, MAKEJSON::httpOneZero + MAKEJSON::httpOneZerolen, MAKEJSON::http200,
-				MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
-				MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
-				MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen);
+			
 
 		}
 	}
@@ -4725,12 +4865,9 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 			//解决Expect:100-continue 问题			
 			if (expect_continue)
 			{
-				startWrite(HTTPRESPONSEREADY::http100Continue, HTTPRESPONSEREADY::http100ContinueLen);
+				return startWrite(HTTPRESPONSEREADY::http100Continue, HTTPRESPONSEREADY::http100ContinueLen);
 			}
-			else
-			{
-				checkMethod();
-			}
+			checkMethod();
 			break;
 
 
@@ -5218,8 +5355,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				return PARSERESULT::invaild;
 			}
 
-			index = 0;
-
 			newBufferIter = newBuffer;
 
 			for (auto const &singlePair : dataBufferVec)
@@ -5466,8 +5601,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				return PARSERESULT::invaild;
 			}
 
-			index = 0;
-
 			newBufferIter = newBuffer;
 
 			for (auto const &singlePair : dataBufferVec)
@@ -5596,7 +5729,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-
 				accumulateLen += std::distance(m_readBuffer, const_cast<char*>(paraEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -5606,8 +5738,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraEnd !newBuffer");
 					return PARSERESULT::invaild;
 				}
-
-				index = 0;
 
 				newBufferIter = newBuffer;
 
@@ -5751,8 +5881,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				return PARSERESULT::invaild;
 			}
 
-			index = 0;
-
 			newBufferIter = newBuffer;
 
 			for (auto const &singlePair : dataBufferVec)
@@ -5890,8 +6018,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				return PARSERESULT::invaild;
 			}
 
-			index = 0;
-
 			newBufferIter = newBuffer;
 
 			for (auto const &singlePair : dataBufferVec)
@@ -6010,8 +6136,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 				m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_lineEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
-
-			index = 0;
 
 			newBufferIter = newBuffer;
 
@@ -6134,8 +6258,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_headEnd !newBuffer");
 					return PARSERESULT::invaild;
 				}
-
-				index = 0;
 
 				newBufferIter = newBuffer;
 
@@ -6271,7 +6393,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			if (!dataBufferVec.empty())
 			{
-				
 				accumulateLen+= std::distance(m_readBuffer, const_cast<char*>(wordEnd));
 
 				newBuffer = m_charMemoryPool.getMemory(accumulateLen);
@@ -6281,8 +6402,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_wordEnd !newBuffer");
 					return PARSERESULT::invaild;
 				}
-
-				index = 0;
 
 				newBufferIter = newBuffer;
 
@@ -7006,7 +7125,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						{
 							if (std::distance(lineBegin, lineEnd) == 4)
 							{
-								m_messageBegin = lineEnd;
+								finalBodyBegin = finalBodyEnd = m_messageBegin = lineEnd;
+								m_buffer->getView().setBody(finalBodyBegin, 0);
 								goto check_messageComplete;
 							}
 						}
@@ -7014,7 +7134,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 						{
 							if (std::distance(dataBufferVec.front().first, dataBufferVec.front().second) + std::distance(m_readBuffer, const_cast<char*>(lineEnd)) == 4)
 							{
-								m_messageBegin = lineEnd;
+								finalBodyBegin = finalBodyEnd = m_messageBegin = lineEnd;
+								m_buffer->getView().setBody(finalBodyBegin, 0);
 								goto check_messageComplete;
 							}
 						}
@@ -7062,8 +7183,6 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 					m_log->writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd !newBuffer");
 					return PARSERESULT::invaild;
 				}
-
-				index = 0;
 
 				newBufferIter = newBuffer;
 

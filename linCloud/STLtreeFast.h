@@ -78,6 +78,10 @@ namespace MAKEJSON
 	static unsigned int ContentLengthLen{ strlen(ContentLength) };
 
 
+	static const char *ContentType{ "Content-type" };
+	static unsigned int ContentTypeLen{ strlen(ContentType) };
+
+
 	static const char *httpOneZero{ "1.0" };
 	static unsigned int httpOneZerolen{ strlen(httpOneZero) };
 
@@ -95,11 +99,20 @@ namespace MAKEJSON
 	static unsigned int AccessControlAllowOriginLen{ strlen(AccessControlAllowOrigin) };
 
 
+	static const char *CacheControl{ "Cache-Control" };
+	static unsigned int CacheControlLen{ strlen(CacheControl) };
+
+
+	static const char *maxAge{ "max_age" };
+	static unsigned int maxAgeLen{ strlen(maxAge) };
+
+
+	static const char *publicStr{ "public" };
+	static unsigned int publicStrLen{ strlen(publicStr) };
+
+
 	static const char *httpStar{ "*" };
 	static unsigned int httpStarLen{ strlen(httpStar) };
-
-	static const char *ContentType{ "Content-Type" };
-	static unsigned int ContentTypeLen{ strlen(ContentType) };
 
 
 	static const char *SetCookie{ "Set-Cookie" };
@@ -1590,7 +1603,7 @@ template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, t
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, const char *httpBodyBegin, const char *httpBodyEnd, ARG&&...args)
 	{
 			int parSize{ sizeof...(args) }, httpHeadLen{};
-			if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !calLength(httpHeadLen, args...))
+			if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !httpBodyBegin || !httpBodyEnd || !calLength(httpHeadLen, args...))
 				return false;
 
 			int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)

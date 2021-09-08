@@ -53,6 +53,8 @@
     <ClCompile Include="multiSqlWriteSWPool.cpp">
       <Filter>multiSQLWRITESWPOOL</Filter>
     </ClCompile>
+    <ClCompile Include="mainCinatra.cpp" />
+    <ClCompile Include="mainWorkflow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="publicHeader.h" />

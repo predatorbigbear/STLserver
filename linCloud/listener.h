@@ -33,8 +33,8 @@ private:
 	std::shared_ptr<io_context> m_ioc{};
 	std::unique_ptr<boost::asio::ip::tcp::acceptor> m_acceptor{};
 	std::unique_ptr<boost::asio::ip::tcp::endpoint>m_endpoint{};
-	std::shared_ptr<std::string const> m_doc_root{};
-	std::string m_tcpAddress;
+	const std::string &m_doc_root;
+	const std::string &m_tcpAddress;
 	std::string m_tempAddress;
 	boost::system::error_code m_err;
 	int m_sendSize{};

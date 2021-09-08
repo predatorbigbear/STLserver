@@ -158,6 +158,10 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, const st
 	{
 		if (socketNum <= 0)
 			throw std::runtime_error("socketNum is invaild");
+		if(doc_root.empty() || *doc_root.rbegin()=='/')
+			throw std::runtime_error("doc_root is invaild");
+		if(!fs::exists(doc_root))
+			throw std::runtime_error("doc_root is invaild path");
 		if (!m_hasSetListener && m_logPool)
 		{
 			m_listener.reset(new listener(ioPool, m_multiSqlReadSWPoolSlave,m_multiSqlReadSWPoolMaster,

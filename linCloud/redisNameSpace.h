@@ -11,6 +11,7 @@ namespace REDISNAMESPACE
 	static constexpr char* strlenStr{ "strlen" };
 	static constexpr char* numberZero{ "0" };
 	static constexpr char* mget{ "mget" };
+	static constexpr char* hget{ "hget" };
 
 
 	static constexpr int getLen{ strlen(get) };
@@ -21,5 +22,5 @@ namespace REDISNAMESPACE
 	static constexpr int age1Len{ strlen(age1) };
 	static constexpr int strlenStrLen{ strlen(strlenStr) };
 	static constexpr int numberZeroLen{ strlen(numberZero) };
-
+	static constexpr int hgetLen{ strlen(hget) };
 };

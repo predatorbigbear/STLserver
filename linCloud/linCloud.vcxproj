@@ -92,6 +92,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="FixedHttpServicePool.cpp" />
+    <ClCompile Include="mainCinatra.cpp" />
+    <ClCompile Include="mainWorkflow.cpp" />
     <ClCompile Include="multiRedisRead.cpp" />
     <ClCompile Include="multiRedisReadPool.cpp" />
     <ClCompile Include="multiRedisWrite.cpp" />
@@ -154,8 +156,8 @@
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
     </ClCompile>
     <Link>
-      <LibraryDependencies>boost_thread;boost_system;boost_filesystem;boost_regex;boost_timer;boost_chrono;boost_date_time;boost_context;ssl;crypto;pthread;mysqlclient;jemalloc</LibraryDependencies>
-      <AdditionalOptions> -pthread -ljemalloc %(AdditionalOptions)</AdditionalOptions>
+      <LibraryDependencies>boost_thread;boost_system;boost_filesystem;boost_regex;boost_timer;boost_chrono;boost_date_time;boost_context;ssl;crypto;pthread;mysqlclient;jemalloc;workflow</LibraryDependencies>
+      <AdditionalOptions> -pthread -ljemalloc -lworkflow %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>%(Link.AdditionalLibraryDirectories);/usr/lib64/mysql</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -174,8 +176,8 @@
       <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>boost_thread;boost_system;boost_filesystem;boost_regex;boost_timer;boost_chrono;boost_date_time;boost_context;ssl;crypto;pthread;mysqlclient;jemalloc</LibraryDependencies>
-      <AdditionalOptions> -pthread -ljemalloc %(AdditionalOptions)</AdditionalOptions>
+      <LibraryDependencies>boost_thread;boost_system;boost_filesystem;boost_regex;boost_timer;boost_chrono;boost_date_time;boost_context;ssl;crypto;pthread;mysqlclient;jemalloc;workflow</LibraryDependencies>
+      <AdditionalOptions> -pthread -ljemalloc -lworkflow %(AdditionalOptions)</AdditionalOptions>
       <DebuggerSymbolInformation>OmitAllSymbolInformation</DebuggerSymbolInformation>
       <AdditionalLibraryDirectories>/usr/lib64/mysql;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <VerboseOutput>false</VerboseOutput>

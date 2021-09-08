@@ -1,7 +1,7 @@
 #include "FixedHttpServicePool.h"
 
 
-FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, 
+FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, const std::string &doc_root,
 	std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolSlave,
 	std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster, std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolSlave,
 	std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
@@ -12,7 +12,7 @@ FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool
 	char *publicKeyBegin, char *publicKeyEnd, int publicKeyLen, char *privateKeyBegin, char *privateKeyEnd, int privateKeyLen,
 	RSA* rsaPublic, RSA* rsaPrivate,
 	int beginSize) :
-	m_ioPool(ioPool), m_reAccept(reAccept), m_logPool(logPool), 
+	m_ioPool(ioPool), m_reAccept(reAccept), m_logPool(logPool), m_doc_root(doc_root),
 	m_multiSqlReadSWPoolSlave(multiSqlReadSWPoolSlave), m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_multiRedisReadPoolSlave(multiRedisReadPoolSlave),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster), m_multiRedisWritePoolMaster(multiRedisWritePoolMaster), m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster),
 	m_publicKeyBegin(publicKeyBegin), m_publicKeyEnd(publicKeyEnd), m_publicKeyLen(publicKeyLen), m_privateKeyBegin(privateKeyBegin), m_privateKeyEnd(privateKeyEnd), m_privateKeyLen(privateKeyLen),
@@ -59,6 +59,8 @@ FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool
 			throw std::runtime_error("rsaPublic is null");
 		if (!rsaPrivate)
 			throw std::runtime_error("rsaPrivate is null");
+		if (doc_root.empty())
+			throw std::runtime_error("doc_root is empty");
 
 
 		m_log = m_logPool->getLogNext();
@@ -86,7 +88,7 @@ bool FixedHTTPSERVICEPOOL::ready()
 			for (i = 0; i != m_beginSize; ++i)
 			{
 				m_success = true;
-				*m_iterNow++ = std::make_shared<HTTPSERVICE>(m_ioPool->getIoNext(), m_logPool->getLogNext(), 
+				*m_iterNow++ = std::make_shared<HTTPSERVICE>(m_ioPool->getIoNext(), m_logPool->getLogNext(), m_doc_root,
 					m_multiSqlReadSWPoolSlave->getSqlNext(),
 					m_multiSqlReadSWPoolMaster->getSqlNext(), m_multiRedisReadPoolSlave->getRedisNext(),
 					m_multiRedisReadPoolMaster->getRedisNext(),

@@ -18,7 +18,7 @@
 
 struct HTTPSERVICE
 {
-	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> log, 
+	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> log, const std::string &doc_root,
 		std::shared_ptr<MULTISQLREADSW>multiSqlReadSWSlave,
 		std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster, std::shared_ptr<MULTIREDISREAD>multiRedisReadSlave,
 		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
@@ -44,6 +44,8 @@ struct HTTPSERVICE
 
 private:
 	boost::system::error_code m_err{};
+
+	const std::string &m_doc_root;
 
 	std::shared_ptr<io_context> m_ioc{};
 
@@ -167,6 +169,7 @@ private:
 
 	unsigned int m_chunkLen{};
 
+	int m_fileLen{};
 
 	int m_startPos{};
 
@@ -469,6 +472,18 @@ private:
 	template<typename T=void, typename HTTPFLAG = void, typename ENCTYPT = void, typename HTTPFUNCTION=void*>
 	void makeSendJson(STLtreeFast &st, HTTPFUNCTION httpWrite=nullptr, unsigned int httpLen=0, AES_KEY *enctyptKey=nullptr);
 
+
+	//文件名称
+	//文件长度
+	//发送buffer预分配空间
+	//发送buffer装载返回地址
+	//发送buffer http前缀大小
+	//
+	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
+	bool makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
+		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args);
+	
+
 	void run();
 
 	void checkMethod();
@@ -518,6 +533,11 @@ private:
 
 
 	void testGET();
+
+	void handleTestGETFileLock(bool result, ERRORMESSAGE em);
+
+	//是否应该将文件内容设置进reids里面
+	void handleTestGETCheckFileExist(bool shouldWriteRedis = false);
 
 	void handleTestGET(bool result, ERRORMESSAGE em);
 
@@ -661,411 +681,7 @@ private:
 
 
 
-	template<typename T =void,typename ...ARG>
-	void makeFileResPonse(const char *httpVersionBegin, const char *httpVersionEnd,
-		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args)
-	{
-		int httpHeadLen{};
-		if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !calLength(httpHeadLen, args...))
-		{
-			startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-			return;
-		}
-
-
-		if constexpr (std::is_same<T, REDISNOKEY>::value)
-		{
-			try
-			{
-				if (std::equal(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), STATICSTRING::forwardSlash, STATICSTRING::forwardSlash + STATICSTRING::forwardSlashLen))
-				{
-					if (!std::filesystem::exists(STATICSTRING::httpDefaultFile) || std::filesystem::is_directory(STATICSTRING::httpDefaultFile)
-						|| std::filesystem::is_symlink(STATICSTRING::httpDefaultFile))
-					{
-						startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-						return;
-					}
-
-					std::ifstream file(STATICSTRING::httpDefaultFile, std::ios::binary);
-					if (!file)
-					{
-						startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-						return;
-					}
-
-					size_t fileSize{ std::filesystem::file_size(STATICSTRING::httpDefaultFile) };
-
-					std::string_view contentTypeSw{ mine_type(STATICSTRING::httpDefaultFile) };
-
-					int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)
-						+ MAKEJSON::spaceLen + std::distance(httpResultBegin,httpResultEnd) + MAKEJSON::halfNewLineLen + httpHeadLen
-						+ MAKEJSON::ContentLengthLen + MAKEJSON::colonLen + stringLen(fileSize) + MAKEJSON::halfNewLineLen
-						+ MAKEJSON::ContentTypeLen + MAKEJSON::colonLen + contentTypeSw.size() + MAKEJSON::newLineLen };
-
-					int needLen{ needLength + fileSize };
-
-					char *httpBuffer{ m_sendMemoryPool.getMemory(needLen) };
-
-					if (!httpBuffer)
-					{
-						startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-						return;
-					}
-
-					char *bufferPtr{ httpBuffer };
-
-					std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, bufferPtr);
-					bufferPtr += MAKEJSON::httpFrontLen;
-
-					std::copy(httpVersionBegin, httpVersionEnd, bufferPtr);
-					bufferPtr += std::distance(httpVersionBegin, httpVersionEnd);
-
-					std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, bufferPtr);
-					bufferPtr += MAKEJSON::spaceLen;
-
-					std::copy(httpCodeBegin, httpCodeEnd, bufferPtr);
-					bufferPtr += std::distance(httpCodeBegin, httpCodeEnd);
-
-					std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, bufferPtr);
-					bufferPtr += MAKEJSON::spaceLen;
-
-					std::copy(httpResultBegin, httpResultEnd, bufferPtr);
-					bufferPtr += std::distance(httpResultBegin, httpResultEnd);
-
-					std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, bufferPtr);
-					bufferPtr += MAKEJSON::halfNewLineLen;
-
-					packAgeHttpHeader(bufferPtr, args...);
-
-					std::copy(MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, bufferPtr);
-					bufferPtr += MAKEJSON::ContentTypeLen;
-
-					std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, bufferPtr);
-					bufferPtr += MAKEJSON::colonLen;
-
-					std::copy(contentTypeSw.cbegin(), contentTypeSw.cend(), bufferPtr);
-					bufferPtr += contentTypeSw.size();
-
-					std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, bufferPtr);
-					bufferPtr += MAKEJSON::halfNewLineLen;
-
-					std::copy(MAKEJSON::ContentLength, MAKEJSON::ContentLength + MAKEJSON::ContentLengthLen, bufferPtr);
-					bufferPtr += MAKEJSON::ContentLengthLen;
-
-					std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, bufferPtr);
-					bufferPtr += MAKEJSON::colonLen;
-
-					if (fileSize > 99999999)
-						*bufferPtr++ = fileSize / 100000000 + '0';
-					if (fileSize > 9999999)
-						*bufferPtr++ = fileSize / 10000000 % 10 + '0';
-					if (fileSize > 999999)
-						*bufferPtr++ = fileSize / 1000000 % 10 + '0';
-					if (fileSize > 99999)
-						*bufferPtr++ = fileSize / 100000 % 10 + '0';
-					if (fileSize > 9999)
-						*bufferPtr++ = fileSize / 10000 % 10 + '0';
-					if (fileSize > 999)
-						*bufferPtr++ = fileSize / 1000 % 10 + '0';
-					if (fileSize > 99)
-						*bufferPtr++ = fileSize / 100 % 10 + '0';
-					if (fileSize > 9)
-						*bufferPtr++ = fileSize / 10 % 10 + '0';
-					*bufferPtr++ = fileSize % 10 + '0';
-
-					std::copy(MAKEJSON::newLine, MAKEJSON::newLine + MAKEJSON::newLineLen, bufferPtr);
-
-					bufferPtr += MAKEJSON::newLineLen;
-
-					file.read(const_cast<char*>(bufferPtr), fileSize);
-
-					//bufferPtr  到 bufferPtr+fileSize  发送到redis 进行set操作
-
-
-					std::shared_ptr<redisWriteTypeSW> redisWriteRequest{ m_multiRedisWriteSWVec[0] };
-
-					std::vector<std::string_view> &commandVec{ std::get<0>(*redisWriteRequest).get() };
-
-					std::get<1>(*redisWriteRequest) = 1;
-
-					std::vector<unsigned int> &commandSizeVec{ std::get<2>(*redisWriteRequest).get() };
-
-					commandVec.clear();
-					commandSizeVec.clear();
-					commandVec.emplace_back(std::string_view(REDISNAMESPACE::setnx, REDISNAMESPACE::setnxLen));
-					commandVec.emplace_back(std::string_view(STATICSTRING::loginHtml, STATICSTRING::loginHtmlLen));
-					commandVec.emplace_back(std::string_view(bufferPtr, fileSize));
-					commandSizeVec.emplace_back(3);
-
-
-					m_multiRedisWriteMaster->insertRedisRequest(redisWriteRequest);
-
-					startWrite(httpBuffer, needLen);
-				}
-				else
-				{
-
-					/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-					if (!std::filesystem::exists(m_buffer->getView().target()) || std::filesystem::is_directory(m_buffer->getView().target())
-						|| std::filesystem::is_symlink(m_buffer->getView().target()))
-					{
-						startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-						return;
-					}
-
-					int FileNameSize{ STATICSTRING::httpDirLen + 1 + m_buffer->getView().target().size() + 1 };
-					char *fileName{ m_charMemoryPool.getMemory(FileNameSize) };
-					if (!fileName)
-					{
-						startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-						return;
-					}
-
-					char *fileNamePtr{ fileName };
-					std::copy(STATICSTRING::httpDir, STATICSTRING::httpDir + STATICSTRING::httpDirLen, fileNamePtr);
-					fileNamePtr += STATICSTRING::httpDirLen;
-					*fileNamePtr++ = '/';
-					std::copy(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), fileNamePtr);
-					fileNamePtr += m_buffer->getView().target().size();
-					*fileNamePtr = 0;
-
-					std::ifstream file(fileName, std::ios::binary);
-					if (!file)
-					{
-						startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-						return;
-					}
-
-					size_t fileSize{ std::filesystem::file_size(fileName) };
-
-					std::string_view contentTypeSw{ mine_type(m_buffer->getView().target()) };
-
-					int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)
-						+ MAKEJSON::spaceLen + std::distance(httpResultBegin,httpResultEnd) + MAKEJSON::halfNewLineLen + httpHeadLen
-						+ MAKEJSON::ContentLengthLen + MAKEJSON::colonLen + stringLen(fileSize) + MAKEJSON::halfNewLineLen
-						+ MAKEJSON::ContentTypeLen + MAKEJSON::colonLen + contentTypeSw.size() + MAKEJSON::newLineLen };
-
-					int needLen{ needLength + fileSize };
-
-					
-					char *httpBuffer{ m_sendMemoryPool.getMemory(needLen) };
-
-					if (!httpBuffer)
-					{
-						startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-						return;
-					}
-
-					char *bufferPtr{ httpBuffer };
-
-					std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, bufferPtr);
-					bufferPtr += MAKEJSON::httpFrontLen;
-
-					std::copy(httpVersionBegin, httpVersionEnd, bufferPtr);
-					bufferPtr += std::distance(httpVersionBegin, httpVersionEnd);
-
-					std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, bufferPtr);
-					bufferPtr += MAKEJSON::spaceLen;
-
-					std::copy(httpCodeBegin, httpCodeEnd, bufferPtr);
-					bufferPtr += std::distance(httpCodeBegin, httpCodeEnd);
-
-					std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, bufferPtr);
-					bufferPtr += MAKEJSON::spaceLen;
-
-					std::copy(httpResultBegin, httpResultEnd, bufferPtr);
-					bufferPtr += std::distance(httpResultBegin, httpResultEnd);
-
-					std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, bufferPtr);
-					bufferPtr += MAKEJSON::halfNewLineLen;
-
-					packAgeHttpHeader(bufferPtr, args...);
-
-					std::copy(MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, bufferPtr);
-					bufferPtr += MAKEJSON::ContentTypeLen;
-
-					std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, bufferPtr);
-					bufferPtr += MAKEJSON::colonLen;
-
-					std::copy(contentTypeSw.cbegin(), contentTypeSw.cend(), bufferPtr);
-					bufferPtr += contentTypeSw.size();
-
-					std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, bufferPtr);
-					bufferPtr += MAKEJSON::halfNewLineLen;
-
-					std::copy(MAKEJSON::ContentLength, MAKEJSON::ContentLength + MAKEJSON::ContentLengthLen, bufferPtr);
-					bufferPtr += MAKEJSON::ContentLengthLen;
-
-					std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, bufferPtr);
-					bufferPtr += MAKEJSON::colonLen;
-
-					if (fileSize > 99999999)
-						*bufferPtr++ = fileSize / 100000000 + '0';
-					if (fileSize > 9999999)
-						*bufferPtr++ = fileSize / 10000000 % 10 + '0';
-					if (fileSize > 999999)
-						*bufferPtr++ = fileSize / 1000000 % 10 + '0';
-					if (fileSize > 99999)
-						*bufferPtr++ = fileSize / 100000 % 10 + '0';
-					if (fileSize > 9999)
-						*bufferPtr++ = fileSize / 10000 % 10 + '0';
-					if (fileSize > 999)
-						*bufferPtr++ = fileSize / 1000 % 10 + '0';
-					if (fileSize > 99)
-						*bufferPtr++ = fileSize / 100 % 10 + '0';
-					if (fileSize > 9)
-						*bufferPtr++ = fileSize / 10 % 10 + '0';
-					*bufferPtr++ = fileSize % 10 + '0';
-
-					std::copy(MAKEJSON::newLine, MAKEJSON::newLine + MAKEJSON::newLineLen, bufferPtr);
-
-					bufferPtr += MAKEJSON::newLineLen;
-
-					file.read(const_cast<char*>(bufferPtr), fileSize);
-
-					//bufferPtr  到 bufferPtr+fileSize  发送到redis 进行set操作
-
-
-					std::shared_ptr<redisWriteTypeSW> redisWriteRequest{ m_multiRedisWriteSWVec[0] };
-
-					std::vector<std::string_view> &commandVec{ std::get<0>(*redisWriteRequest).get() };
-
-					std::get<1>(*redisWriteRequest) = 1;
-
-					std::vector<unsigned int> &commandSizeVec{ std::get<2>(*redisWriteRequest).get() };
-
-
-					commandVec.clear();
-					commandVec.emplace_back(std::string_view(REDISNAMESPACE::setnx, REDISNAMESPACE::setnxLen));
-					commandVec.emplace_back(m_buffer->getView().target());
-					commandVec.emplace_back(std::string_view(bufferPtr, fileSize));
-
-					m_multiRedisWriteMaster->insertRedisRequest(redisWriteRequest);
-
-					startWrite(httpBuffer, needLen);
-
-				}
-			}
-			catch (const std::exception &e)
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		
-		if constexpr (std::is_same<T, void>::value)
-		{
-
-			std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
-
-			std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
-
-			std::string_view &fileKey{ resultVec[0] };
-
-			size_t fileSize{ fileKey.size() };
-
-			std::string_view contentTypeSw;
-
-			if (std::equal(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), STATICSTRING::forwardSlash, STATICSTRING::forwardSlash + STATICSTRING::forwardSlashLen))
-			{
-				std::string_view contentTemp{ mine_type(std::string_view(STATICSTRING::loginHtml, STATICSTRING::loginHtmlLen)) };
-				contentTypeSw.swap(contentTemp);
-			}
-			else
-			{
-				std::string_view contentTemp{ mine_type(m_buffer->getView().target()) };
-				contentTypeSw.swap(contentTemp);
-			}	
-
-
-			int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)
-					+ MAKEJSON::spaceLen + std::distance(httpResultBegin,httpResultEnd) + MAKEJSON::halfNewLineLen + httpHeadLen
-					+ MAKEJSON::ContentLengthLen + MAKEJSON::colonLen + stringLen(fileSize) + MAKEJSON::halfNewLineLen
-					+ MAKEJSON::ContentTypeLen + MAKEJSON::colonLen + contentTypeSw.size() + MAKEJSON::newLineLen };
-
-			int needLen{ needLength + fileSize };
-
-			
-			char *httpBuffer{ m_sendMemoryPool.getMemory(needLen) };
-
-			if (!httpBuffer)
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-				return;
-			}
-
-			char *bufferPtr{ httpBuffer };
-
-			std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, bufferPtr);
-			bufferPtr += MAKEJSON::httpFrontLen;
-
-			std::copy(httpVersionBegin, httpVersionEnd, bufferPtr);
-			bufferPtr += std::distance(httpVersionBegin, httpVersionEnd);
-
-			std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, bufferPtr);
-			bufferPtr += MAKEJSON::spaceLen;
-
-			std::copy(httpCodeBegin, httpCodeEnd, bufferPtr);
-			bufferPtr += std::distance(httpCodeBegin, httpCodeEnd);
-
-			std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, bufferPtr);
-			bufferPtr += MAKEJSON::spaceLen;
-
-			std::copy(httpResultBegin, httpResultEnd, bufferPtr);
-			bufferPtr += std::distance(httpResultBegin, httpResultEnd);
-
-			std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, bufferPtr);
-			bufferPtr += MAKEJSON::halfNewLineLen;
-
-			packAgeHttpHeader(bufferPtr, args...);
-
-			std::copy(MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, bufferPtr);
-			bufferPtr += MAKEJSON::ContentTypeLen;
-
-			std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, bufferPtr);
-			bufferPtr += MAKEJSON::colonLen;
-
-			std::copy(contentTypeSw.cbegin(), contentTypeSw.cend(), bufferPtr);
-			bufferPtr += contentTypeSw.size();
-
-			std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, bufferPtr);
-			bufferPtr += MAKEJSON::halfNewLineLen;
-
-			std::copy(MAKEJSON::ContentLength, MAKEJSON::ContentLength + MAKEJSON::ContentLengthLen, bufferPtr);
-			bufferPtr += MAKEJSON::ContentLengthLen;
-
-			std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, bufferPtr);
-			bufferPtr += MAKEJSON::colonLen;
-
-			if (fileSize > 99999999)
-				*bufferPtr++ = fileSize / 100000000 + '0';
-			if (fileSize > 9999999)
-				*bufferPtr++ = fileSize / 10000000 % 10 + '0';
-			if (fileSize > 999999)
-				*bufferPtr++ = fileSize / 1000000 % 10 + '0';
-			if (fileSize > 99999)
-				*bufferPtr++ = fileSize / 100000 % 10 + '0';
-			if (fileSize > 9999)
-				*bufferPtr++ = fileSize / 10000 % 10 + '0';
-			if (fileSize > 999)
-				*bufferPtr++ = fileSize / 1000 % 10 + '0';
-			if (fileSize > 99)
-				*bufferPtr++ = fileSize / 100 % 10 + '0';
-			if (fileSize > 9)
-				*bufferPtr++ = fileSize / 10 % 10 + '0';
-			*bufferPtr++ = fileSize % 10 + '0';
-
-			std::copy(MAKEJSON::newLine, MAKEJSON::newLine + MAKEJSON::newLineLen, bufferPtr);
-
-			bufferPtr += MAKEJSON::newLineLen;
-
-			std::copy(fileKey.cbegin(), fileKey.cend(), bufferPtr);
-
-			startWrite(httpBuffer, needLen);
-
-
-        }
-	}
+	
 
 
 	template<typename HEADERTYPE>
@@ -1168,6 +784,124 @@ inline void HTTPSERVICE::makeSendJson(STLtreeFast & st, HTTPFUNCTION httpWrite, 
 		}
 	}
 }
+
+
+
+
+template<typename HTTPFLAG, typename HTTPFUNCTION, typename ...ARG>
+inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned int fileLen, const unsigned int assignLen, char *& resultPtr, unsigned int & resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char * httpVersionBegin, const char * httpVersionEnd, const char * httpCodeBegin, const char * httpCodeEnd, const char * httpResultBegin, const char * httpResultEnd, ARG && ...args)
+{
+	int parSize{ sizeof...(args) }, httpHeadLen{};
+	if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !calLength(httpHeadLen, args...))
+		return false;
+
+	int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)
+		+ MAKEJSON::spaceLen + std::distance(httpResultBegin,httpResultEnd) + MAKEJSON::halfNewLineLen + httpHeadLen + MAKEJSON::ContentLengthLen + MAKEJSON::colonLen };
+
+	if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
+	{
+		needLength += httpLen + MAKEJSON::halfNewLineLen;
+	}
+
+	string_view mineTypeStr{ mine_type(fileName) };
+
+	unsigned int needFrontLen{ needLength + stringLen(fileLen) + MAKEJSON::newLineLen + MAKEJSON::ContentTypeLen + 1 + mineTypeStr.size() + MAKEJSON::halfNewLineLen };
+
+	//如果预申请空间连前缀空间都不能装载，则返回失败
+	if (assignLen < needFrontLen)
+		return false;
+
+	char *newResultPtr{ m_sendMemoryPool.getMemory(assignLen) };
+
+	if (!newResultPtr)
+		return false;
+
+	resultPtr = newResultPtr;
+
+	std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, newResultPtr);
+	newResultPtr += MAKEJSON::httpFrontLen;
+
+
+	std::copy(httpVersionBegin, httpVersionEnd, newResultPtr);
+	newResultPtr += std::distance(httpVersionBegin, httpVersionEnd);
+
+
+	std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, newResultPtr);
+	newResultPtr += MAKEJSON::spaceLen;
+
+
+	std::copy(httpCodeBegin, httpCodeEnd, newResultPtr);
+	newResultPtr += std::distance(httpCodeBegin, httpCodeEnd);
+
+
+	std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, newResultPtr);
+	newResultPtr += MAKEJSON::spaceLen;
+
+
+	std::copy(httpResultBegin, httpResultEnd, newResultPtr);
+	newResultPtr += std::distance(httpResultBegin, httpResultEnd);
+
+
+	std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+	newResultPtr += MAKEJSON::halfNewLineLen;
+
+	packAgeHttpHeader(newResultPtr, args...);
+
+	std::copy(MAKEJSON::ContentLength, MAKEJSON::ContentLength + MAKEJSON::ContentLengthLen, newResultPtr);
+	newResultPtr += MAKEJSON::ContentLengthLen;
+
+
+	std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, newResultPtr);
+	newResultPtr += MAKEJSON::colonLen;
+
+
+	if (fileLen > 99999999)
+		*newResultPtr++ = fileLen / 100000000 + '0';
+	if (fileLen > 9999999)
+		*newResultPtr++ = fileLen / 10000000 % 10 + '0';
+	if (fileLen > 999999)
+		*newResultPtr++ = fileLen / 1000000 % 10 + '0';
+	if (fileLen > 99999)
+		*newResultPtr++ = fileLen / 100000 % 10 + '0';
+	if (fileLen > 9999)
+		*newResultPtr++ = fileLen / 10000 % 10 + '0';
+	if (fileLen > 999)
+		*newResultPtr++ = fileLen / 1000 % 10 + '0';
+	if (fileLen > 99)
+		*newResultPtr++ = fileLen / 100 % 10 + '0';
+	if (fileLen > 9)
+		*newResultPtr++ = fileLen / 10 % 10 + '0';
+	*newResultPtr++ = fileLen % 10 + '0';
+
+	std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+	newResultPtr += MAKEJSON::halfNewLineLen;
+
+	std::copy(MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, newResultPtr);
+	newResultPtr += MAKEJSON::ContentTypeLen;
+
+	*newResultPtr++ = ':';
+
+	std::copy(mineTypeStr.cbegin(), mineTypeStr.cend(), newResultPtr);
+	newResultPtr += mineTypeStr.size();
+
+	if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
+	{
+		std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+		newResultPtr += MAKEJSON::halfNewLineLen;
+		httpWrite(newResultPtr);
+	}
+
+	std::copy(MAKEJSON::newLine, MAKEJSON::newLine + MAKEJSON::newLineLen, newResultPtr);
+	newResultPtr += MAKEJSON::newLineLen;
+
+	resultLen = std::distance(resultPtr, newResultPtr);
+
+	return true;
+}
+
+
+
+
 
 template<typename VERIFYTYPE>
 inline void HTTPSERVICE::testVerify()

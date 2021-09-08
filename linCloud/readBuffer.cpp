@@ -75,6 +75,17 @@ size_t ReadBuffer::getBodyParaLen()
 	return m_bodyParaLen;
 }
 
+void ReadBuffer::setFileName(const char * ch, const size_t len)
+{
+	std::string_view temp{ ch,len };
+	m_fileName.swap(temp);
+}
+
+std::string_view ReadBuffer::fileName()
+{
+	return m_fileName;
+}
+
 
 
 

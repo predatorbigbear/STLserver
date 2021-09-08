@@ -14,7 +14,7 @@
 
 struct FixedHTTPSERVICEPOOL
 {
-	FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool,
+	FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, const std::string &doc_root,
 		std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolSlave,
 		std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster, std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolSlave,
 		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
@@ -38,6 +38,8 @@ private:
 	std::shared_ptr<io_context> m_ioc{};
 
 	std::mutex m_listMutex;
+
+	const std::string &m_doc_root;
 
 	std::unique_ptr<std::shared_ptr<HTTPSERVICE>[]> m_bufferList{};
 	std::shared_ptr<HTTPSERVICE> *m_iterNow{};

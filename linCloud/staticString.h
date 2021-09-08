@@ -33,10 +33,6 @@ namespace STATICSTRING
 
 	static const char *forwardSlash{ "/" };
 
-	static const char *httpDir{ "/home/webHttp/httpDir" };
-
-	static const char *httpDefaultFile{ "/home/webHttp/httpDir/login.html" };
-
 	static const char *loginHtml{ "login.html" };
 
 	static const char *result{ "result" };
@@ -170,7 +166,7 @@ namespace STATICSTRING
 
 	static constexpr char *doubleQuotation{ "\"" };
 
-
+	static constexpr char *fileLock{ "fileLock" };
 
 
 
@@ -209,10 +205,6 @@ namespace STATICSTRING
 	static size_t redisWordLen{ strlen(redisWord) };
 
 	static size_t forwardSlashLen{ strlen(forwardSlash) };
-
-	static size_t httpDirLen{ strlen(httpDir) };
-
-	static size_t httpDefaultFileLen{ strlen(httpDefaultFile) };
 
 	static size_t loginHtmlLen{ strlen(loginHtml) };
 
@@ -327,5 +319,7 @@ namespace STATICSTRING
 	static constexpr size_t valueArrayLen{ strlen(valueArray) };
 
 	static constexpr size_t doubleQuotationLen{ strlen(doubleQuotation) };
+
+	static constexpr size_t fileLockLen{ strlen(fileLock) };
 
 };

@@ -40,7 +40,7 @@ int main()
 
 		m1.setMultiSqlReadSW(ioPool, "127.0.0.1", "dengdanjun", "13528223610abc,./", "serversql", "3306", true, 100, 1);       //Ö÷sql¶ÁÈ¡
 
-		m1.setHTTPServer(ioPool, "0.0.0.0:8085", "/home/deng", 1024, 60);
+		m1.setHTTPServer(ioPool, "0.0.0.0:8085", "/home/webHttp/httpDir", 1024, 60);
 
 		ioPool->run();
 	}
@@ -52,6 +52,7 @@ int main()
 
 	return 0;
 }
+
 
 
 

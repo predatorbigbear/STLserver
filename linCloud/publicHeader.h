@@ -858,7 +858,7 @@ template<typename T>
 static T stringLen(const T num)
 {
 	if (num <= static_cast<T>(0))
-		return static_cast<T>(0);
+		return static_cast<T>(1);
 	static T testNum, result, ten{ 10 };
 	testNum = num, result = 1;
 	while (testNum /= ten)
@@ -1393,6 +1393,9 @@ namespace HTTPRESPONSEREADY
 
 	static const char *httpNoMessage{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:10\r\n\r\nNo message" };
 	static size_t httpNoMessageLen{ strlen(httpNoMessage) };
+
+	static const char *httpFileGetError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFile get error" };
+	static size_t httpFileGetErrorLen{ strlen(httpFileGetError) };
 
 
 	static const char *http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };

@@ -31,6 +31,10 @@ struct ReadBuffer
 
 	size_t getBodyParaLen();
 
+	void setFileName(const char *ch, const size_t len);
+
+	std::string_view fileName();
+
 private:
 	std::shared_ptr<boost::asio::ip::tcp::socket> m_sock{};
 	std::unique_ptr<char[]> m_readBuffer{ new char[1024] };
@@ -40,6 +44,7 @@ private:
 	size_t m_bodyParaLen{100};
 	std::unique_ptr<const char*[]>m_bodyPara{ new const char*[m_bodyParaLen] };
 
+	std::string_view m_fileName;
 	
 	boost::system::error_code m_err{};
 

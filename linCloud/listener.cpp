@@ -12,21 +12,19 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<MULTIS
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), 
 	m_publicKeyBegin(publicKeyBegin),m_publicKeyEnd(publicKeyEnd),m_publicKeyLen(publicKeyLen),m_privateKeyBegin(privateKeyBegin),m_privateKeyEnd(privateKeyEnd),m_privateKeyLen(privateKeyLen),
-	m_rsaPublic(rsaPublic), m_rsaPrivate(rsaPrivate),
+	m_rsaPublic(rsaPublic), m_rsaPrivate(rsaPrivate), m_doc_root(doc_root), m_tcpAddress(tcpAddress),
 	m_multiSqlReadSWPoolSlave(multiSqlReadSWPoolSlave), m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_multiRedisReadPoolSlave(multiRedisReadPoolSlave),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
 {
-	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 
+	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0
 		&& m_multiSqlReadSWPoolSlave && m_multiSqlReadSWPoolMaster && m_multiRedisReadPoolSlave
 		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster
 		&& m_publicKeyBegin && m_publicKeyEnd && m_publicKeyLen && m_privateKeyBegin && m_privateKeyEnd && m_privateKeyLen
 		&& m_rsaPublic && m_rsaPrivate
 		)
 	{
-		m_doc_root.reset(new std::string const(doc_root));
 		m_logPool = logPool;
 		m_log = m_logPool->getLogNext();
-		m_tcpAddress.assign(tcpAddress);
 
 		m_startFunction.reset(new std::function<void()>(std::bind(&listener::reAccept, this)));
 		m_clearFunction.reset(new std::function<void(std::shared_ptr<HTTPSERVICE>)>(std::bind(&listener::getBackHTTPSERVICE, this, std::placeholders::_1)));
@@ -34,7 +32,7 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<MULTIS
         // ulimit -a
 
 		
-		m_httpServicePool.reset(new FixedHTTPSERVICEPOOL(m_ioPool, m_multiSqlReadSWPoolSlave, m_multiSqlReadSWPoolMaster,
+		m_httpServicePool.reset(new FixedHTTPSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolSlave, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolSlave, m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
 			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeOut,
 			m_publicKeyBegin, m_publicKeyEnd, m_publicKeyLen, m_privateKeyBegin, m_privateKeyEnd, m_privateKeyLen,
