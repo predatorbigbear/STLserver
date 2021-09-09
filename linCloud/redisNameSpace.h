@@ -4,6 +4,7 @@
 namespace REDISNAMESPACE
 {
 	static constexpr char* get{ "get" };
+	static constexpr char* set{ "set" };
 	static constexpr char* setnx{ "setnx" };
 	static constexpr char* foo{ "foo" };
 	static constexpr char* age{ "age" };
@@ -15,6 +16,7 @@ namespace REDISNAMESPACE
 
 
 	static constexpr int getLen{ strlen(get) };
+	static constexpr int setLen{ strlen(set) };
 	static constexpr int mgetLen{ strlen(mget) };
 	static constexpr int setnxLen{ strlen(setnx) };
 	static constexpr int fooLen{ strlen(foo) };

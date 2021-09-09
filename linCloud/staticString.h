@@ -166,7 +166,16 @@ namespace STATICSTRING
 
 	static constexpr char *doubleQuotation{ "\"" };
 
-	static constexpr char *fileLock{ "fileLock" };
+	static const char *fileLock{ "fileLock" };
+
+	static const char *strlenStr{ "strlen" };
+
+	static const char *lock{ "lock" };
+
+	static const char *EX{ "EX" };
+
+	static const char *NX{ "NX" };
+
 
 
 
@@ -290,6 +299,8 @@ namespace STATICSTRING
 
 	static size_t jsonTypeLen{ strlen(jsonType) };
 
+
+
 	static constexpr size_t keyValueLen{ strlen(keyValue) };
 
 	static constexpr size_t doubleValueLen{ strlen(doubleValue) };
@@ -320,6 +331,14 @@ namespace STATICSTRING
 
 	static constexpr size_t doubleQuotationLen{ strlen(doubleQuotation) };
 
-	static constexpr size_t fileLockLen{ strlen(fileLock) };
+	static size_t fileLockLen{ strlen(fileLock) };
+
+	static size_t strlenStrLen{ strlen(strlenStr) };
+
+	static size_t lockLen{ strlen(lock) };
+
+	static size_t EXLen{ strlen(EX) };
+
+	static size_t NXLen{ strlen(NX) };
 
 };

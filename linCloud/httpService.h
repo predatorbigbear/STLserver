@@ -169,8 +169,6 @@ private:
 
 	unsigned int m_chunkLen{};
 
-	int m_fileLen{};
-
 	int m_startPos{};
 
 	//为提高性能，分配的读取buffer应满足能装载大部分包括body部分的长度，这样大部分情况下仅以指针指向，
@@ -317,6 +315,15 @@ private:
 
 	AES_KEY aes_encryptkey;                  //加密AES
 	AES_KEY aes_decryptkey;                  //解密AES
+
+
+	//文件大小
+	int m_fileSize{};
+	
+	std::ifstream m_file{};
+
+	int m_getStatus{};
+
 
 	std::string_view m_message{};
 
@@ -536,8 +543,24 @@ private:
 
 	void handleTestGETFileLock(bool result, ERRORMESSAGE em);
 
-	//是否应该将文件内容设置进reids里面
-	void handleTestGETCheckFileExist(bool shouldWriteRedis = false);
+	//处理get状态万能函数
+	void GetStateMachine();
+
+	//生成完整文件路径
+	bool makeFilePath(std::string_view fileName);
+
+	//获取文件大小
+	bool getFileSize(std::string_view fileName);
+
+	bool openFile(std::string_view fileName);
+
+	//生成http回复消息前半部分
+	bool makeHttpFront(std::string_view fileName);
+
+	//设置文件锁
+	void setFileLock(std::string_view fileName,const int fileSize);
+
+	void handleSetFileLock(bool result, ERRORMESSAGE em);
 
 	void handleTestGET(bool result, ERRORMESSAGE em);
 

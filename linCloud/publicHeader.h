@@ -162,11 +162,6 @@ enum VerifyDataPos
 
 	customPos2End = 13
 
-
-
-
-
-
 };
 
 
@@ -180,9 +175,6 @@ enum VerifyFlag
 	verifyFail,
 
 	verifySession
-
-
-
 
 };
 
@@ -236,8 +228,6 @@ namespace HTTPHEADERSPACE
 		boundary_Name = 74,
 		boundary_Filename = 76,
 		boundary_ContentType = 78,
-
-
 
 		HTTPHEADERLEN = 80
 	};
@@ -430,6 +420,39 @@ enum HTTPBOUNDARYHEADERLEN
 	Content_TypeLen = 12,
 
 	Content_DispositionLen = 19
+};
+
+
+
+
+enum GETMETHODSTATUS
+{
+	//直接去磁盘读取
+	// 初始状态
+	//生成filePath 判断文件存在并进行打开文件  生成http前缀  循环读取文件   发送客户端     
+	makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient,
+
+	//直接去磁盘读取  上传reids 
+	//生成filePath 判断文件存在并进行打开文件  设置redis文件锁  生成http前缀   循环读取文件   上传redis  发送客户端 
+	makeFilePath_getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient,
+
+	getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient,
+
+	openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient,
+
+	setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient,
+
+	//生成http前缀  循环从redis中获取文件   发送客户端 
+	makeHttpFront_readFromRedis_sendClient,
+
+	getFileSize_openFile_makeHttpFront_readFromDisk_sendClient,
+
+	openFile_makeHttpFront_readFromDisk_sendClient,
+
+	makeHttpFront_readFromDisk_sendClient,
+
+	readFromDisk_sendClient
+
 };
 
 
@@ -1428,6 +1451,22 @@ namespace HTTPRESPONSEREADY
 
 	static const char *httpFailToVerify{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFail to verify" };
 	static size_t httpFailToVerifyLen{ strlen(httpFailToVerify) };
+
+	static const char *httpFailToMakeFilePath{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:21\r\n\r\nFail to make filePath" };
+	static size_t httpFailToMakeFilePathLen{ strlen(httpFailToMakeFilePath) };
+
+	static const char *httpFailToOpenFile{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nFail to open file" };
+	static size_t httpFailToOpenFileLen{ strlen(httpFailToOpenFile) };
+
+
+	static const char *httpFailToGetFileSize{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:21\r\n\r\nFail to get file size" };
+	static size_t httpFailToGetFileSizeLen{ strlen(httpFailToGetFileSize) };
+
+	static const char *httpFailToMakeHttpFront{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nFail to make httpFront" };
+	static size_t httpFailToMakeHttpFrontLen{ strlen(httpFailToMakeHttpFront) };
+
+
+
 
 	//用于对100-continue做出处理
 	//https://blog.csdn.net/taoshihan/article/details/104273017?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link

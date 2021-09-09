@@ -1003,8 +1003,20 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 
 
 
+//执行命令string_view集
+//执行命令个数
+//每条命令的词语个数（方便根据redis RESP进行拼接）
+//获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
+
+//返回结果string_view
+//每个结果的词语个数
+
 //获取文件  
 //暂定支持每次获取一个
+//1 同时获取文件锁与文件长度
+//2 若文件锁存在，则直接去磁盘获取
+//3 若文件锁不存在，但长度为0 也直接去磁盘获取
+//
 //先获取文件锁存不存在，如果文件锁不存在或者值为Y则去磁盘获取（文件锁仅在初次上传文件到redis中时设置）
 
 //先用strlen 判断获取长度并判断文件是否存在于redis中
@@ -1028,19 +1040,36 @@ void HTTPSERVICE::testGET()
 	try
 	{
 		//如果是/，则设置一个默认路径，这里假定默认为login.html
-		command.emplace_back(std::string_view(REDISNAMESPACE::hget, REDISNAMESPACE::hgetLen));
+		command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
 		if (std::equal(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), STATICSTRING::forwardSlash, STATICSTRING::forwardSlash + STATICSTRING::forwardSlashLen))
 			m_buffer->getView().setTarget(STATICSTRING::loginHtml, STATICSTRING::loginHtmlLen);
-		command.emplace_back(std::string_view(STATICSTRING::fileLock, STATICSTRING::fileLockLen));
-		auto targetBegin{ std::find_if(m_buffer->getView().target().cbegin(),m_buffer->getView().target().cend(),std::bind(std::not_equal_to<>(), std::placeholders::_1, '/')) };
-		m_buffer->getView().setTarget(targetBegin, m_buffer->getView().target().size() - std::distance(m_buffer->getView().target().cbegin(), targetBegin));
+		else
+		{
+			auto targetBegin{ std::find_if(m_buffer->getView().target().cbegin(),m_buffer->getView().target().cend(),std::bind(std::not_equal_to<>(), std::placeholders::_1, '/')) };
+			m_buffer->getView().setTarget(targetBegin, m_buffer->getView().target().size() - std::distance(m_buffer->getView().target().cbegin(), targetBegin));
+		}
+		int needLen{ STATICSTRING::fileLockLen + 1 + m_buffer->getView().target().size() };
+		char *newBuffer{ m_charMemoryPool.getMemory(needLen) }, *newBufferIter{};
+
+		if(!newBuffer)
+			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+		newBufferIter = newBuffer;
+		std::copy(STATICSTRING::fileLock, STATICSTRING::fileLock + STATICSTRING::fileLockLen, newBufferIter);
+		newBufferIter += STATICSTRING::fileLockLen;
+		*newBufferIter++ = ':';
+		std::copy(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), newBufferIter);
+
+		command.emplace_back(std::string_view(newBuffer, needLen));
+		commandSize.emplace_back(2);
+		
+		command.emplace_back(std::string_view(STATICSTRING::strlenStr, STATICSTRING::strlenStrLen));
 		command.emplace_back(m_buffer->getView().target());
+		commandSize.emplace_back(2);
 
 
-		commandSize.emplace_back(3);
-
-		std::get<1>(*redisRequest) = 1;
-		std::get<3>(*redisRequest) = 1;
+		std::get<1>(*redisRequest) = 2;
+		std::get<3>(*redisRequest) = 2;
 		std::get<6>(*redisRequest) = std::bind(&HTTPSERVICE::handleTestGETFileLock, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiRedisReadSlave->insertRedisRequest(redisRequest))
@@ -1052,35 +1081,70 @@ void HTTPSERVICE::testGET()
 	}
 }
 
-
+//返回结果string_view
+//每个结果的词语个数
 //如果文件锁不存在或者值为Y则去磁盘获取（文件锁仅在初次上传文件到redis中时设置）
 void HTTPSERVICE::handleTestGETFileLock(bool result, ERRORMESSAGE em)
 {
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
 	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
 	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+	
+	bool isFileLock{ false };
+	int filePos{};
+	int index{ -1 }, num{ 1 };
 
 	if (result)
-	{
-		if (em == ERRORMESSAGE::NO_KEY)
+	{	
+		if (resultNumVec[filePos])
 		{
-			//要去读取文件内容了
-			handleTestGETCheckFileExist(true);
+			++filePos;
+			isFileLock = true;
+		}
+
+		m_fileSize = std::accumulate(std::make_reverse_iterator(resultVec[filePos].cend()), std::make_reverse_iterator(resultVec[filePos].cbegin()), 0, [&index, &num](auto &sum, char ch)
+		{
+			if (++index)num *= 10;
+			return sum += (ch - '0')*num;
+		});
+
+
+		// 设置文件锁
+		// 设置发送文件http前缀
+		// 
+		//如果isFileLock为true，说明有客户端正在将此文件上传redis中，则直接去磁盘读取
+		//如果isFileLock为false，则分开判断：
+		//1 如果fileLen不为0，说明文件在redis中已存在，则去redis中获取
+		//2 如果fileLen为0，则去读取文件大小，根据文件大小/预定义缓存大小 * 1秒设置reids文件锁超时
+
+		if (isFileLock)
+		{
+			//直接去磁盘读取
+			m_getStatus = GETMETHODSTATUS::makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient;
 		}
 		else
 		{
-			std::cout << "has key\n";
-
-
+			if (m_fileSize)
+			{
+				//直接去redis读取
+				m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromRedis_sendClient;
+			}
+			else
+			{
+				//直接去磁盘读取
+				//并且要上传redis
+				m_getStatus = GETMETHODSTATUS::makeFilePath_getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
+			}
 		}
+		GetStateMachine();
 	}
 	else
 	{
 		if (em == ERRORMESSAGE::REDIS_ERROR)
 		{
-			std::cout << "redis error\n";
-
-
+			//直接去磁盘读取
+			m_getStatus = GETMETHODSTATUS::makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient;
+			GetStateMachine();
 		}
 		else
 			handleERRORMESSAGE(em);
@@ -1088,16 +1152,88 @@ void HTTPSERVICE::handleTestGETFileLock(bool result, ERRORMESSAGE em)
 }
 
 
-//如果shouldWriteRedis为true，则优先设置好文件内容进redis，再返回给客户端，
-//否则直接进行读取返回给客户端
-void HTTPSERVICE::handleTestGETCheckFileExist(bool shouldWriteRedis)
+
+
+
+void HTTPSERVICE::GetStateMachine()
 {
-	int needLen{ m_doc_root.size() + m_buffer->getView().target().size() + 1 };
+	switch (m_getStatus)
+	{
+	case GETMETHODSTATUS::makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient:
+		if(!makeFilePath(m_buffer->getView().target()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
+		m_getStatus = GETMETHODSTATUS::getFileSize_openFile_makeHttpFront_readFromDisk_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::getFileSize_openFile_makeHttpFront_readFromDisk_sendClient:
+		if(!getFileSize(m_buffer->fileName()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToGetFileSize, HTTPRESPONSEREADY::httpFailToGetFileSizeLen);
+		m_getStatus = GETMETHODSTATUS::openFile_makeHttpFront_readFromDisk_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::openFile_makeHttpFront_readFromDisk_sendClient:
+		if(!openFile(m_buffer->fileName()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToOpenFile, HTTPRESPONSEREADY::httpFailToOpenFileLen);
+		m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient:
+		if (!makeHttpFront(m_buffer->fileName()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToMakeHttpFront, HTTPRESPONSEREADY::httpFailToMakeHttpFrontLen);
+		m_getStatus = GETMETHODSTATUS::readFromDisk_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::makeFilePath_getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
+		if (!makeFilePath(m_buffer->getView().target()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
+		m_getStatus = GETMETHODSTATUS::getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
+		if (!getFileSize(m_buffer->fileName()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToGetFileSize, HTTPRESPONSEREADY::httpFailToGetFileSizeLen);
+		m_getStatus = GETMETHODSTATUS::openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
+		if (!openFile(m_buffer->fileName()))
+			return startWrite(HTTPRESPONSEREADY::httpFailToOpenFile, HTTPRESPONSEREADY::httpFailToOpenFileLen);
+		m_getStatus = GETMETHODSTATUS::setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
+		GetStateMachine();
+		break;
+
+	case GETMETHODSTATUS::setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
+		setFileLock(m_buffer->getView().target(), m_fileSize);
+		break;
+
+
+
+
+
+	default:
+		break;
+	}
+}
+
+
+
+
+bool HTTPSERVICE::makeFilePath(std::string_view fileName)
+{
+	if (fileName.empty())
+		return false;
+	int needLen{ m_doc_root.size() + fileName.size() + 1 };
 	//检查doc_root尾部与target前面是否为/
-	
+
 	char *newBuffer{ m_charMemoryPool.getMemory(needLen) };
-	if(!newBuffer)
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	if (!newBuffer)
+		return false;
 
 	char *newBufferIter{ newBuffer };
 
@@ -1105,83 +1241,210 @@ void HTTPSERVICE::handleTestGETCheckFileExist(bool shouldWriteRedis)
 	newBufferIter += m_doc_root.size();
 	*newBufferIter++ = '/';
 
-	std::copy(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), newBufferIter);
-	newBufferIter += m_buffer->getView().target().size();
+	std::copy(fileName.cbegin(), fileName.cend(), newBufferIter);
+	newBufferIter += fileName.size();
 
 	m_buffer->setFileName(newBuffer, needLen);
+	return true;
+}
 
-    //判断文件存不存在
+
+
+bool HTTPSERVICE::getFileSize(std::string_view fileName)
+{
+	if (fileName.empty())
+		return false;
 	std::error_code err{};
-	if(!fs::exists(m_buffer->fileName(), err))
-		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+	m_fileSize = fs::file_size(fileName, err);
+	if(!m_fileSize || err)
+		return false;
+	return true;
+}
 
-	m_fileLen = fs::file_size(m_buffer->fileName(), err);
 
+bool HTTPSERVICE::openFile(std::string_view fileName)
+{
+	if (fileName.empty())
+		return false;
+	std::error_code err{};
+	if (!fs::exists(fileName, err))
+		return false;
+	m_file.open(std::string(fileName.cbegin(), fileName.cend()), std::ios::binary);
+	return m_file.is_open();
+}
+
+
+
+
+bool HTTPSERVICE::makeHttpFront(std::string_view fileName)
+{
 	char *sendBuffer{};
 	unsigned int fileBodyBeginPos{};
 
 	int fileSeconds{ 99999 };
 
-	shouldWriteRedis = false;
-	if (shouldWriteRedis)
+	if (!makeFileFront<CUSTOMTAG>(m_buffer->fileName(), m_fileSize, m_defaultReadLen, sendBuffer, fileBodyBeginPos, [fileSeconds](char *&buffer)
 	{
+		std::copy(MAKEJSON::CacheControl, MAKEJSON::CacheControl + MAKEJSON::CacheControlLen, buffer);
+		buffer += MAKEJSON::CacheControlLen;
+		*buffer++ = ':';
+
+		std::copy(MAKEJSON::maxAge, MAKEJSON::maxAge + MAKEJSON::maxAgeLen, buffer);
+		buffer += MAKEJSON::maxAgeLen;
+
+		*buffer++ = '=';
+
+		if (fileSeconds > 99999999)
+			*buffer++ = fileSeconds / 100000000 + '0';
+		if (fileSeconds > 9999999)
+			*buffer++ = fileSeconds / 10000000 % 10 + '0';
+		if (fileSeconds > 999999)
+			*buffer++ = fileSeconds / 1000000 % 10 + '0';
+		if (fileSeconds > 99999)
+			*buffer++ = fileSeconds / 100000 % 10 + '0';
+		if (fileSeconds > 9999)
+			*buffer++ = fileSeconds / 10000 % 10 + '0';
+		if (fileSeconds > 999)
+			*buffer++ = fileSeconds / 1000 % 10 + '0';
+		if (fileSeconds > 99)
+			*buffer++ = fileSeconds / 100 % 10 + '0';
+		if (fileSeconds > 9)
+			*buffer++ = fileSeconds / 10 % 10 + '0';
+		*buffer++ = fileSeconds % 10 + '0';
+
+		*buffer++ = ',';
+
+		std::copy(MAKEJSON::publicStr, MAKEJSON::publicStr + MAKEJSON::publicStrLen, buffer);
+		buffer += MAKEJSON::publicStrLen;
+	},
+		MAKEJSON::CacheControlLen + 1 + MAKEJSON::maxAgeLen + 1 + stringLen(fileSeconds) + 1 + MAKEJSON::publicStrLen,
+		m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
+		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
+		MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
+		MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
+	return false;
+	return true;
+}
+
+
+// set k1 value22 EX 100 NX
+void HTTPSERVICE::setFileLock(std::string_view fileName, const int fileSize)
+{
+	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	std::vector<std::string_view> &command{ std::get<0>(*redisRequest).get() };
+	std::vector<unsigned int> &commandSize{ std::get<2>(*redisRequest).get() };
+	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+
+
+	command.clear();
+	commandSize.clear();
+	resultVec.clear();
+	resultNumVec.clear();
+	char *newBuffer{}, *newBufferIter{};
+	int needLen{}, locksec{};
+	try
+	{
+		//如果是/，则设置一个默认路径，这里假定默认为login.html
+		command.emplace_back(std::string_view(REDISNAMESPACE::set, REDISNAMESPACE::setLen));
+
+		needLen = STATICSTRING::fileLockLen + 1 + m_buffer->getView().target().size();
+		newBuffer = m_charMemoryPool.getMemory(needLen);
+
+		if (!newBuffer)
+		{
+			m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
+			return GetStateMachine();
+		}
+
+		newBufferIter = newBuffer;
+		std::copy(STATICSTRING::fileLock, STATICSTRING::fileLock + STATICSTRING::fileLockLen, newBufferIter);
+		newBufferIter += STATICSTRING::fileLockLen;
+		*newBufferIter++ = ':';
+		std::copy(m_buffer->getView().target().cbegin(), m_buffer->getView().target().cend(), newBufferIter);
+
+		command.emplace_back(std::string_view(STATICSTRING::lock, STATICSTRING::lockLen));
+		command.emplace_back(std::string_view(STATICSTRING::EX, STATICSTRING::EXLen));
+
+		locksec = m_fileSize / m_defaultReadLen;
+
+		needLen = stringLen(locksec);
+
+		newBuffer = m_charMemoryPool.getMemory(needLen);
+
+		if (!newBuffer)
+		{
+			m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
+			return GetStateMachine();
+		}
+
+		newBufferIter = newBuffer;
+
+		if (locksec > 99999999)
+			*newBufferIter++ = locksec / 100000000 + '0';
+		if (locksec > 9999999)
+			*newBufferIter++ = locksec / 10000000 % 10 + '0';
+		if (locksec > 999999)
+			*newBufferIter++ = locksec / 1000000 % 10 + '0';
+		if (locksec > 99999)
+			*newBufferIter++ = locksec / 100000 % 10 + '0';
+		if (locksec > 9999)
+			*newBufferIter++ = locksec / 10000 % 10 + '0';
+		if (locksec > 999)
+			*newBufferIter++ = locksec / 1000 % 10 + '0';
+		if (locksec > 99)
+			*newBufferIter++ = locksec / 100 % 10 + '0';
+		if (locksec > 9)
+			*newBufferIter++ = locksec / 10 % 10 + '0';
+		*newBufferIter++ = locksec % 10 + '0';
+
+		command.emplace_back(std::string_view(newBuffer, needLen));
+
+		command.emplace_back(std::string_view(STATICSTRING::NX, STATICSTRING::NXLen));
+
+		commandSize.emplace_back(5);
+
+
+		std::get<1>(*redisRequest) = 1;
+		std::get<3>(*redisRequest) = 1;
+		std::get<6>(*redisRequest) = std::bind(&HTTPSERVICE::handleSetFileLock, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+		{
+			m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
+			return GetStateMachine();
+		}
+	}
+	catch (const std::exception &e)
+	{
+		m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
+		return GetStateMachine();
+	}
+}
+
+
+void HTTPSERVICE::handleSetFileLock(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+
+	if (result)
+	{
+
 
 
 
 	}
 	else
 	{
-		if (!makeFileFront<CUSTOMTAG>(m_buffer->fileName(), m_fileLen, m_defaultReadLen, sendBuffer, fileBodyBeginPos, [fileSeconds](char *&buffer)
-		{
-			std::copy(MAKEJSON::CacheControl, MAKEJSON::CacheControl + MAKEJSON::CacheControlLen, buffer);
-			buffer += MAKEJSON::CacheControlLen;
-			*buffer++ = ':';
-
-			std::copy(MAKEJSON::maxAge, MAKEJSON::maxAge + MAKEJSON::maxAgeLen, buffer);
-			buffer += MAKEJSON::maxAgeLen;
-
-			*buffer++ = '=';
-
-			if (fileSeconds > 99999999)
-				*buffer++ = fileSeconds / 100000000 + '0';
-			if (fileSeconds > 9999999)
-				*buffer++ = fileSeconds / 10000000 % 10 + '0';
-			if (fileSeconds > 999999)
-				*buffer++ = fileSeconds / 1000000 % 10 + '0';
-			if (fileSeconds > 99999)
-				*buffer++ = fileSeconds / 100000 % 10 + '0';
-			if (fileSeconds > 9999)
-				*buffer++ = fileSeconds / 10000 % 10 + '0';
-			if (fileSeconds > 999)
-				*buffer++ = fileSeconds / 1000 % 10 + '0';
-			if (fileSeconds > 99)
-				*buffer++ = fileSeconds / 100 % 10 + '0';
-			if (fileSeconds > 9)
-				*buffer++ = fileSeconds / 10 % 10 + '0';
-			*buffer++ = fileSeconds % 10 + '0';
-
-			*buffer++ = ',';
-
-			std::copy(MAKEJSON::publicStr, MAKEJSON::publicStr + MAKEJSON::publicStrLen, buffer);
-			buffer += MAKEJSON::publicStrLen;
-		},
-			MAKEJSON::CacheControlLen + 1 + MAKEJSON::maxAgeLen + 1 + stringLen(fileSeconds) + 1 + MAKEJSON::publicStrLen,
-			m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
-			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
-			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
-			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
-		{
-			return startWrite(HTTPRESPONSEREADY::httpFileGetError, HTTPRESPONSEREADY::httpFileGetErrorLen);
-		}
-		else
-		{
-			std::cout << "yes\n";
 
 
-		}
+
 	}
 }
-
 
 
 
