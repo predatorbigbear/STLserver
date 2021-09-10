@@ -1120,31 +1120,29 @@ void HTTPSERVICE::handleTestGETFileLock(bool result, ERRORMESSAGE em)
 		if (isFileLock)
 		{
 			//直接去磁盘读取
-			m_getStatus = GETMETHODSTATUS::makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient;
+			readyReadFileFromDisk(m_buffer->getView().target());
 		}
 		else
 		{
 			if (m_fileSize)
 			{
 				//直接去redis读取
-				m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromRedis_sendClient;
+				
 			}
 			else
 			{
 				//直接去磁盘读取
 				//并且要上传redis
-				m_getStatus = GETMETHODSTATUS::makeFilePath_getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
+				//并行写法
 			}
 		}
-		GetStateMachine();
 	}
 	else
 	{
 		if (em == ERRORMESSAGE::REDIS_ERROR)
 		{
 			//直接去磁盘读取
-			m_getStatus = GETMETHODSTATUS::makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient;
-			GetStateMachine();
+			readyReadFileFromDisk(m_buffer->getView().target());
 		}
 		else
 			handleERRORMESSAGE(em);
@@ -1153,73 +1151,167 @@ void HTTPSERVICE::handleTestGETFileLock(bool result, ERRORMESSAGE em)
 
 
 
-
-
-void HTTPSERVICE::GetStateMachine()
+void HTTPSERVICE::readyReadFileFromDisk(std::string_view fileName)
 {
-	switch (m_getStatus)
+	if (fileName.empty())
+		return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
+	int needLen{ m_doc_root.size() + fileName.size() + 1 };
+	//检查doc_root尾部与target前面是否为/
+
+	char *newBuffer{ m_charMemoryPool.getMemory(needLen) };
+	if (!newBuffer)
+		return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
+
+	char *newBufferIter{ newBuffer };
+
+	std::copy(m_doc_root.cbegin(), m_doc_root.cend(), newBufferIter);
+	newBufferIter += m_doc_root.size();
+	*newBufferIter++ = '/';
+
+	std::copy(fileName.cbegin(), fileName.cend(), newBufferIter);
+	newBufferIter += fileName.size();
+
+	m_buffer->setFileName(newBuffer, needLen);
+
+	//m_fileName为完整路径
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	std::error_code err{};
+	m_fileSize = fs::file_size(m_buffer->fileName(), err);
+	if (!m_fileSize || err)
+		return startWrite(HTTPRESPONSEREADY::httpFailToGetFileSize, HTTPRESPONSEREADY::httpFailToGetFileSizeLen);
+
+	//////////////////////////////////////////////////////////////////////获取文件大小
+
+	err = {};
+	if (!fs::exists(m_buffer->fileName(), err))
+		return startWrite(HTTPRESPONSEREADY::httpFailToOpenFile, HTTPRESPONSEREADY::httpFailToOpenFileLen);
+	m_file.open(std::string(m_buffer->fileName().cbegin(), m_buffer->fileName().cend()), std::ios::binary);
+	if(!m_file)
+		return startWrite(HTTPRESPONSEREADY::httpFailToOpenFile, HTTPRESPONSEREADY::httpFailToOpenFileLen);
+
+	/////////////////////////////打开文件   /////////////////////
+
+	char *sendBuffer{};
+	unsigned int sendLen{}, fileSeconds{ 99999 };
+	m_readFileSize = 0;
+
+	if (!makeFileFront<CUSTOMTAG>(m_buffer->fileName(), m_fileSize, m_defaultReadLen, sendBuffer, sendLen, [fileSeconds](char *&buffer)
 	{
-	case GETMETHODSTATUS::makeFilePath_getFileSize_openFile_makeHttpFront_readFromDisk_sendClient:
-		if(!makeFilePath(m_buffer->getView().target()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
-		m_getStatus = GETMETHODSTATUS::getFileSize_openFile_makeHttpFront_readFromDisk_sendClient;
-		GetStateMachine();
-		break;
+		std::copy(MAKEJSON::CacheControl, MAKEJSON::CacheControl + MAKEJSON::CacheControlLen, buffer);
+		buffer += MAKEJSON::CacheControlLen;
+		*buffer++ = ':';
 
-	case GETMETHODSTATUS::getFileSize_openFile_makeHttpFront_readFromDisk_sendClient:
-		if(!getFileSize(m_buffer->fileName()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToGetFileSize, HTTPRESPONSEREADY::httpFailToGetFileSizeLen);
-		m_getStatus = GETMETHODSTATUS::openFile_makeHttpFront_readFromDisk_sendClient;
-		GetStateMachine();
-		break;
+		std::copy(MAKEJSON::maxAge, MAKEJSON::maxAge + MAKEJSON::maxAgeLen, buffer);
+		buffer += MAKEJSON::maxAgeLen;
 
-	case GETMETHODSTATUS::openFile_makeHttpFront_readFromDisk_sendClient:
-		if(!openFile(m_buffer->fileName()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToOpenFile, HTTPRESPONSEREADY::httpFailToOpenFileLen);
-		m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
-		GetStateMachine();
-		break;
+		*buffer++ = '=';
 
-	case GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient:
-		if (!makeHttpFront(m_buffer->fileName()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToMakeHttpFront, HTTPRESPONSEREADY::httpFailToMakeHttpFrontLen);
-		m_getStatus = GETMETHODSTATUS::readFromDisk_sendClient;
-		GetStateMachine();
-		break;
+		if (fileSeconds > 99999999)
+			*buffer++ = fileSeconds / 100000000 + '0';
+		if (fileSeconds > 9999999)
+			*buffer++ = fileSeconds / 10000000 % 10 + '0';
+		if (fileSeconds > 999999)
+			*buffer++ = fileSeconds / 1000000 % 10 + '0';
+		if (fileSeconds > 99999)
+			*buffer++ = fileSeconds / 100000 % 10 + '0';
+		if (fileSeconds > 9999)
+			*buffer++ = fileSeconds / 10000 % 10 + '0';
+		if (fileSeconds > 999)
+			*buffer++ = fileSeconds / 1000 % 10 + '0';
+		if (fileSeconds > 99)
+			*buffer++ = fileSeconds / 100 % 10 + '0';
+		if (fileSeconds > 9)
+			*buffer++ = fileSeconds / 10 % 10 + '0';
+		*buffer++ = fileSeconds % 10 + '0';
 
-	case GETMETHODSTATUS::makeFilePath_getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
-		if (!makeFilePath(m_buffer->getView().target()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
-		m_getStatus = GETMETHODSTATUS::getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
-		GetStateMachine();
-		break;
+		*buffer++ = ',';
 
-	case GETMETHODSTATUS::getFileSize_openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
-		if (!getFileSize(m_buffer->fileName()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToGetFileSize, HTTPRESPONSEREADY::httpFailToGetFileSizeLen);
-		m_getStatus = GETMETHODSTATUS::openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
-		GetStateMachine();
-		break;
+		std::copy(MAKEJSON::publicStr, MAKEJSON::publicStr + MAKEJSON::publicStrLen, buffer);
+		buffer += MAKEJSON::publicStrLen;
+	},
+		MAKEJSON::CacheControlLen + 1 + MAKEJSON::maxAgeLen + 1 + stringLen(fileSeconds) + 1 + MAKEJSON::publicStrLen,
+		m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
+		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
+		MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
+		MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
+		return startWrite(HTTPRESPONSEREADY::httpFailToMakeHttpFront, HTTPRESPONSEREADY::httpFailToMakeHttpFrontLen);
 
-	case GETMETHODSTATUS::openFile_setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
-		if (!openFile(m_buffer->fileName()))
-			return startWrite(HTTPRESPONSEREADY::httpFailToOpenFile, HTTPRESPONSEREADY::httpFailToOpenFileLen);
-		m_getStatus = GETMETHODSTATUS::setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient;
-		GetStateMachine();
-		break;
+	//获取成功后sendBuffer 为m_defaultReadLen大的发送缓冲
+	// sendLen指向body开始处
+	// m_sendFileSize表示已经成功发送出去的文件大小
+	m_sendBuffer = sendBuffer, m_sendLen = sendLen;
 
-	case GETMETHODSTATUS::setFileLock_makeHttpFront_readFromDisk_sendRedis_sendClient:
-		setFileLock(m_buffer->getView().target(), m_fileSize);
-		break;
+	//判断应该读取的最大文件内容长度
+	m_file.seekg(m_readFileSize, std::ios::beg);
+	int maxReadfileLen{ m_defaultReadLen - m_sendLen };
 
+	if (maxReadfileLen > m_fileSize)
+		maxReadfileLen = m_fileSize;
 
+	m_file.read(reinterpret_cast<char*>(const_cast<char*>(m_sendBuffer + m_sendLen)), maxReadfileLen);
+	m_readFileSize += maxReadfileLen;
 
+	startWrite<READFROMDISK>(m_sendBuffer, m_sendLen + maxReadfileLen);
 
-
-	default:
-		break;
-	}
 }
+
+
+
+void HTTPSERVICE::ReadFileFromDiskLoop()
+{
+	//已经发送完毕整个文件给客户端
+	if (m_readFileSize == m_fileSize)
+	{
+		//关闭读取文件
+		if (m_file.is_open())
+			m_file.close();
+
+		//清理资源
+		std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
+		m_charMemoryPool.prepare();
+		m_charPointerMemoryPool.prepare();
+		m_sendMemoryPool.prepare();
+
+		m_fileSize = 0;
+
+		//接收新请求
+		switch (m_parseStatus)
+		{
+		case PARSERESULT::complete:
+			startRead();
+			break;
+		case PARSERESULT::check_messageComplete:
+			if (m_readBuffer != m_buffer->getBuffer())
+			{
+				std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+				m_readBuffer = m_buffer->getBuffer();
+				m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+				m_maxReadLen = m_defaultReadLen;
+			}
+			parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+			break;
+		}
+	}
+	else
+	{
+		//循环将文件装载进发送buffer中发送给客户端
+		m_file.seekg(m_readFileSize, std::ios::beg);
+		int maxReadfileLen{ m_defaultReadLen  };
+
+
+		if (maxReadfileLen > (m_fileSize - m_readFileSize))
+			maxReadfileLen = (m_fileSize - m_readFileSize);
+
+		m_file.read(reinterpret_cast<char*>(const_cast<char*>(m_sendBuffer)), maxReadfileLen);
+		m_readFileSize += maxReadfileLen;
+
+		startWrite<READFROMDISK>(m_sendBuffer, maxReadfileLen);
+	}
+
+}
+
+
 
 
 
@@ -1330,6 +1422,7 @@ bool HTTPSERVICE::makeHttpFront(std::string_view fileName)
 // set k1 value22 EX 100 NX
 void HTTPSERVICE::setFileLock(std::string_view fileName, const int fileSize)
 {
+	/*
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
 
 	std::vector<std::string_view> &command{ std::get<0>(*redisRequest).get() };
@@ -1421,6 +1514,7 @@ void HTTPSERVICE::setFileLock(std::string_view fileName, const int fileSize)
 		m_getStatus = GETMETHODSTATUS::makeHttpFront_readFromDisk_sendClient;
 		return GetStateMachine();
 	}
+	*/
 }
 
 
@@ -1493,6 +1587,10 @@ void HTTPSERVICE::handleTestGET(bool result, ERRORMESSAGE em)
 		else
 			handleERRORMESSAGE(em);
 	}
+}
+
+void HTTPSERVICE::readyGetFileFromDisk()
+{
 }
 
 
@@ -5873,13 +5971,21 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 			}
 			std::copy(m_readBuffer, const_cast<char*>(targetEnd), newBufferIter);
 
-			finalTargetBegin = newBuffer, finalTargetEnd = newBuffer + accumulateLen;
+			//对target进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用
+			if (!UrlDecodeWithTransChinese(newBuffer, accumulateLen, len))
+				return PARSERESULT::invaild;
+
+			finalTargetBegin = newBuffer, finalTargetEnd = newBuffer + len;
 
 			dataBufferVec.clear();
 		}
 		else
 		{
-			finalTargetBegin = targetBegin, finalTargetEnd = targetEnd;
+			//对target进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用
+			if (!UrlDecodeWithTransChinese(targetBegin, targetEnd - targetBegin, len))
+				return PARSERESULT::invaild;
+
+			finalTargetBegin = targetBegin, finalTargetEnd = targetBegin + len;
 		}
 
 
@@ -7516,8 +7622,12 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		find_finalBodyEnd:
 			if (std::distance(iterFindBegin, iterFindEnd) >= m_bodyLen)
 			{
-				finalBodyBegin = iterFindBegin, finalBodyEnd = finalBodyBegin + m_bodyLen;
-				m_buffer->getView().setBody(finalBodyBegin, m_bodyLen);
+				//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置参数 pingpong验证中文值   /2为pingpong测试函数
+				if (!UrlDecodeWithTransChinese(iterFindBegin, m_bodyLen, len))
+					return PARSERESULT::invaild;
+
+				finalBodyBegin = iterFindBegin, finalBodyEnd = iterFindBegin + len;
+				m_buffer->getView().setBody(finalBodyBegin, len);
 				hasBody = true;
 				m_messageBegin = iterFindBegin + m_bodyLen;
 				goto check_messageComplete;
@@ -8329,55 +8439,13 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 
 
 
-void HTTPSERVICE::startWrite(const char *source, const int size)
-{
-	startWriteLoop(source, size);
-
-	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
-	m_charMemoryPool.prepare();
-	m_charPointerMemoryPool.prepare();
-}
 
 
 
 
-void HTTPSERVICE::startWriteLoop(const char * source, const int size)
-{
-	boost::asio::async_write(*m_buffer->getSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code &err, std::size_t size)
-	{
-		m_sendMemoryPool.prepare();
-		if (err)
-		{
-			m_log->writeLog(__FILE__, __LINE__, err.value(), err.message());
-			// 修复发生错误时不会触发回收的情况
-			if (err != boost::asio::error::operation_aborted)
-			{
-				m_lock.lock();
-				m_hasClean = false;
-				m_lock.unlock();
-			}
-		}
-		else
-		{
-			switch (m_parseStatus)
-			{
-			case PARSERESULT::complete:
-				startRead();
-				break;
-			case PARSERESULT::check_messageComplete:
-				if (m_readBuffer != m_buffer->getBuffer())
-				{
-					std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
-					m_readBuffer = m_buffer->getBuffer();
-					m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
-					m_maxReadLen = m_defaultReadLen;
-				}
-				parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
-				break;
-			}
-		}
-	});
-}
+
+
+
 
 
 

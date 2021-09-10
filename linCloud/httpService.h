@@ -319,6 +319,7 @@ private:
 
 	//文件大小
 	int m_fileSize{};
+	int m_readFileSize{};
 	
 	std::ifstream m_file{};
 
@@ -472,9 +473,17 @@ private:
 
 	int parseHttp(const char *source, const int size);             // 解析Http数据
 
+	// 普通模式
+	// READFROMDISK 直接从磁盘读取文件发送模式
+	template<typename SENDMODE = void>
 	void startWrite(const char *source, const int size);
 
+
+	// 普通模式
+	// READFROMDISK 直接从磁盘读取文件发送模式
+	template<typename SENDMODE = void>
 	void startWriteLoop(const char *source, const int size);
+
 
 	template<typename T=void, typename HTTPFLAG = void, typename ENCTYPT = void, typename HTTPFUNCTION=void*>
 	void makeSendJson(STLtreeFast &st, HTTPFUNCTION httpWrite=nullptr, unsigned int httpLen=0, AES_KEY *enctyptKey=nullptr);
@@ -543,8 +552,10 @@ private:
 
 	void handleTestGETFileLock(bool result, ERRORMESSAGE em);
 
-	//处理get状态万能函数
-	void GetStateMachine();
+	void readyReadFileFromDisk(std::string_view fileName);
+
+	//循环处理从磁盘读取文件发送客户端过程  以及 善后处理
+	void ReadFileFromDiskLoop();
 
 	//生成完整文件路径
 	bool makeFilePath(std::string_view fileName);
@@ -564,7 +575,7 @@ private:
 
 	void handleTestGET(bool result, ERRORMESSAGE em);
 
-
+	void readyGetFileFromDisk();
 
 	
 	void testLogin();
@@ -783,6 +794,79 @@ private:
 };
 
 
+
+template<typename SENDMODE>
+inline void HTTPSERVICE::startWrite(const char * source, const int size)
+{
+	startWriteLoop<SENDMODE>(source, size);
+
+	if constexpr (std::is_same<SENDMODE, void>::value)
+	{
+		std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
+		m_charMemoryPool.prepare();
+		m_charPointerMemoryPool.prepare();
+	}
+}
+
+
+
+template<typename SENDMODE>
+inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
+{
+	boost::asio::async_write(*m_buffer->getSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code &err, std::size_t size)
+	{
+		if constexpr (std::is_same<SENDMODE, void>::value)
+		{
+			m_sendMemoryPool.prepare();
+		}
+		if (err)
+		{
+			m_log->writeLog(__FILE__, __LINE__, err.value(), err.message());
+			// 修复发生错误时不会触发回收的情况
+			if (err != boost::asio::error::operation_aborted)
+			{
+				m_lock.lock();
+				m_hasClean = false;
+				m_lock.unlock();
+			}
+
+			//从磁盘读取模式下发生错误时要关闭读取文件
+			if constexpr (std::is_same<SENDMODE, READFROMDISK>::value)
+			{
+				if (m_file.is_open())
+					m_file.close();
+			}
+		}
+		else
+		{
+			if constexpr (std::is_same<SENDMODE, void>::value)
+			{
+				switch (m_parseStatus)
+				{
+				case PARSERESULT::complete:
+					startRead();
+					break;
+				case PARSERESULT::check_messageComplete:
+					if (m_readBuffer != m_buffer->getBuffer())
+					{
+						std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+						m_readBuffer = m_buffer->getBuffer();
+						m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+						m_maxReadLen = m_defaultReadLen;
+					}
+					parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+					break;
+				}
+			}
+
+			//从磁盘读取模式下
+			if constexpr (std::is_same<SENDMODE, READFROMDISK>::value)
+			{
+				ReadFileFromDiskLoop();
+			}
+		}
+	});
+}
 
 template<typename T, typename HTTPFLAG, typename ENCTYPT, typename HTTPFUNCTION>
 inline void HTTPSERVICE::makeSendJson(STLtreeFast & st, HTTPFUNCTION httpWrite, unsigned int httpLen, AES_KEY * enctyptKey)
