@@ -1,26 +1,58 @@
-/*#include <stdio.h>
-#include "workflow/WFHttpServer.h"
+#include <csignal>
 
-int main()
+#include <workflow/WFHttpServer.h>
+#include <workflow/WFGlobal.h>
+#include <workflow/WFFacilities.h>
+
+#include "workflow/util/args.h"
+#include "workflow/util/content.h"
+#include "workflow/util/date.h"
+
+static WFFacilities::WaitGroup wait_group{1};
+
+void signal_handler(int)
 {
-	const void *body{};
-	size_t len{};
-	
+	wait_group.done();
+}
 
-	WFHttpServer server([&body,&len](WFHttpTask *task) {
-		if (task->get_req()->get_parsed_body(&body, &len))
-			task->get_resp()->append_output_body(std::string((char*)body, len));
+int main(int argc, char ** argv)
+{
+	size_t pollers;
+	unsigned short port;
+	size_t length;
+
+	if (parse_args(argc, argv, pollers, port, length) != 3)
+	{
+		return -1;
+	}
+
+	std::signal(SIGINT, signal_handler);
+	std::signal(SIGTERM, signal_handler);
+
+	WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+	settings.poller_threads = pollers;
+	WORKFLOW_library_init(&settings);
+
+	const std::string content = make_content(length);
+	WFHttpServer server([&content](WFHttpTask * task)
+	{
+		auto * resp = task->get_resp();
+
+		char timestamp[32];
+		date(timestamp, sizeof(timestamp));
+		resp->add_header_pair("Date", timestamp);
+
+		resp->add_header_pair("Content-Type", "text/plain; charset=UTF-8");
+
+		resp->append_output_body_nocopy(content.data(), content.size());
 	});
 
-	if (server.start(8085) == 0) 
-	{ // start server on port 8888
-		while(getchar())
-		{
-
-		}
+	if (server.start(port) == 0)
+	{
+		wait_group.wait();
 		server.stop();
 	}
 
 	return 0;
 }
-*/
+

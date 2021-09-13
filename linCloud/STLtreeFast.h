@@ -74,7 +74,7 @@ namespace MAKEJSON
 	static const char *colon{ ":" };
 	static unsigned int colonLen{ strlen(colon) };
 
-	static const char *ContentLength{ "content-length" };
+	static const char *ContentLength{ "Content-length" };
 	static unsigned int ContentLengthLen{ strlen(ContentLength) };
 
 
@@ -84,6 +84,9 @@ namespace MAKEJSON
 
 	static const char *httpOneZero{ "1.0" };
 	static unsigned int httpOneZerolen{ strlen(httpOneZero) };
+
+	static const char *httpOneOne{ "1.1" };
+	static unsigned int httpOneOneLen{ strlen(httpOneOne) };
 
 	static const char *http200{ "200" };
 	static unsigned int http200Len{ strlen(http200) };
@@ -117,6 +120,10 @@ namespace MAKEJSON
 
 	static const char *SetCookie{ "Set-Cookie" };
 	static unsigned int SetCookieLen{ strlen(SetCookie) };
+
+
+	static const char *Connection{ "Connection" };
+	static unsigned int ConnectionLen{ strlen(Connection) };
 
 };
 

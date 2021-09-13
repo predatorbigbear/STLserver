@@ -37,6 +37,10 @@ namespace HTTPINTERFACENUM
 		jsonType = 0
 	};
 
+	enum TESTCOMPAREWORKFLOW
+	{
+		stringLen=0
+	};
 	//////////////////////////////////////////////////////   2
 };
 

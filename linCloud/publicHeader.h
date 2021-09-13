@@ -381,7 +381,9 @@ enum INTERFACE
 
 	testPingPongJson =18,
 
-	testMakeJson=19
+	testMakeJson=19,
+
+	testCompareWorkFlow = 20
 };
 
 

@@ -110,6 +110,8 @@ namespace STATICSTRING
 
 	static const char *GMT{ "GMT" };
 
+	static const char *CST{ "CST" };
+
 	static const char *publicKey{ "publicKey" };
 
 	static const char *signature{ "signature" };
@@ -176,6 +178,13 @@ namespace STATICSTRING
 
 	static const char *NX{ "NX" };
 
+	static const char *stringlen{ "stringlen" };
+
+	static const char *textplainUtf8{ "text/plain; charset=UTF-8" };
+
+	static const char *Date{ "Date" };
+
+	static const char *Keep_Alive{ "Keep-Alive" };
 
 
 
@@ -341,4 +350,15 @@ namespace STATICSTRING
 
 	static size_t NXLen{ strlen(NX) };
 
+	static size_t stringlenLen{ strlen(stringlen) };
+
+	static size_t textplainUtf8Len{ strlen(textplainUtf8) };
+
+	static size_t DateLen{ strlen(Date) };
+	
+	static size_t CSTLen{ strlen(CST) };
+
+	static size_t Keep_AliveLen{ strlen(Keep_Alive) };
+
+	
 };

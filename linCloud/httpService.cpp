@@ -304,6 +304,11 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
+	case INTERFACE::testCompareWorkFlow:
+		testCompareWorkFlow();
+		break;
+
+
 		//默认，不匹配任何接口情况
 	default:
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -1271,7 +1276,6 @@ void HTTPSERVICE::ReadFileFromDiskLoop()
 		std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
 		m_charMemoryPool.prepare();
 		m_charPointerMemoryPool.prepare();
-		m_sendMemoryPool.prepare();
 
 		m_fileSize = 0;
 
@@ -1868,9 +1872,9 @@ void HTTPSERVICE::handleTestLoginRedisSlave(bool result, ERRORMESSAGE em)
 				*bufferBegin++ = '=';
 
 				//返回包含set-cookie的http消息给客户端
-					//格林威治时间与北京时间相差四小时
+					//格林威治时间与北京时间相差八小时
 					// DAY, DD MMM YYYY HH:MM:SS GMT
-				m_sessionGMTClock = m_sessionClock + std::chrono::hours(4);
+				m_sessionGMTClock = m_sessionClock + std::chrono::hours(8);
 
 				m_sessionGMTTime = std::chrono::system_clock::to_time_t(m_sessionGMTClock);
 
@@ -4158,7 +4162,7 @@ void HTTPSERVICE::testMakeJson()
 					break;
 				if (!st2.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
 					break;
-				if (!st2.put<TRANSFORMTYPE,int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+				if (!st2.put<TRANSFORMTYPE, int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
 					break;
 				if (!st1.putObject<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
 					break;
@@ -4182,21 +4186,136 @@ void HTTPSERVICE::testMakeJson()
 				break;
 			innerSuccess = true;
 			break;
-			
+
 
 		default:
 			break;
 		}
-		
+
 		if (!innerSuccess)
 			break;
 
 		success = true;
 	} while (false);
-	if(success)
+	if (success)
 		makeSendJson<TRANSFORMTYPE>(st1);
 	else
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+}
+
+
+
+
+void HTTPSERVICE::testCompareWorkFlow()
+{
+	if (!hasBody)
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	//解释获取body中的参数stringlen  必须存在此项参数
+	if (!praseBody(&*m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::stringlen, STATICSTRING::stringlenLen))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char **BodyBuffer{ m_buffer->bodyPara() };
+
+	std::string_view numberView{ *(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen),*(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen) };
+
+	//从stringlen获取本次返回的字符串长度
+	unsigned int number{ 0 };
+	if (!numberView.empty())
+	{
+		if (!std::all_of(numberView.cbegin(), numberView.cend(), std::bind(isdigit, std::placeholders::_1)))
+			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+		int index{ -1 }, num{ 1 };
+		number = std::accumulate(std::make_reverse_iterator(numberView.cend()), std::make_reverse_iterator(numberView.cbegin()), 0, [&index, &num](auto &sum, const char ch)
+		{
+			if (++index)num *= 10;
+			return sum += (ch - '0')*num;
+		});
+	}
+
+	static unsigned int dateLen{ 29 };
+	char *sendBuffer{};
+	unsigned int sendLen{};
+
+	//29  生成与workflow测试中的一样类型的返回消息
+	if (make_compareWithWorkFlowResPonse<CUSTOMTAG>(sendBuffer, sendLen, [this](char *&bufferBegin)
+	{
+		if (!bufferBegin)
+			return;
+
+		std::copy(STATICSTRING::Date, STATICSTRING::Date + STATICSTRING::DateLen, bufferBegin);
+		bufferBegin += STATICSTRING::DateLen;
+
+		*bufferBegin++ = ':';
+
+		//设置Date值   
+		m_sessionClock = std::chrono::system_clock::now();
+
+		m_sessionTime = std::chrono::system_clock::to_time_t(m_sessionClock);
+
+		//复用m_tmGMT生成CST时间
+		m_tmGMT = localtime(&m_sessionTime);
+
+		// Mon, 13 Sep 2021 11:07:54 CST
+
+		m_tmGMT->tm_year += 1900;
+
+		std::copy(STATICSTRING::tm_wday[m_tmGMT->tm_wday], STATICSTRING::tm_wday[m_tmGMT->tm_wday] + STATICSTRING::tm_wdayLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_wdayLen;
+
+		*bufferBegin++ = ',';
+		*bufferBegin++ = ' ';
+
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_mday], STATICSTRING::tm_sec[m_tmGMT->tm_mday] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ' ';
+
+		std::copy(STATICSTRING::tm_mon[m_tmGMT->tm_mon], STATICSTRING::tm_mon[m_tmGMT->tm_mon] + STATICSTRING::tm_monLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_monLen;
+
+		*bufferBegin++ = ' ';
+
+		*bufferBegin++ = m_tmGMT->tm_year / 1000 + '0';
+		*bufferBegin++ = m_tmGMT->tm_year / 100 % 10 + '0';
+		*bufferBegin++ = m_tmGMT->tm_year / 10 % 10 + '0';
+		*bufferBegin++ = m_tmGMT->tm_year % 10 + '0';
+
+		*bufferBegin++ = ' ';
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_hour], STATICSTRING::tm_sec[m_tmGMT->tm_hour] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ':';
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_min], STATICSTRING::tm_sec[m_tmGMT->tm_min] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ':';
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_sec], STATICSTRING::tm_sec[m_tmGMT->tm_sec] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ' ';
+
+		std::copy(STATICSTRING::CST, STATICSTRING::CST + STATICSTRING::CSTLen, bufferBegin);
+		bufferBegin += STATICSTRING::CSTLen;
+
+
+	}, STATICSTRING::DateLen + 1 + dateLen, m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
+		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
+		number,
+		MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, STATICSTRING::textplainUtf8, STATICSTRING::textplainUtf8+ STATICSTRING::textplainUtf8Len,
+		MAKEJSON::Connection, MAKEJSON::Connection + MAKEJSON::ConnectionLen, STATICSTRING::Keep_Alive, STATICSTRING::Keep_Alive + STATICSTRING::Keep_AliveLen))
+	{
+		 startWrite(sendBuffer, sendLen);
+	}
+	else
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
 }
 
 
@@ -5018,12 +5137,22 @@ void HTTPSERVICE::clean()
 		} while (m_buffer->getErrCode());
 	}
 
+	m_readBuffer = m_buffer->getBuffer();
+	m_maxReadLen = m_defaultReadLen;
+	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
 	m_charMemoryPool.reset();
 	m_charPointerMemoryPool.reset();
-	m_sendMemoryPool.reset();
 	(*m_clearFunction)(m_mySelf);
 }
 
+
+
+void HTTPSERVICE::recoverMemory()
+{
+	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
+	m_charMemoryPool.prepare();
+	m_charPointerMemoryPool.prepare();
+}
 
 
 void HTTPSERVICE::sendOK()
@@ -5157,7 +5286,7 @@ void HTTPSERVICE::prepare()
 
 	while (++i != 5)
 	{
-		m_STLtreeFastVec.emplace_back(STLtreeFast(&m_charPointerMemoryPool, &m_sendMemoryPool));
+		m_STLtreeFastVec.emplace_back(STLtreeFast(&m_charPointerMemoryPool, &m_charMemoryPool));
 	}
 	
 

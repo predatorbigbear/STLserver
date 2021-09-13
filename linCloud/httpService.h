@@ -120,14 +120,11 @@ private:
 	std::vector<STLtreeFast>m_STLtreeFastVec;
 
 
-	//  用于获取char动态数组的内存池
+	//  用于获取char动态数组的内存池   发送结果并入这里获取内存块
 	MEMORYPOOL<char> m_charMemoryPool;
 
 	// 获取char*动态数组的内存池
 	MEMORYPOOL<char*> m_charPointerMemoryPool;
-
-	//  用于获取char动态数组的内存池(用于存储发送结果）
-	MEMORYPOOL<char> m_sendMemoryPool;
 
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -460,6 +457,9 @@ private:
 
 private:
 
+	//在每次发送完毕后重置资源
+	void recoverMemory();
+
 	void sendOK();
 
 	void cleanData();
@@ -499,6 +499,11 @@ private:
 	bool makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args);
 	
+
+	//用来生成与workflow测试文件相同的返回数据的专用打包函数
+	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
+	bool make_compareWithWorkFlowResPonse(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
+		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, unsigned int randomBodyLen, ARG&&...args);
 
 	void run();
 
@@ -672,8 +677,15 @@ private:
 
 
 
-
-
+	//与workflow进行对比测试的函数
+	//https://github.com/sogou/workflow/tree/master/benchmark
+	//workflow对请求返回每次的时间  body长度  以及Connection  Conteng-type设置
+	//测试环境centos8  GCC10.2.0   
+	//即使添加上解析参数获取string长度设置的逻辑处理，依然对workflow保持略微优势
+	//客户端采用一来一回的方式发送进行测试
+	//workflow设置的三项参数为12  8085  11 
+	//string str{ "POST /20 HTTP/1.1\r\nHost: 101.32.203.226:8085\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 12\r\n\r\nstringlen=11" };
+	void testCompareWorkFlow();
 
 
 
@@ -800,11 +812,14 @@ inline void HTTPSERVICE::startWrite(const char * source, const int size)
 {
 	startWriteLoop<SENDMODE>(source, size);
 
+	//利用异步时间间隙尽可能提早做回收处理
 	if constexpr (std::is_same<SENDMODE, void>::value)
 	{
-		std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
-		m_charMemoryPool.prepare();
-		m_charPointerMemoryPool.prepare();
+		if (m_parseStatus != PARSERESULT::check_messageComplete)
+		{
+			std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
+			m_charPointerMemoryPool.prepare();
+		}
 	}
 }
 
@@ -815,14 +830,10 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 {
 	boost::asio::async_write(*m_buffer->getSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code &err, std::size_t size)
 	{
-		if constexpr (std::is_same<SENDMODE, void>::value)
-		{
-			m_sendMemoryPool.prepare();
-		}
 		if (err)
 		{
 			m_log->writeLog(__FILE__, __LINE__, err.value(), err.message());
-			// 修复发生错误时不会触发回收的情况
+			//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 			if (err != boost::asio::error::operation_aborted)
 			{
 				m_lock.lock();
@@ -836,6 +847,8 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 				if (m_file.is_open())
 					m_file.close();
 			}
+			
+			//发生错误时等待超时回收，clean函数内会对内存池进行重置
 		}
 		else
 		{
@@ -844,9 +857,11 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 				switch (m_parseStatus)
 				{
 				case PARSERESULT::complete:
+					m_charMemoryPool.prepare();
 					startRead();
 					break;
 				case PARSERESULT::check_messageComplete:
+					//因为这里的内存块可能不是默认读取内存块，所以回收操作应该在copy处理之后才进行
 					if (m_readBuffer != m_buffer->getBuffer())
 					{
 						std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
@@ -854,7 +869,13 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 						m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
 						m_maxReadLen = m_defaultReadLen;
 					}
+					recoverMemory();
 					parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+					break;
+					//default处理请求非法以及因内存申请错误的情况
+				default:
+					m_charMemoryPool.prepare();
+					startRead();
 					break;
 				}
 			}
@@ -867,6 +888,8 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 		}
 	});
 }
+
+
 
 template<typename T, typename HTTPFLAG, typename ENCTYPT, typename HTTPFUNCTION>
 inline void HTTPSERVICE::makeSendJson(STLtreeFast & st, HTTPFUNCTION httpWrite, unsigned int httpLen, AES_KEY * enctyptKey)
@@ -918,7 +941,7 @@ inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned 
 	if (assignLen < needFrontLen)
 		return false;
 
-	char *newResultPtr{ m_sendMemoryPool.getMemory(assignLen) };
+	char *newResultPtr{ m_charMemoryPool.getMemory(assignLen) };
 
 	if (!newResultPtr)
 		return false;
@@ -1005,6 +1028,137 @@ inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned 
 
 	return true;
 }
+
+
+
+template<typename HTTPFLAG, typename HTTPFUNCTION, typename ...ARG>
+inline bool HTTPSERVICE::make_compareWithWorkFlowResPonse(char *& resultPtr, unsigned int & resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, 
+	const char * httpVersionBegin, const char * httpVersionEnd, const char * httpCodeBegin, const char * httpCodeEnd, const char * httpResultBegin, const char * httpResultEnd,
+	unsigned int randomBodyLen, ARG && ...args)
+{
+	int parSize{ sizeof...(args) }, httpHeadLen{};
+	if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !randomBodyLen || !calLength(httpHeadLen, args...))
+		return false;
+
+	int needLength{ MAKEJSON::httpFrontLen + std::distance(httpVersionBegin,httpVersionEnd) + MAKEJSON::spaceLen + std::distance(httpCodeBegin,httpCodeEnd)
+		+ MAKEJSON::spaceLen + std::distance(httpResultBegin,httpResultEnd) + MAKEJSON::halfNewLineLen + httpHeadLen + MAKEJSON::ContentLengthLen + MAKEJSON::colonLen };
+
+	if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
+	{
+		needLength += httpLen + MAKEJSON::halfNewLineLen;
+	}
+
+	resultPtr = nullptr, resultLen = 0;
+
+	unsigned int thisbodyLen{ randomBodyLen };
+
+	unsigned int needFrontLen{ needLength + stringLen(thisbodyLen) + MAKEJSON::newLineLen };
+
+	unsigned int needLen{ needFrontLen + thisbodyLen };     //93
+
+	/////////////////////////////
+
+	//////////////////////////////////////////////////
+
+
+	char *newResultPtr{ m_charMemoryPool.getMemory(needLen) };
+
+	if (!newResultPtr)
+		return false;
+
+	resultPtr = newResultPtr, resultLen = needLen;
+
+	std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, newResultPtr);
+	newResultPtr += MAKEJSON::httpFrontLen;
+
+
+	std::copy(httpVersionBegin, httpVersionEnd, newResultPtr);
+	newResultPtr += std::distance(httpVersionBegin, httpVersionEnd);
+
+
+	std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, newResultPtr);
+	newResultPtr += MAKEJSON::spaceLen;
+
+
+	std::copy(httpCodeBegin, httpCodeEnd, newResultPtr);
+	newResultPtr += std::distance(httpCodeBegin, httpCodeEnd);
+
+
+	std::copy(MAKEJSON::space, MAKEJSON::space + MAKEJSON::spaceLen, newResultPtr);
+	newResultPtr += MAKEJSON::spaceLen;
+
+
+	std::copy(httpResultBegin, httpResultEnd, newResultPtr);
+	newResultPtr += std::distance(httpResultBegin, httpResultEnd);
+
+
+	std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+	newResultPtr += MAKEJSON::halfNewLineLen;
+
+	packAgeHttpHeader(newResultPtr, args...);
+
+	std::copy(MAKEJSON::ContentLength, MAKEJSON::ContentLength + MAKEJSON::ContentLengthLen, newResultPtr);
+	newResultPtr += MAKEJSON::ContentLengthLen;
+
+
+	std::copy(MAKEJSON::colon, MAKEJSON::colon + MAKEJSON::colonLen, newResultPtr);
+	newResultPtr += MAKEJSON::colonLen;
+
+
+	if (thisbodyLen > 99999999)
+		*newResultPtr++ = thisbodyLen / 100000000 + '0';
+	if (thisbodyLen > 9999999)
+		*newResultPtr++ = thisbodyLen / 10000000 % 10 + '0';
+	if (thisbodyLen > 999999)
+		*newResultPtr++ = thisbodyLen / 1000000 % 10 + '0';
+	if (thisbodyLen > 99999)
+		*newResultPtr++ = thisbodyLen / 100000 % 10 + '0';
+	if (thisbodyLen > 9999)
+		*newResultPtr++ = thisbodyLen / 10000 % 10 + '0';
+	if (thisbodyLen > 999)
+		*newResultPtr++ = thisbodyLen / 1000 % 10 + '0';
+	if (thisbodyLen > 99)
+		*newResultPtr++ = thisbodyLen / 100 % 10 + '0';
+	if (thisbodyLen > 9)
+		*newResultPtr++ = thisbodyLen / 10 % 10 + '0';
+	*newResultPtr++ = thisbodyLen % 10 + '0';
+
+
+	if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
+	{
+		std::copy(MAKEJSON::halfNewLine, MAKEJSON::halfNewLine + MAKEJSON::halfNewLineLen, newResultPtr);
+		newResultPtr += MAKEJSON::halfNewLineLen;
+		httpWrite(newResultPtr);
+	}
+
+	std::copy(MAKEJSON::newLine, MAKEJSON::newLine + MAKEJSON::newLineLen, newResultPtr);
+	newResultPtr += MAKEJSON::newLineLen;
+
+	if (thisbodyLen <= randomStringLen)
+	{
+		std::copy(randomString, randomString + thisbodyLen, newResultPtr);
+	}
+	else
+	{
+		do
+		{
+			std::copy(randomString, randomString + randomStringLen, newResultPtr);
+			newResultPtr += randomStringLen;
+			thisbodyLen -= randomStringLen;
+		} while (thisbodyLen >= randomStringLen);
+
+		std::copy(randomString, randomString + thisbodyLen, newResultPtr);
+	}
+
+	return true;
+}
+
+
+
+
+
+
+
 
 
 
