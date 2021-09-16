@@ -1,4 +1,4 @@
-#include <csignal>
+/*#include <csignal>
 
 #include <workflow/WFHttpServer.h>
 #include <workflow/WFGlobal.h>
@@ -55,4 +55,5 @@ int main(int argc, char ** argv)
 
 	return 0;
 }
+*/
 

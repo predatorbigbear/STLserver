@@ -24,6 +24,8 @@ int main()
 
 		MiddleCenter m1;
 
+		m1.setTimeWheel(ioPool, 1, 120);
+
 		m1.setKeyPlace("/home/testRSA/rsa_test_public_key.pem", "/home/testRSA/rsa_test_private_key.pem");
 
 		m1.setLog("/home/deng/log", ioPool, 60, 40960, 16);
@@ -52,6 +54,9 @@ int main()
 
 	return 0;
 }
+
+
+
 
 
 

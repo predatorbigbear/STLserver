@@ -9,6 +9,7 @@
 #include "multiRedisReadPool.h"
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
+#include "STLTimeWheel.h"
 
 
 struct MiddleCenter
@@ -63,6 +64,8 @@ struct MiddleCenter
 
 	void unlock();
 
+	//参数设置详细看STLTimeWheel.h内说明
+	void setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, const unsigned int checkSecond = 1, const unsigned int wheelNum = 60, const unsigned int everySecondFunctionNumber = 1000);
 
 
 private:
@@ -82,6 +85,9 @@ private:
 	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
 	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
 
+	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
+
+
 	std::mutex m_mutex;
 
 	char *m_publicKeyBuffer{};
@@ -99,6 +105,11 @@ private:
 	RSA* m_rsaPublic{};
 	RSA* m_rsaPrivate{};
 
-
+	//保存时间轮内设置的checkSecond，
+	//则所有socket的检查时间为
+	//if(!(超时检查时间%checkSecond))
+	//      turnNum= 超时检查时间 / checkSecond
+	//否则turnNum= 超时检查时间 / checkSecond + 1
+	unsigned int m_checkSecond{};
 
 };

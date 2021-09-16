@@ -127,11 +127,11 @@ void MiddleCenter::setLog(const char * logFileName, std::shared_ptr<IOcontextPoo
 			throw std::runtime_error("logFileName is invaild");
 		if (!ioPool)
 			throw std::runtime_error("ioPool is invaild");
-		if (overTime<=0)
+		if (overTime <= 0)
 			throw std::runtime_error("overTime is invaild");
-		if (bufferSize<=0)
+		if (bufferSize <= 0)
 			throw std::runtime_error("bufferSize is invaild");
-		if (bufferNum<=0)
+		if (bufferNum <= 0)
 			throw std::runtime_error("bufferNum is invaild");
 
 		if (!m_hasSetLog)
@@ -166,7 +166,7 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, const st
 		{
 			m_listener.reset(new listener(ioPool, m_multiSqlReadSWPoolSlave,m_multiSqlReadSWPoolMaster,
 				m_multiRedisReadPoolSlave, m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
-				m_multiSqlWriteSWPoolMaster,tcpAddress, doc_root, m_logPool, socketNum, timeOut,
+				m_multiSqlWriteSWPoolMaster,tcpAddress, doc_root, m_logPool, socketNum, timeOut, m_checkSecond, m_timeWheel,
 				m_publicKeyBegin, m_publicKeyEnd, m_publicKeyLen, m_privateKeyBegin, m_privateKeyEnd, m_privateKeyLen,
 				m_rsaPublic, m_rsaPrivate
 				));
@@ -228,4 +228,13 @@ void MiddleCenter::unlock()
 {
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 	m_mutex.unlock();
+}
+
+
+
+void MiddleCenter::setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, const unsigned int checkSecond, const unsigned int wheelNum, const unsigned int everySecondFunctionNumber)
+{
+	m_checkSecond = checkSecond;
+	m_timeWheel.reset(new STLTimeWheel(ioPool->getIoNext(), checkSecond, wheelNum, everySecondFunctionNumber));
+
 }

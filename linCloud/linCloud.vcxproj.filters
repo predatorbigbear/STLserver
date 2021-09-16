@@ -55,6 +55,9 @@
     </ClCompile>
     <ClCompile Include="mainCinatra.cpp" />
     <ClCompile Include="mainWorkflow.cpp" />
+    <ClCompile Include="STLTimeWheel.cpp">
+      <Filter>TimeWheel</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="publicHeader.h" />
@@ -137,6 +140,9 @@
     <ClInclude Include="multiSqlWriteSWPool.h">
       <Filter>multiSQLWRITESWPOOL</Filter>
     </ClInclude>
+    <ClInclude Include="STLTimeWheel.h">
+      <Filter>TimeWheel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="listener">
@@ -207,6 +213,9 @@
     </Filter>
     <Filter Include="multiSQLWRITESWPOOL">
       <UniqueIdentifier>{2c7ce7a6-9267-4734-84ef-4372d3555fc9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TimeWheel">
+      <UniqueIdentifier>{08b53135-224a-458d-961b-e422551fdd6e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

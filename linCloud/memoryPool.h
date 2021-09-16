@@ -5,6 +5,7 @@
 
 
 
+
 template<typename MEMORYTYPE, unsigned int prepareSize = 1024>
 struct MEMORYPOOL
 {
@@ -14,6 +15,10 @@ struct MEMORYPOOL
 	MEMORYTYPE* getMemory(unsigned int getLen)
 	{
 		if (!getLen)
+			return nullptr;
+		//设置最大内存申请值，每次获取时进行对比
+		static constexpr unsigned int maxMemorySize{ 100 * 1024 };
+		if (maxMemorySize - m_needSize < getLen)
 			return nullptr;
 		if (!m_ptrMaxSize)
 		{

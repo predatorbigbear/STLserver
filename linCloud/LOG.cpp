@@ -121,7 +121,9 @@ void LOG::fastReadyTime()
 	}
 	else
 	{
+		m_timer->cancel();
 		m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+		StartCheckLog();
 		m_nowSize = 0;
 		if (m_bufferSize > m_dataSize)
 		{
@@ -187,7 +189,9 @@ LOG & LOG::operator<<(const char * log)
 		}
 		else
 		{
+			m_timer->cancel();
 			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+			StartCheckLog();
 			m_nowSize = 0;
 			if (m_bufferSize > m_num)
 			{
@@ -216,7 +220,9 @@ LOG & LOG::operator<<(const std::string &log)
 		}
 		else
 		{
+			m_timer->cancel();
 			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+			StartCheckLog();
 			m_nowSize = 0;
 			if (m_bufferSize > m_num)
 			{
@@ -409,7 +415,9 @@ LOG & LOG::operator<<(const int & num)
 	}
 	else
 	{
+	    m_timer->cancel();
 	    m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+		StartCheckLog();
 	    m_nowSize = 0;
 		if (m_bufferSize > 11)
 		{
@@ -760,7 +768,9 @@ LOG & LOG::operator<<(const unsigned int & num)
 	}
 	else
 	{
+	    m_timer->cancel();
 		m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+		StartCheckLog();
 		m_nowSize = 0;
 		if (m_bufferSize > 11)
 		{
@@ -946,7 +956,9 @@ LOG & LOG::operator<<(const char ch)
 	}
 	else
 	{
+		m_timer->cancel();
 		m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+		StartCheckLog();
 		m_nowSize = 0;
 		if (m_bufferSize > 1)
 		{
@@ -973,7 +985,9 @@ LOG & LOG::operator<<(const std::string_view log)
 		}
 		else
 		{
+			m_timer->cancel();
 			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+			StartCheckLog();
 			m_nowSize = 0;
 			if (m_bufferSize > m_num)
 			{

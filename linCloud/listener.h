@@ -11,9 +11,9 @@
 #include "multiRedisReadPool.h"
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
+#include "STLTimeWheel.h"
 
-
-//  通过消息订阅机制来进行通知回收
+// 
 
 struct listener 
 {
@@ -22,7 +22,7 @@ struct listener
 		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 		const std::string &tcpAddress, const std::string &doc_root , std::shared_ptr<LOGPOOL> logPool ,
-		const int socketNum , const int timeOut,
+		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
 		char *publicKeyBegin, char *publicKeyEnd, int publicKeyLen, char *privateKeyBegin, char *privateKeyEnd, int privateKeyLen,
 		RSA* rsaPublic, RSA* rsaPrivate
 		);
@@ -88,9 +88,15 @@ private:
 	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
 	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
 
+	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
+
+
 	int m_socketNum{};
 
 	int m_timeOut{};
+
+	//时间轮检查间隔
+	unsigned int m_checkTurn{};
 
 private:
 	void resetEndpoint();

@@ -111,6 +111,7 @@
     <ClCompile Include="multiSqlWriteSWPool.cpp" />
     <ClCompile Include="readBuffer.cpp" />
     <ClCompile Include="safeList.cpp" />
+    <ClCompile Include="STLTimeWheel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ContentTypeMap.h" />
@@ -143,6 +144,7 @@
     <ClInclude Include="safeList.h" />
     <ClInclude Include="sqlCommand.h" />
     <ClInclude Include="staticString.h" />
+    <ClInclude Include="STLTimeWheel.h" />
     <ClInclude Include="STLtreeFast.h" />
     <ClInclude Include="templateSafeList.h" />
   </ItemGroup>

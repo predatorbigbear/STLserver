@@ -6,17 +6,17 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<MULTIS
 	std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	const std::string &tcpAddress, const std::string &doc_root, std::shared_ptr<LOGPOOL> logPool,
-	const int socketNum, const int timeOut,
+	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
 	char *publicKeyBegin, char *publicKeyEnd, int publicKeyLen, char *privateKeyBegin, char *privateKeyEnd, int privateKeyLen,
 	RSA* rsaPublic, RSA* rsaPrivate
 	) :
-	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), 
+	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
 	m_publicKeyBegin(publicKeyBegin),m_publicKeyEnd(publicKeyEnd),m_publicKeyLen(publicKeyLen),m_privateKeyBegin(privateKeyBegin),m_privateKeyEnd(privateKeyEnd),m_privateKeyLen(privateKeyLen),
 	m_rsaPublic(rsaPublic), m_rsaPrivate(rsaPrivate), m_doc_root(doc_root), m_tcpAddress(tcpAddress),
 	m_multiSqlReadSWPoolSlave(multiSqlReadSWPoolSlave), m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_multiRedisReadPoolSlave(multiRedisReadPoolSlave),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
 {
-	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0
+	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 && checkSecond && m_timeWheel
 		&& m_multiSqlReadSWPoolSlave && m_multiSqlReadSWPoolMaster && m_multiRedisReadPoolSlave
 		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster
 		&& m_publicKeyBegin && m_publicKeyEnd && m_publicKeyLen && m_privateKeyBegin && m_privateKeyEnd && m_privateKeyLen
@@ -44,6 +44,9 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<MULTIS
 			return;
 		}
 		
+		m_checkTurn = m_timeOut / checkSecond;
+		if (m_timeOut % checkSecond)
+			++m_checkTurn;
 
 		m_startcheckTime.reset(new std::function<void()>(std::bind(&listener::checkTimeOut, this)));
 		m_httpServiceList.reset(new FIXEDTEMPLATESAFELIST<std::shared_ptr<HTTPSERVICE>>(m_ioPool->getIoNext(), m_startcheckTime, m_socketNum));
@@ -296,22 +299,25 @@ void listener::reAccept()
 
 void listener::checkTimeOut()
 {
-	m_timeOutTimer->expires_after(std::chrono::seconds(m_timeOut));
-	m_timeOutTimer->async_wait([this](const boost::system::error_code &err)
+	//在插入时间轮定时器失败的情况下，用listen层的定时器进行处理，双重保险
+	//将所有socket对象的统一超时处理并入时间轮定时器中处理
+	if (!m_timeWheel->insert([this]() {m_httpServiceList->check(); }, m_checkTurn))
 	{
-		if (err)
+		m_timeOutTimer->expires_after(std::chrono::seconds(m_timeOut));
+		m_timeOutTimer->async_wait([this](const boost::system::error_code &err)
 		{
+			if (err)
+			{
 
 
-
-
-		}
-		else
-		{
-			m_httpServiceList->check();
-		}
-	});
-
+			}
+			else
+			{
+				m_httpServiceList->check();
+			}
+		});
+	}
+	
 }
 
 
