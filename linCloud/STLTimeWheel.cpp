@@ -198,6 +198,63 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 	catch (const std::exception &e)
 	{
 		//分配内存失败，则尝试跳到下一个节点进行处理，直至跳到m_WheelInfoIter
+		//thisWheelInfo可能在m_WheelInfoIter之后，需要判断尾部情况
+		if (thisWheelInfo > m_WheelInfoIter)
+		{
+			while (++thisWheelInfo != m_WheelInfoEnd)
+			{
+				struct WheelInformation &everyWheelInfo{ *thisWheelInfo };
+
+				if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
+				{
+					//如果function指针位置指向的不是当前节点内function指针位置的尾部
+					if (everyWheelInfo.bufferIter != (everyWheelInfo.listIter->get() + m_everySecondFunctionNumber))
+					{
+						*(everyWheelInfo.bufferIter)++ = callBack;
+						m_mutex.unlock();
+						return true;
+					}
+					else
+					{
+						++everyWheelInfo.listIter;
+						if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
+						{
+							everyWheelInfo.bufferIter = everyWheelInfo.listIter->get();
+							*(everyWheelInfo.bufferIter)++ = callBack;
+							m_mutex.unlock();
+							return true;
+						}
+					}
+				}
+			}
+
+			thisWheelInfo = m_WheelInfoBegin;
+
+			//对m_WheelInfoBegin情况特殊处理
+			struct WheelInformation &everyWheelInfo{ *thisWheelInfo };
+
+			if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
+			{
+				//如果function指针位置指向的不是当前节点内function指针位置的尾部
+				if (everyWheelInfo.bufferIter != (everyWheelInfo.listIter->get() + m_everySecondFunctionNumber))
+				{
+					*(everyWheelInfo.bufferIter)++ = callBack;
+					m_mutex.unlock();
+					return true;
+				}
+				else
+				{
+					++everyWheelInfo.listIter;
+					if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
+					{
+						everyWheelInfo.bufferIter = everyWheelInfo.listIter->get();
+						*(everyWheelInfo.bufferIter)++ = callBack;
+						m_mutex.unlock();
+						return true;
+					}
+				}
+			}
+		}
 
 		while (++thisWheelInfo != m_WheelInfoIter)
 		{

@@ -125,6 +125,15 @@ namespace MAKEJSON
 	static const char *Connection{ "Connection" };
 	static unsigned int ConnectionLen{ strlen(Connection) };
 
+
+	static const char* booleanTrue{ "true" };
+	static unsigned int booleanTrueLen{ strlen(booleanTrue) };
+
+	static const char* booleanFalse{ "false" };
+	static unsigned int booleanFalseLen{ strlen(booleanFalse) };
+
+	static const char* jsonNull{ "null" };
+	static unsigned int jsonNullLen{ strlen(jsonNull) };
 };
 
 
@@ -598,6 +607,308 @@ struct STLtreeFast
 
 
 
+	//插入字符串
+	//T为TRANSFORMTYPE说明需要进行转码处理
+	template<typename T = void>
+	bool putString(const char* str1Begin, const char* str1End, const char* str2Begin, const char* str2End)
+	{
+		int len1{ ((str1End && str1Begin) ? str1End - str1Begin : 0) }, len2{ ((str2End && str2Begin) ? str2End - str2Begin : 0) };
+		int thisSize{ 6 };   //  12 " 1 ":" 2 ",
+		if (len1)
+			thisSize += 4;
+		if (len2)
+			thisSize += 2;
+
+		if (m_maxSize - m_pos < thisSize)
+		{
+			const char** ch{};
+			if (m_maxSize * 2 - m_pos > thisSize)
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize *= 2;
+			}
+			else
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize += thisSize * 2;
+			}
+
+			std::copy(m_ptr, m_ptr + m_pos, ch);
+			m_ptr = ch;
+		}
+
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		{
+			if (m_maxTransformSize < (m_transformPos + 2))
+			{
+				const char** ch{};
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+				if (!ch)
+					return false;
+				m_maxTransformSize *= 2;
+
+				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+				m_transformPtr = ch;
+			}
+
+			if (len1)
+				*(m_transformPtr + m_transformPos++) = str1Begin;
+			if (len2)
+				*(m_transformPtr + m_transformPos++) = str2Begin;
+			m_transformEmpty = false;
+			len1 *= 6;
+			len2 *= 6;
+		}
+
+		const char** ptr{ m_ptr + m_pos };
+		const char** ptrBegin{ ptr };
+		if (++index)
+		{
+			*ptr++ = MAKEJSON::comma;
+			*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+
+			++m_strSize;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+			*ptr++ = str1Begin;
+			*ptr++ = str1End;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::putStrMiddle;
+			*ptr++ = MAKEJSON::putStrMiddle + MAKEJSON::putStrMiddleLen;
+		}
+		else
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+		}
+
+
+		if (len2)
+		{
+			*ptr++ = str2Begin;
+			*ptr++ = str2End;
+		}
+
+		*ptr++ = MAKEJSON::doubleQuotation;
+		*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+		m_strSize += 2 + len1 + len2;
+		if (len1)
+			m_strSize += 3;
+
+		m_pos += std::distance(ptrBegin, ptr);
+		m_empty = false;
+		return true;
+	}
+
+
+
+
+	//插入布尔类型
+	//T为TRANSFORMTYPE说明需要进行转码处理
+	template<typename T = void>
+	bool putBoolean(const char* str1Begin, const char* str1End, const bool booleanValue)
+	{
+		int len1{ ((str1End && str1Begin) ? str1End - str1Begin : 0) }, len2{ booleanValue? MAKEJSON::booleanTrueLen: MAKEJSON::booleanFalseLen };
+		int thisSize{ 4 };   //  12 " 1 ": 2 ,
+		if (len1)
+			thisSize += 6;
+
+		if (m_maxSize - m_pos < thisSize)
+		{
+			const char** ch{};
+			if (m_maxSize * 2 - m_pos > thisSize)
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize *= 2;
+			}
+			else
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize += thisSize * 2;
+			}
+
+			std::copy(m_ptr, m_ptr + m_pos, ch);
+			m_ptr = ch;
+		}
+
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		{
+			if (m_maxTransformSize < (m_transformPos + 2))
+			{
+				const char** ch{};
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+				if (!ch)
+					return false;
+				m_maxTransformSize *= 2;
+
+				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+				m_transformPtr = ch;
+			}
+
+			if (len1)
+				*(m_transformPtr + m_transformPos++) = str1Begin;
+			m_transformEmpty = false;
+			len1 *= 6;
+		}
+
+		const char** ptr{ m_ptr + m_pos };
+		const char** ptrBegin{ ptr };
+		if (++index)
+		{
+			*ptr++ = MAKEJSON::comma;
+			*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+
+			++m_strSize;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+			*ptr++ = str1Begin;
+			*ptr++ = str1End;
+
+			*ptr++ = MAKEJSON::pushBackMiddle1;
+			*ptr++ = MAKEJSON::pushBackMiddle1 + MAKEJSON::pushBackMiddle1Len;
+		}
+
+
+		if (booleanValue)
+		{
+			*ptr++ = MAKEJSON::booleanTrue;
+			*ptr++ = MAKEJSON::booleanTrue + MAKEJSON::booleanTrueLen;
+		}
+		else
+		{
+			*ptr++ = MAKEJSON::booleanFalse;
+			*ptr++ = MAKEJSON::booleanFalse + MAKEJSON::booleanFalseLen;
+		}
+
+		
+
+		m_strSize += len1 + len2;
+		if (len1)
+			m_strSize += 3;
+
+		m_pos += std::distance(ptrBegin, ptr);
+		m_empty = false;
+		return true;
+	}
+
+
+
+	//插入NULL
+	//T为TRANSFORMTYPE说明需要进行转码处理
+	template<typename T = void>
+	bool putNull(const char* str1Begin, const char* str1End)
+	{
+		int len1{ ((str1End && str1Begin) ? str1End - str1Begin : 0) }, len2{ MAKEJSON::jsonNullLen };
+		int thisSize{ 4 };   //  12 " 1 ": 2 ,
+		if (len1)
+			thisSize += 6;
+
+		if (m_maxSize - m_pos < thisSize)
+		{
+			const char** ch{};
+			if (m_maxSize * 2 - m_pos > thisSize)
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize *= 2;
+			}
+			else
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize += thisSize * 2;
+			}
+
+			std::copy(m_ptr, m_ptr + m_pos, ch);
+			m_ptr = ch;
+		}
+
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		{
+			if (m_maxTransformSize < (m_transformPos + 2))
+			{
+				const char** ch{};
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+				if (!ch)
+					return false;
+				m_maxTransformSize *= 2;
+
+				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+				m_transformPtr = ch;
+			}
+
+			if (len1)
+				*(m_transformPtr + m_transformPos++) = str1Begin;
+			m_transformEmpty = false;
+			len1 *= 6;
+		}
+
+		const char** ptr{ m_ptr + m_pos };
+		const char** ptrBegin{ ptr };
+		if (++index)
+		{
+			*ptr++ = MAKEJSON::comma;
+			*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+
+			++m_strSize;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+			*ptr++ = str1Begin;
+			*ptr++ = str1End;
+
+			*ptr++ = MAKEJSON::pushBackMiddle1;
+			*ptr++ = MAKEJSON::pushBackMiddle1 + MAKEJSON::pushBackMiddle1Len;
+		}
+
+
+		*ptr++ = MAKEJSON::jsonNull;
+		*ptr++ = MAKEJSON::jsonNull + MAKEJSON::jsonNullLen;
+
+
+		m_strSize += len1 + len2;
+		if (len1)
+			m_strSize += 3;
+
+		m_pos += std::distance(ptrBegin, ptr);
+		m_empty = false;
+		return true;
+	}
+
+
+	//剩余数字类型，单独特别处理
+
+
+	//插入对象
+	//T为TRANSFORMTYPE说明需要进行转码处理
 	template<typename T = void>
 	bool putObject(const char * begin, const char * end, const STLtreeFast &other)
 	{
@@ -722,7 +1033,8 @@ struct STLtreeFast
 
 
 
-
+	//插入数组
+	//T为TRANSFORMTYPE说明需要进行转码处理
 	template<typename T = void>
 	bool putArray(const char * begin, const char * end, const STLtreeFast &other)
 	{

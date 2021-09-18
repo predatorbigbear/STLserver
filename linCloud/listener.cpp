@@ -299,9 +299,10 @@ void listener::reAccept()
 
 void listener::checkTimeOut()
 {
+	static std::function<void()>socketTimeOut{ [this]() {m_httpServiceList->check(); } };
 	//在插入时间轮定时器失败的情况下，用listen层的定时器进行处理，双重保险
 	//将所有socket对象的统一超时处理并入时间轮定时器中处理
-	if (!m_timeWheel->insert([this]() {m_httpServiceList->check(); }, m_checkTurn))
+	if (!m_timeWheel->insert(socketTimeOut, m_checkTurn))
 	{
 		m_timeOutTimer->expires_after(std::chrono::seconds(m_timeOut));
 		m_timeOutTimer->async_wait([this](const boost::system::error_code &err)

@@ -4238,8 +4238,7 @@ void HTTPSERVICE::testCompareWorkFlow()
 	char *sendBuffer{};
 	unsigned int sendLen{};
 
-	//29  生成与workflow测试中的一样类型的返回消息
-	if (make_compareWithWorkFlowResPonse<CUSTOMTAG>(sendBuffer, sendLen, [this](char *&bufferBegin)
+	static std::function<void(char*&)>compareFun{ [this](char *&bufferBegin)
 	{
 		if (!bufferBegin)
 			return;
@@ -4304,7 +4303,10 @@ void HTTPSERVICE::testCompareWorkFlow()
 		bufferBegin += STATICSTRING::CSTLen;
 
 
-	}, STATICSTRING::DateLen + 1 + dateLen, m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
+	} };
+
+	//29  生成与workflow测试中的一样类型的返回消息
+	if (make_compareWithWorkFlowResPonse<CUSTOMTAG>(sendBuffer, sendLen, compareFun, STATICSTRING::DateLen + 1 + dateLen, m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
 		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 		number,
 		MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, STATICSTRING::textplainUtf8, STATICSTRING::textplainUtf8+ STATICSTRING::textplainUtf8Len,
