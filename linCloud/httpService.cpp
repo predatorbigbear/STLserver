@@ -6676,19 +6676,14 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		}
 
 
-		len = distance(lineBegin, lineEnd);
-		if (len != 2 && len != 4)
-		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_lineEnd len != 2 && len != 4");
-			return PARSERESULT::invaild;
-		}
-
+		len = distance(finalLineBegin, finalLineEnd);
+		
 		accumulateLen = 0;
 
 		break;
 	}
 
-	while (std::distance(finalLineBegin, finalLineEnd) == 2)
+	while (len == 2)
 	{
 		if (!std::equal(finalLineBegin, finalLineEnd, lineStr.cbegin(), lineStr.cbegin() + 2))
 		{
@@ -7720,6 +7715,8 @@ int HTTPSERVICE::parseHttp(const char * source, const int size)
 		{
 			finalLineBegin = lineBegin, finalLineEnd = lineEnd;
 		}
+
+		len = std::distance(finalLineBegin, finalLineEnd);
 	}
 
 	if (len != 4)
