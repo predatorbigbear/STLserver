@@ -3,6 +3,8 @@
 #include<string_view>
 
 
+
+//HTTP  contentType文件后缀与类型map
 static std::unordered_map<std::string_view, std::string_view> contentTypeMap{
 {std::string_view(".*"),std::string_view("application/octet-stream")},
 {std::string_view(".tif"),std::string_view("image/tiff")},

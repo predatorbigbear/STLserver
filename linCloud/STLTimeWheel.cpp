@@ -228,6 +228,13 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 				}
 			}
 
+			//thisWheelInfo > m_WheelInfoIter，那么不排除m_WheelInfoIter就在m_WheelInfoBegin位置
+			if (m_WheelInfoIter == m_WheelInfoBegin)
+			{
+				m_mutex.unlock();
+				return false;
+			}
+
 			thisWheelInfo = m_WheelInfoBegin;
 
 			//对m_WheelInfoBegin情况特殊处理
