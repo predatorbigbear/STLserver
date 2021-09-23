@@ -4012,13 +4012,8 @@ void HTTPSERVICE::testMakeJson()
 	if(!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	m_buffer->setBodyLen(m_len);
-
 	const char *source{ &*m_buffer->getView().body().cbegin() };
-	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char **BodyBuffer{ m_buffer->bodyPara() };
@@ -4052,7 +4047,7 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::keyValueLen:
 			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::keyValue, STATICSTRING::keyValue + STATICSTRING::keyValueLen))
 				break;
-			if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+			if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
 				break;
 			innerSuccess = true;
 			break;
@@ -4063,9 +4058,9 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::doubleValueLen:
 			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::doubleValue, STATICSTRING::doubleValue + STATICSTRING::doubleValueLen))
 			{
-				if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+				if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
 					break;
-				if (!st1.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, value2Str, value2Str + value2StrLen))
+				if (!st1.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, value2Str, value2Str + value2StrLen))
 					break;
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyObject, STATICSTRING::emptyObject + STATICSTRING::emptyObjectLen))
@@ -4075,11 +4070,11 @@ void HTTPSERVICE::testMakeJson()
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::objectArray, STATICSTRING::objectArray + STATICSTRING::objectArrayLen))
 			{
-				if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+				if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
 					break;
-				if (!st1.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+				if (!st1.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
 					break;
-				if (!st1.put<TRANSFORMTYPE, int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+				if (!st1.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
 					break;
 				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
 					break;
@@ -4103,7 +4098,7 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::emptyValueLen:
 			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyValue, STATICSTRING::emptyValue + STATICSTRING::emptyValueLen))
 			{
-				if (!st1.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, nullptr, nullptr))
+				if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, nullptr, nullptr))
 					break;
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyObject, STATICSTRING::emptyObject + STATICSTRING::emptyObjectLen))
@@ -4113,11 +4108,11 @@ void HTTPSERVICE::testMakeJson()
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
 			{
-				if (!st2.put<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
 					break;
-				if (!st2.put<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
 					break;
-				if (!st2.put<TRANSFORMTYPE>(nullptr, nullptr, value3Str, value3Str + value3StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value3Str, value3Str + value3StrLen))
 					break;
 				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
 					break;
@@ -4130,7 +4125,7 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::jsonNullLen:
 			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonNull, STATICSTRING::jsonNull + STATICSTRING::jsonNullLen))
 				break;
-			if (!st1.put<TRANSFORMTYPE,int>(key1Str, key1Str + key1StrLen, nullStr, nullStr + nullStrLen))
+			if (!st1.putNull<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen))
 				break;
 			innerSuccess = true;
 			break;
@@ -4139,9 +4134,9 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::jsonBooleanLen:
 			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonBoolean, STATICSTRING::jsonBoolean + STATICSTRING::jsonBooleanLen))
 				break;
-			if (!st1.put<TRANSFORMTYPE, int>(key1Str, key1Str + key1StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+			if (!st1.putBoolean<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, true))
 				break;
-			if (!st1.put<TRANSFORMTYPE, int>(key2Str, key2Str + key2StrLen, STATICSTRING::jsonFalse, STATICSTRING::jsonFalse + STATICSTRING::jsonFalseLen))
+			if (!st1.putBoolean<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, false))
 				break;
 			innerSuccess = true;
 			break;
@@ -4151,19 +4146,20 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::jsonNumberLen:
 			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonNumber, STATICSTRING::jsonNumber + STATICSTRING::jsonNumberLen))
 			{
-				newbuffer = NumToString(30, needLen, m_charMemoryPool);
-				if (!newbuffer || !needLen)
+				if (!st1.putNumber<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, static_cast<int>(30)))
 					break;
-				if (!st1.put<TRANSFORMTYPE, int>(key1Str, key1Str + key1StrLen, newbuffer, newbuffer + needLen))
+				if (!st1.putNumber<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, static_cast<int>(-20)))
+					break;
+				if (!st1.putNumber<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, static_cast<float>(40.7856f)))
 					break;
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonObject, STATICSTRING::jsonObject + STATICSTRING::jsonObjectLen))
 			{
-				if (!st2.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
 					break;
-				if (!st2.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+				if (!st2.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
 					break;
-				if (!st2.put<TRANSFORMTYPE, int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+				if (!st2.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
 					break;
 				if (!st1.putObject<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
 					break;
@@ -4177,11 +4173,11 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::jsonArrayLen:
 			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonArray, STATICSTRING::jsonArray + STATICSTRING::jsonArrayLen))
 				break;
-			if (!st2.put<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+			if (!st2.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
 				break;
-			if (!st2.put<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+			if (!st2.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
 				break;
-			if (!st2.put<TRANSFORMTYPE, int>(key3Str, key3Str + key3StrLen, STATICSTRING::jsonTrue, STATICSTRING::jsonTrue + STATICSTRING::jsonTrueLen))
+			if (!st2.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
 				break;
 			if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
 				break;
@@ -5421,6 +5417,7 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 // 支持分包解析
 // 除了支持常规body  chunk解析和multipartFromdata两种上传格式解析
 //支持pipeline，在每次发送完毕后判断有没有后续请求包需要解析处理  可查看startWriteLoop的相关处理
+//在解析处理过程中对target、Query para以及body进行url转码处理，后续无需在转码处理，搜素UrlDecodeWithTransChinese函数即可定位处理代码
 
 int HTTPSERVICE::parseHttp(const char * source, const int size)
 {	

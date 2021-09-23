@@ -3,9 +3,13 @@
 #include<algorithm>
 #include<iterator>
 #include "publicHeader.h"
+#include <charconv>
+#include <system_error>
+#include <type_traits>
 
 
-
+//json拼装函数中
+// putString  putBoolean  putNull  putNumber  putObject  putArray现已可用
 //  void HTTPSERVICE::testMakeJson()  展示如何使用STLtreeFast拼凑json
 
 namespace MAKEJSON
@@ -196,6 +200,8 @@ struct STLtreeFast
 	}
 
 
+	//clear与resize目前内部逻辑一致，
+	//因为内存池会prepare，因此需要重新申请内存块
 	bool clear()
 	{
 		m_ptr = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_resize));
@@ -204,7 +210,7 @@ struct STLtreeFast
 			return false;
 		
 
-		//m_transformPtr = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_resize));
+		m_transformPtr = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_resize));
 
 		if (!m_transformPtr)
 			return false;
@@ -480,6 +486,7 @@ struct STLtreeFast
 	//默认STRTYPE用于value为字符的情况，对于数字，布尔，null可以设置STRTYPE为非void
 	//"left":"right"
 	//put函数拆开处理几种数据类型比较好
+	//当插入值类型的时候，仅当len1 或len2 不为空时才有必要检查是否需要转换
 	template<typename T = void,typename STRTYPE =void>
 	bool put(const char * str1Begin, const char * str1End, const char * str2Begin, const char * str2End)
 	{
@@ -512,27 +519,37 @@ struct STLtreeFast
 			m_ptr = ch;
 		}
 
+
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value && std::is_same<STRTYPE, void>::value)
 		{
-			if (m_maxTransformSize < (m_transformPos + 2))
+			//仅当len1 或len2 不为空时才有必要检查是否需要转换
+			if (len1 || len2)
 			{
-				const char **ch{};
-				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
-				if (!ch)
-					return false;
-				m_maxTransformSize *= 2;
+				m_transformEmpty = false;
 
-				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-				m_transformPtr = ch;
+				if (m_maxTransformSize < (m_transformPos + 2))
+				{
+					const char **ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+				if (len1)
+				{
+					*(m_transformPtr + m_transformPos++) = str1Begin;
+					len1 *= 6;
+				}
+				if (len2)
+				{
+					*(m_transformPtr + m_transformPos++) = str2Begin;
+					len2 *= 6;
+				}
 			}
-
-			if(len1)
-				*(m_transformPtr + m_transformPos++) = str1Begin;
-			if(len2)
-				*(m_transformPtr + m_transformPos++) = str2Begin;
-			m_transformEmpty = false;
-			len1 *= 6;
-			len2 *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -609,16 +626,21 @@ struct STLtreeFast
 
 	//插入字符串
 	//T为TRANSFORMTYPE说明需要进行转码处理
+	//当插入值类型的时候，仅当len1 或len2 不为空时才有必要检查是否需要转换
 	template<typename T = void>
 	bool putString(const char* str1Begin, const char* str1End, const char* str2Begin, const char* str2End)
 	{
 		int len1{ ((str1End && str1Begin) ? str1End - str1Begin : 0) }, len2{ ((str2End && str2Begin) ? str2End - str2Begin : 0) };
+		// 6的意思是右侧value的\" \" ,三处的指针存储空间
 		int thisSize{ 6 };   //  12 " 1 ":" 2 ",
+		// 若len1非空，则需存储 \"  左侧key值 \":\"  三处的指针存储空间
 		if (len1)
 			thisSize += 4;
+		// 若len2非空,则需存储右侧value值的指针存储空间
 		if (len2)
 			thisSize += 2;
 
+		//如果存储指针串最大长度 减去 目前已存储长度小于本次所需要存储指针的长度则进行扩容处理
 		if (m_maxSize - m_pos < thisSize)
 		{
 			const char** ch{};
@@ -641,29 +663,42 @@ struct STLtreeFast
 			m_ptr = ch;
 		}
 
+		//如果需要转换，则检测len1或len2是否为非空进行处理
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
 		{
-			if (m_maxTransformSize < (m_transformPos + 2))
+			if (len1 || len2)
 			{
-				const char** ch{};
-				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
-				if (!ch)
-					return false;
-				m_maxTransformSize *= 2;
+				//设置转换标志
+				m_transformEmpty = false;
 
-				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-				m_transformPtr = ch;
+				//2为len1 和len2首字符地址
+				if (m_maxTransformSize < (m_transformPos + 2))
+				{
+					const char** ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+				//json最长的转换处理单字符转换后会变成6倍，故此处直接*6，用空间换时间快速处理
+				if (len1)
+				{
+					*(m_transformPtr + m_transformPos++) = str1Begin;
+					len1 *= 6;
+				}
+				if (len2)
+				{
+					*(m_transformPtr + m_transformPos++) = str2Begin;
+					len2 *= 6;
+				}
 			}
-
-			if (len1)
-				*(m_transformPtr + m_transformPos++) = str1Begin;
-			if (len2)
-				*(m_transformPtr + m_transformPos++) = str2Begin;
-			m_transformEmpty = false;
-			len1 *= 6;
-			len2 *= 6;
 		}
 
+		//储存json指针操作
 		const char** ptr{ m_ptr + m_pos };
 		const char** ptrBegin{ ptr };
 		if (++index)
@@ -704,10 +739,13 @@ struct STLtreeFast
 		*ptr++ = MAKEJSON::doubleQuotation;
 		*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
 
+		//右侧\" \"长度为2  
 		m_strSize += 2 + len1 + len2;
+		//如果len1非空，则需要加上左侧key值的 \"  \":三个字符长度
 		if (len1)
 			m_strSize += 3;
 
+		//累加指针存储长度
 		m_pos += std::distance(ptrBegin, ptr);
 		m_empty = false;
 		return true;
@@ -718,6 +756,7 @@ struct STLtreeFast
 
 	//插入布尔类型
 	//T为TRANSFORMTYPE说明需要进行转码处理
+	//当插入值类型的时候，仅当len1 不为空时才有必要检查是否需要转换
 	template<typename T = void>
 	bool putBoolean(const char* str1Begin, const char* str1End, const bool booleanValue)
 	{
@@ -750,22 +789,24 @@ struct STLtreeFast
 
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
 		{
-			if (m_maxTransformSize < (m_transformPos + 2))
-			{
-				const char** ch{};
-				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
-				if (!ch)
-					return false;
-				m_maxTransformSize *= 2;
-
-				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-				m_transformPtr = ch;
-			}
-
 			if (len1)
+			{
+				m_transformEmpty = false;
+				if (m_maxTransformSize < (m_transformPos + 1))
+				{
+					const char** ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
 				*(m_transformPtr + m_transformPos++) = str1Begin;
-			m_transformEmpty = false;
-			len1 *= 6;
+				len1 *= 6;
+			}
 		}
 
 		const char** ptr{ m_ptr + m_pos };
@@ -817,6 +858,7 @@ struct STLtreeFast
 
 	//插入NULL
 	//T为TRANSFORMTYPE说明需要进行转码处理
+	//当插入值类型的时候，仅当len1 不为空时才有必要检查是否需要转换
 	template<typename T = void>
 	bool putNull(const char* str1Begin, const char* str1End)
 	{
@@ -849,22 +891,25 @@ struct STLtreeFast
 
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
 		{
-			if (m_maxTransformSize < (m_transformPos + 2))
-			{
-				const char** ch{};
-				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
-				if (!ch)
-					return false;
-				m_maxTransformSize *= 2;
-
-				std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-				m_transformPtr = ch;
-			}
-
 			if (len1)
+			{
+				m_transformEmpty = false;
+
+				if (m_maxTransformSize < (m_transformPos + 1))
+				{
+					const char** ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
 				*(m_transformPtr + m_transformPos++) = str1Begin;
-			m_transformEmpty = false;
-			len1 *= 6;
+				len1 *= 6;
+			}
 		}
 
 		const char** ptr{ m_ptr + m_pos };
@@ -904,7 +949,303 @@ struct STLtreeFast
 	}
 
 
-	//剩余数字类型，单独特别处理
+	//插入数字类型，参数为整形或浮点型则实时转换
+	//T为TRANSFORMTYPE说明需要进行转码处理
+	//当插入值类型的时候，仅当len1 不为空时才有必要检查是否需要转换
+	template<typename T = void,typename NUMBERTYPE ,
+		typename = std::enable_if_t<std::is_integral<NUMBERTYPE>::value || std::is_floating_point<NUMBERTYPE>::value>>
+		bool putNumber(const char* str1Begin, const char* str1End, NUMBERTYPE&& number)
+	{
+		static constexpr int numberMaxLen{ 25 };
+		char *numberBuffer{ m_sendMemoryPool->getMemory(numberMaxLen) };
+		if (!numberBuffer)
+			return false;
+
+		//为未来而写的代码
+		//https://kheresy.wordpress.com/2018/12/05/c17-std-from_chars/
+		//ps:目前有完整支援的編譯器似乎還只有 Visual Studio 2017 15.9，GCC 8.0 和 CLang 7.0 都還只有整數、不支援其他型別。
+		//测试过VS可以支持整形浮点，GCC10.2.0仍未支持浮点,
+		//目前采取的解决办法是针对整型采用C++17的to_chars处理，浮点类型则采用sprintf处理
+		if constexpr (std::is_integral<NUMBERTYPE>::value)
+		{
+			auto [numPtr,ec] { std::to_chars(numberBuffer, numberBuffer + numberMaxLen, std::forward<NUMBERTYPE>(number)) };
+			if (ec != std::errc())
+				return false;
+			int len1{ (str1End && str1Begin ? str1End - str1Begin : 0) }, len2{ std::distance(numberBuffer,numPtr) };
+			int thisSize{ 4 };
+			if (len1)
+				thisSize += 6;
+
+			if (m_maxSize - m_pos < thisSize)
+			{
+				const char** ch{};
+				if (m_maxSize * 2 - m_pos > thisSize)
+				{
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+					if (!ch)
+						return false;
+					m_maxSize *= 2;
+				}
+				else
+				{
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+					if (!ch)
+						return false;
+					m_maxSize += thisSize * 2;
+				}
+
+				std::copy(m_ptr, m_ptr + m_pos, ch);
+				m_ptr = ch;
+			}
+
+			if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+			{
+				if (len1)
+				{
+					m_transformEmpty = false;
+
+					if (m_maxTransformSize < (m_transformPos + 1))
+					{
+						const char** ch{};
+						ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+						if (!ch)
+							return false;
+						m_maxTransformSize *= 2;
+
+						std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+						m_transformPtr = ch;
+					}
+
+					*(m_transformPtr + m_transformPos++) = str1Begin;
+					len1 *= 6;
+				}
+			}
+
+			const char** ptr{ m_ptr + m_pos };
+			const char** ptrBegin{ ptr };
+			if (++index)
+			{
+				*ptr++ = MAKEJSON::comma;
+				*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+
+				++m_strSize;
+			}
+
+			if (len1)
+			{
+				*ptr++ = MAKEJSON::doubleQuotation;
+				*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+				*ptr++ = str1Begin;
+				*ptr++ = str1End;
+
+				*ptr++ = MAKEJSON::pushBackMiddle1;
+				*ptr++ = MAKEJSON::pushBackMiddle1 + MAKEJSON::pushBackMiddle1Len;
+			}
+
+			*ptr++ = numberBuffer;
+			*ptr++ = numberBuffer + len2;
+
+			m_strSize += len1 + len2;
+			if (len1)
+				m_strSize += 3;
+
+			m_pos += std::distance(ptrBegin, ptr);
+			m_empty = false;
+			return true;
+		}
+		else
+		{
+			if constexpr (std::is_same<NUMBERTYPE, float>::value || std::is_same<NUMBERTYPE, double>::value)
+			{
+				sprintf(numberBuffer, "%f", std::forward<NUMBERTYPE>(number));
+			}
+			else
+			{
+				sprintf(numberBuffer, "%Lf", std::forward<NUMBERTYPE>(number));
+			}
+
+			int len1{ (str1End && str1Begin ? str1End - str1Begin : 0) }, len2{ std::distance(numberBuffer,std::find(numberBuffer,numberBuffer + numberMaxLen,0)) };
+			int thisSize{ 4 };
+			if (len1)
+				thisSize += 6;
+
+			if (m_maxSize - m_pos < thisSize)
+			{
+				const char** ch{};
+				if (m_maxSize * 2 - m_pos > thisSize)
+				{
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+					if (!ch)
+						return false;
+					m_maxSize *= 2;
+				}
+				else
+				{
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+					if (!ch)
+						return false;
+					m_maxSize += thisSize * 2;
+				}
+
+				std::copy(m_ptr, m_ptr + m_pos, ch);
+				m_ptr = ch;
+			}
+
+			if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+			{
+				if (len1)
+				{
+					m_transformEmpty = false;
+
+					if (m_maxTransformSize < (m_transformPos + 1))
+					{
+						const char** ch{};
+						ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+						if (!ch)
+							return false;
+						m_maxTransformSize *= 2;
+
+						std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+						m_transformPtr = ch;
+					}
+
+					*(m_transformPtr + m_transformPos++) = str1Begin;
+					len1 *= 6;
+				}
+			}
+
+			const char** ptr{ m_ptr + m_pos };
+			const char** ptrBegin{ ptr };
+			if (++index)
+			{
+				*ptr++ = MAKEJSON::comma;
+				*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+
+				++m_strSize;
+			}
+
+			if (len1)
+			{
+				*ptr++ = MAKEJSON::doubleQuotation;
+				*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+				*ptr++ = str1Begin;
+				*ptr++ = str1End;
+
+				*ptr++ = MAKEJSON::pushBackMiddle1;
+				*ptr++ = MAKEJSON::pushBackMiddle1 + MAKEJSON::pushBackMiddle1Len;
+			}
+
+			*ptr++ = numberBuffer;
+			*ptr++ = numberBuffer + len2;
+
+			m_strSize += len1 + len2;
+			if (len1)
+				m_strSize += 3;
+
+			m_pos += std::distance(ptrBegin, ptr);
+			m_empty = false;
+			return true;
+		}
+
+		return false;
+	}
+
+
+
+
+	//插入数字类型，参数为字符串类型（用户需自己保证为数字字符串）
+	//T为TRANSFORMTYPE说明需要进行转码处理
+	//当插入值类型的时候，仅当len1 不为空时才有必要检查是否需要转换
+	template<typename T = void>
+		bool putNumber(const char* str1Begin, const char* str1End, const char* str2Begin, const char* str2End)
+	{
+		int len1{ (str1End && str1Begin ? str1End - str1Begin : 0) }, len2{ (str2End && str2Begin ? str2End - str2Begin : 0) };
+		int thisSize{ 4 };
+		if (len1)
+			thisSize += 6;
+
+		if (m_maxSize - m_pos < thisSize)
+		{
+			const char** ch{};
+			if (m_maxSize * 2 - m_pos > thisSize)
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize *= 2;
+			}
+			else
+			{
+				ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxSize + thisSize * 2));
+				if (!ch)
+					return false;
+				m_maxSize += thisSize * 2;
+			}
+
+			std::copy(m_ptr, m_ptr + m_pos, ch);
+			m_ptr = ch;
+		}
+
+		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
+		{
+			if (len1)
+			{
+				m_transformEmpty = false;
+
+				if (m_maxTransformSize < (m_transformPos + 1))
+				{
+					const char** ch{};
+					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+					if (!ch)
+						return false;
+					m_maxTransformSize *= 2;
+
+					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+					m_transformPtr = ch;
+				}
+
+				*(m_transformPtr + m_transformPos++) = str1Begin;
+				len1 *= 6;
+			}
+		}
+
+		const char** ptr{ m_ptr + m_pos };
+		const char** ptrBegin{ ptr };
+		if (++index)
+		{
+			*ptr++ = MAKEJSON::comma;
+			*ptr++ = MAKEJSON::comma + MAKEJSON::commaLen;
+
+			++m_strSize;
+		}
+
+		if (len1)
+		{
+			*ptr++ = MAKEJSON::doubleQuotation;
+			*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
+
+			*ptr++ = str1Begin;
+			*ptr++ = str1End;
+
+			*ptr++ = MAKEJSON::pushBackMiddle1;
+			*ptr++ = MAKEJSON::pushBackMiddle1 + MAKEJSON::pushBackMiddle1Len;
+		}
+
+		*ptr++ = str2Begin;
+		*ptr++ = str2End;
+
+		m_strSize += len1 + len2;
+		if (len1)
+			m_strSize += 3;
+
+		m_pos += std::distance(ptrBegin, ptr);
+		m_empty = false;
+		return true;
+	}
+
+
 
 
 	//插入对象
@@ -913,9 +1254,9 @@ struct STLtreeFast
 	bool putObject(const char * begin, const char * end, const STLtreeFast &other)
 	{
 		int len1{ (end && begin ? end - begin : 0) }, len2{ static_cast<int>(other.m_strSize) };
-		int thisSize{ 6 + static_cast<int>(other.m_pos) };   //  12 " 1 ":" 2 ",
+		int thisSize{ 6 + static_cast<int>(other.m_pos) };   //  12 " 1 ":{ 2 },
 		if (len1)
-			thisSize += 4;
+			thisSize += 6;
 
 		if (m_maxSize - m_pos < thisSize)
 		{
@@ -940,47 +1281,51 @@ struct STLtreeFast
 
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
 		{
-			if (!other.isTransformEmpty())
+			if (!other.isTransformEmpty() || len1)
 			{
-				if (m_maxTransformSize < (m_transformPos + other.m_transformPos))
+				m_transformEmpty = false;
+				if (!other.isTransformEmpty())
 				{
-					const char **ch{};
-					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2 + other.m_transformPos));
-					if (!ch)
-						return false;
-					m_maxTransformSize *= 2;
-					m_maxTransformSize += other.m_transformPos;
+					if (m_maxTransformSize < (m_transformPos + other.m_transformPos + 1))
+					{
+						const char **ch{};
+						ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2 + other.m_transformPos));
+						if (!ch)
+							return false;
+						m_maxTransformSize *= 2;
+						m_maxTransformSize += other.m_transformPos;
 
 
-					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-					m_transformPtr = ch;
+						std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+						m_transformPtr = ch;
+					}
+
+					if (len1)
+					{
+						*(m_transformPtr + m_transformPos++) = begin;
+						len1 *= 6;
+					}
+					std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
+					m_transformPos += other.m_transformPos;
 				}
-
-				if (len1)
-					*(m_transformPtr + m_transformPos++) = begin;
-				std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
-				m_transformPos += other.m_transformPos;
-			}
-			else
-			{
-				if (m_maxTransformSize == m_transformPos)
+				else
 				{
-					const char **ch{};
-					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
-					if (!ch)
-						return false;
-					m_maxTransformSize *= 2;
+					if (m_maxTransformSize == m_transformPos)
+					{
+						const char **ch{};
+						ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+						if (!ch)
+							return false;
+						m_maxTransformSize *= 2;
 
-					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-					m_transformPtr = ch;
-				}
+						std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+						m_transformPtr = ch;
+					}
 
-				if(len1)
 					*(m_transformPtr + m_transformPos++) = begin;
+					len1 *= 6;
+				}
 			}
-
-			m_transformEmpty = false;
-			len1 *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -1039,7 +1384,7 @@ struct STLtreeFast
 	bool putArray(const char * begin, const char * end, const STLtreeFast &other)
 	{
 		int len1{ (end && begin ? end - begin : 0) }, len2{ static_cast<int>(other.m_strSize) };
-		int thisSize{ 6 + static_cast<int>(other.m_pos) };   //  12 " 1 ":" 2 ",
+		int thisSize{ 6 + static_cast<int>(other.m_pos) };   //  12 " 1 ":[ 2 ],
 		if (len1)
 			thisSize += 4;
 	
@@ -1066,47 +1411,51 @@ struct STLtreeFast
 
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
 		{
-			if (!other.isTransformEmpty())
+			if (!other.isTransformEmpty() || len1)
 			{
-				if (m_maxTransformSize < (m_transformPos + other.m_transformPos))
+				m_transformEmpty = false;
+				if (!other.isTransformEmpty())
 				{
-					const char **ch{};
-					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2 + other.m_transformPos));
-					if (!ch)
-						return false;
-					m_maxTransformSize *= 2;
-					m_maxTransformSize += other.m_transformPos;
+					if (m_maxTransformSize < (m_transformPos + other.m_transformPos + 1))
+					{
+						const char **ch{};
+						ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2 + other.m_transformPos));
+						if (!ch)
+							return false;
+						m_maxTransformSize *= 2;
+						m_maxTransformSize += other.m_transformPos;
 
 
-					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-					m_transformPtr = ch;
+						std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+						m_transformPtr = ch;
+					}
+
+					if (len1)
+					{
+						*(m_transformPtr + m_transformPos++) = begin;
+						len1 *= 6;
+					}
+					std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
+					m_transformPos += other.m_transformPos;
 				}
-
-				if (len1)
-					*(m_transformPtr + m_transformPos++) = begin;
-				std::copy(other.m_transformPtr, other.m_transformPtr + other.m_transformPos, m_transformPtr + m_transformPos);
-				m_transformPos += other.m_transformPos;
-			}
-			else
-			{
-				if (m_maxTransformSize == m_transformPos)
+				else
 				{
-					const char **ch{};
-					ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
-					if (!ch)
-						return false;
-					m_maxTransformSize *= 2;
+					if (m_maxTransformSize == m_transformPos)
+					{
+						const char **ch{};
+						ch = const_cast<const char**>(m_memoryPoolCharPointer->getMemory(m_maxTransformSize * 2));
+						if (!ch)
+							return false;
+						m_maxTransformSize *= 2;
 
-					std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
-					m_transformPtr = ch;
-				}
+						std::copy(m_transformPtr, m_transformPtr + m_transformPos, ch);
+						m_transformPtr = ch;
+					}
 
-				if(len1)
 					*(m_transformPtr + m_transformPos++) = begin;
+					len1 *= 6;
+				}
 			}
-
-			m_transformEmpty = false;
-			len1 *= 6;
 		}
 
 		const char **ptr{ m_ptr + m_pos };
@@ -1159,6 +1508,7 @@ struct STLtreeFast
 
 
 
+	//待废弃接口
 	template<typename T = void, typename STRTYPE = void>
 	bool push_back(const char * begin, const char * end, const STLtreeFast &other)
 	{
@@ -1277,6 +1627,7 @@ struct STLtreeFast
 	}
 
 
+	//待废弃接口
 	template<typename T = void>
 	bool push_back(const STLtreeFast &other)
 	{
@@ -1371,7 +1722,7 @@ struct STLtreeFast
 	}
 
 
-
+	//待废弃接口
 	template<typename T = void>
 	bool put_child(const char * begin, const char * end, const STLtreeFast &other)
 	{
@@ -2127,27 +2478,30 @@ template<typename T = void, typename HTTPFLAG = void, typename ENCTYPT = void, t
 
 
 private:
-	const char **m_ptr{};
-	unsigned int m_pos{};
-	unsigned int m_maxSize{ };
-	bool m_empty{ true };
+	//m_ptr与m_transformPtr存储内容皆为指针，其中m_transformPtr为存储需要json转义处理的指针首地址
 
 
-	const char **m_transformPtr{};
-	unsigned int m_transformPos{};
-	unsigned int m_maxTransformSize{ };
-	bool m_transformEmpty{ true };
+	const char **m_ptr{};    //存储任意组合的指针串
+	unsigned int m_pos{};    //上面的指针串的具体长度
+	unsigned int m_maxSize{ };   //上面的指针串的最大可容纳空间
+	bool m_empty{ true };        //是否为空
+
+
+	const char **m_transformPtr{};     //存储需要进行json转义转换的指针串
+	unsigned int m_transformPos{};     //上面的指针串的具体长度
+	unsigned int m_maxTransformSize{ };  //上面的指针串的最大可容纳空间
+	bool m_transformEmpty{ true };       //是否为空
 
 
 
 
-	unsigned int m_resize{ 1024 };
-	unsigned int m_strSize{};
+	unsigned int m_resize{ 1024 };   //指针串重置的空间大小
+	unsigned int m_strSize{};        //预判转换后的目标字符串大小
 
-	int index{ -1 };
+	int index{ -1 };        //记录已插入元素数量
 
-	MEMORYPOOL<char*> *m_memoryPoolCharPointer{ nullptr };
+	MEMORYPOOL<char*> *m_memoryPoolCharPointer{ nullptr };   //char*类型的内存池
 
-	MEMORYPOOL<char> *m_sendMemoryPool{ nullptr };
+	MEMORYPOOL<char> *m_sendMemoryPool{ nullptr };           //char类型的内存池
 
 };

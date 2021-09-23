@@ -5,7 +5,7 @@
 
 //与以往的内存池不同的设计：
 //每次http接口请求读取时记录下累计实际所需要的内存大小，
-//优先从m_ptr申请内存块，不足的从后备内存区m_shadow获取（实时分配）
+//优先从m_ptr申请内存块，不足的从后备内存区m_shadow获取（实时分配，实时分配的性能可通过tmalloc或jmalloc等第三方内存池进一步提速）
 //在接口结果发送之后，调用prepare处理
 //这样在若干次不同的接口请求后，确保m_ptr内的内存可以满足绝大部分甚至全部的内存需求，大幅度提升申请内存块的效率和性能
 
@@ -106,11 +106,11 @@ private:
 	 
 	unsigned int m_ptrNowSize{};              //当前内存块已经分配出去的内存空间大小
 
-	std::forward_list<std::unique_ptr<MEMORYTYPE[]>>m_shadow{};                                  //后背内存块空间
+	std::forward_list<std::unique_ptr<MEMORYTYPE[]>>m_shadow{};                                  //后备内存块空间
 
 	typedef typename std::forward_list<std::unique_ptr<MEMORYTYPE[]>>::iterator ITERATOR;
 
-	ITERATOR m_iter{ m_shadow.before_begin() };                                                 //后背内存块空间插入迭代器                                          
+	ITERATOR m_iter{ m_shadow.before_begin() };                                                 //后备内存块空间插入迭代器                                          
 
 	unsigned int m_needSize{};                //累计实际所需要的内存大小
 };
