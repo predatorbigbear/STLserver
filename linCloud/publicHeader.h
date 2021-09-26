@@ -653,7 +653,6 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 			decltype(urlMap)::const_iterator iter;
 			int index{},index1,index2,index3;
 			char *des{ const_cast<char*>(source) };
-			bool check{ false };
 			char ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch8;
 
 
@@ -681,8 +680,8 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 							{
 								desLen = std::distance(source, iterBegin);
 								*(des + desLen++) = iter->second;
-								iterBegin += 2;
-								check = true;
+								iterBegin += 3;
+								break;
 							}
 							else
 							{
@@ -715,8 +714,8 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 												desLen = std::distance(source, iterBegin);
 												*(des + desLen++) = static_cast<char>(index1);
 												*(des + desLen++) = static_cast<char>(index2);
-												check = true;
-												iterBegin += 5;
+												iterBegin += 6;
+												break;
 											}
 										}
 										else
@@ -747,8 +746,8 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 															*(des + desLen++) = static_cast<char>(index1);
 															*(des + desLen++) = static_cast<char>(index2);
 															*(des + desLen++) = static_cast<char>(index3);
-															check = true;
-															iterBegin += 8;
+															iterBegin += 9;
+															break;
 														}
 													}
 												}
@@ -763,11 +762,10 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 					{
 						desLen = std::distance(source, iterBegin);
 						*(des + desLen++) = ' ';
-						check = true;
+						++iterBegin;
+						break;
 					}
 					++iterBegin;
-					if (check)
-						break;
 				}
 			}
 
