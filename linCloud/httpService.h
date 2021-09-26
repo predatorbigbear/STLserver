@@ -454,6 +454,7 @@ private:
 
 	const char *m_sendBuffer{};
 	unsigned int m_sendLen{};
+	unsigned int m_sendTimes{};
 
 private:
 
@@ -557,10 +558,20 @@ private:
 
 	void handleTestGETFileLock(bool result, ERRORMESSAGE em);
 
+	//直接从硬盘中读取
 	void readyReadFileFromDisk(std::string_view fileName);
 
 	//循环处理从磁盘读取文件发送客户端过程  以及 善后处理
 	void ReadFileFromDiskLoop();
+
+
+	//直接从reids中读取
+	void readyReadFileFromRedis(std::string_view fileName);
+
+	void handleReadFileFromRedis(bool result, ERRORMESSAGE em);
+
+	void ReadFileFromRedisLoop();
+
 
 	//生成完整文件路径
 	bool makeFilePath(std::string_view fileName);
@@ -880,6 +891,13 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 			if constexpr (std::is_same<SENDMODE, READFROMDISK>::value)
 			{
 				ReadFileFromDiskLoop();
+			}
+
+			if constexpr (std::is_same<SENDMODE, READFROMREDIS>::value)
+			{
+				//统计发送次数
+				++m_sendTimes;
+				ReadFileFromRedisLoop();
 			}
 		}
 	});

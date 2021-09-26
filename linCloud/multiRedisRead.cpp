@@ -479,7 +479,8 @@ bool MULTIREDISREAD::prase(const int size)
 							{
 								try
 								{
-									std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+									std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(nullptr, 0));
+									std::get<5>(**waitMessageListBegin).get().emplace_back(1);
 								}
 								catch (const std::exception &e)
 								{

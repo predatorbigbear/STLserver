@@ -13,6 +13,7 @@ namespace REDISNAMESPACE
 	static constexpr char* numberZero{ "0" };
 	static constexpr char* mget{ "mget" };
 	static constexpr char* hget{ "hget" };
+	static constexpr char* getrange{ "getrange" };
 
 
 	static constexpr int getLen{ strlen(get) };
@@ -25,4 +26,5 @@ namespace REDISNAMESPACE
 	static constexpr int strlenStrLen{ strlen(strlenStr) };
 	static constexpr int numberZeroLen{ strlen(numberZero) };
 	static constexpr int hgetLen{ strlen(hget) };
+	static constexpr int getrangeLen{ strlen(getrange) };
 };

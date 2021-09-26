@@ -1102,11 +1102,10 @@ void HTTPSERVICE::handleTestGETFileLock(bool result, ERRORMESSAGE em)
 
 	if (result)
 	{	
-		if (resultNumVec[filePos])
-		{
-			++filePos;
+		if (!resultVec[filePos].empty())
 			isFileLock = true;
-		}
+
+		++filePos;
 
 		m_fileSize = std::accumulate(std::make_reverse_iterator(resultVec[filePos].cend()), std::make_reverse_iterator(resultVec[filePos].cbegin()), 0, [&index, &num](auto &sum, char ch)
 		{
@@ -1202,7 +1201,135 @@ void HTTPSERVICE::readyReadFileFromDisk(std::string_view fileName)
 	unsigned int sendLen{}, fileSeconds{ 99999 };
 	m_readFileSize = 0;
 
-	if (!makeFileFront<CUSTOMTAG>(m_buffer->fileName(), m_fileSize, m_defaultReadLen, sendBuffer, sendLen, [fileSeconds](char *&buffer)
+	static std::function<void(char *&)>excuFun{ [fileSeconds](char *&buffer)
+	{
+		std::copy(MAKEJSON::CacheControl, MAKEJSON::CacheControl + MAKEJSON::CacheControlLen, buffer);
+		buffer += MAKEJSON::CacheControlLen;
+		*buffer++ = ':';
+
+		std::copy(MAKEJSON::maxAge, MAKEJSON::maxAge + MAKEJSON::maxAgeLen, buffer);
+		buffer += MAKEJSON::maxAgeLen;
+
+		*buffer++ = '=';
+
+		if (fileSeconds > 99999999)
+			*buffer++ = fileSeconds / 100000000 + '0';
+		if (fileSeconds > 9999999)
+			*buffer++ = fileSeconds / 10000000 % 10 + '0';
+		if (fileSeconds > 999999)
+			*buffer++ = fileSeconds / 1000000 % 10 + '0';
+		if (fileSeconds > 99999)
+			*buffer++ = fileSeconds / 100000 % 10 + '0';
+		if (fileSeconds > 9999)
+			*buffer++ = fileSeconds / 10000 % 10 + '0';
+		if (fileSeconds > 999)
+			*buffer++ = fileSeconds / 1000 % 10 + '0';
+		if (fileSeconds > 99)
+			*buffer++ = fileSeconds / 100 % 10 + '0';
+		if (fileSeconds > 9)
+			*buffer++ = fileSeconds / 10 % 10 + '0';
+		*buffer++ = fileSeconds % 10 + '0';
+
+		*buffer++ = ',';
+
+		std::copy(MAKEJSON::publicStr, MAKEJSON::publicStr + MAKEJSON::publicStrLen, buffer);
+		buffer += MAKEJSON::publicStrLen;
+	} };
+
+
+	if (!makeFileFront<CUSTOMTAG>(m_buffer->fileName(), m_fileSize, m_defaultReadLen, sendBuffer, sendLen, excuFun,
+		MAKEJSON::CacheControlLen + 1 + MAKEJSON::maxAgeLen + 1 + stringLen(fileSeconds) + 1 + MAKEJSON::publicStrLen,
+		m_finalVersionBegin, m_finalVersionEnd, MAKEJSON::http200,
+		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
+		MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
+		MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
+		return startWrite(HTTPRESPONSEREADY::httpFailToMakeHttpFront, HTTPRESPONSEREADY::httpFailToMakeHttpFrontLen);
+
+	//获取成功后sendBuffer 为m_defaultReadLen大的发送缓冲
+	// sendLen指向body开始处
+	// m_sendFileSize表示已经成功发送出去的文件大小
+	m_sendBuffer = sendBuffer, m_sendLen = sendLen;
+
+	//判断应该读取的最大文件内容长度
+	m_file.seekg(m_readFileSize, std::ios::beg);
+	int maxReadfileLen{ m_defaultReadLen - m_sendLen };
+
+	if (maxReadfileLen > m_fileSize)
+		maxReadfileLen = m_fileSize;
+
+	m_file.read(reinterpret_cast<char*>(const_cast<char*>(m_sendBuffer + m_sendLen)), maxReadfileLen);
+	m_readFileSize = maxReadfileLen;
+
+	startWrite<READFROMDISK>(m_sendBuffer, m_sendLen + maxReadfileLen);
+
+}
+
+
+
+void HTTPSERVICE::ReadFileFromDiskLoop()
+{
+	//已经发送完毕整个文件给客户端
+	if (m_readFileSize == m_fileSize)
+	{
+		//关闭读取文件
+		if (m_file.is_open())
+			m_file.close();
+
+		//清理资源
+		recoverMemory();
+
+		m_fileSize = 0;
+
+		//接收新请求
+		switch (m_parseStatus)
+		{
+		case PARSERESULT::complete:
+			startRead();
+			break;
+		case PARSERESULT::check_messageComplete:
+			if (m_readBuffer != m_buffer->getBuffer())
+			{
+				std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+				m_readBuffer = m_buffer->getBuffer();
+				m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+				m_maxReadLen = m_defaultReadLen;
+			}
+			parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+			break;
+		default:
+			startRead();
+			break;
+		}
+	}
+	else
+	{
+		//循环将文件装载进发送buffer中发送给客户端
+		m_file.seekg(m_readFileSize, std::ios::beg);
+		int maxReadfileLen{ m_defaultReadLen  };
+
+
+		if (maxReadfileLen > (m_fileSize - m_readFileSize))
+			maxReadfileLen = (m_fileSize - m_readFileSize);
+
+		m_file.read(reinterpret_cast<char*>(const_cast<char*>(m_sendBuffer)), maxReadfileLen);
+		m_readFileSize += maxReadfileLen;
+
+		startWrite<READFROMDISK>(m_sendBuffer, maxReadfileLen);
+	}
+}
+
+
+
+void HTTPSERVICE::readyReadFileFromRedis(std::string_view fileName)
+{
+	if (fileName.empty())
+		return startWrite(HTTPRESPONSEREADY::httpFailToMakeFilePath, HTTPRESPONSEREADY::httpFailToMakeFilePathLen);
+
+	char *sendBuffer{};
+	unsigned int sendLen{}, fileSeconds{ 99999 };
+	m_readFileSize = 0;
+
+	if (!makeFileFront<CUSTOMTAG>(fileName, m_fileSize, m_defaultReadLen, sendBuffer, sendLen, [fileSeconds](char *&buffer)
 	{
 		std::copy(MAKEJSON::CacheControl, MAKEJSON::CacheControl + MAKEJSON::CacheControlLen, buffer);
 		buffer += MAKEJSON::CacheControlLen;
@@ -1243,40 +1370,198 @@ void HTTPSERVICE::readyReadFileFromDisk(std::string_view fileName)
 		MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen))
 		return startWrite(HTTPRESPONSEREADY::httpFailToMakeHttpFront, HTTPRESPONSEREADY::httpFailToMakeHttpFrontLen);
 
-	//获取成功后sendBuffer 为m_defaultReadLen大的发送缓冲
-	// sendLen指向body开始处
-	// m_sendFileSize表示已经成功发送出去的文件大小
 	m_sendBuffer = sendBuffer, m_sendLen = sendLen;
 
-	//判断应该读取的最大文件内容长度
-	m_file.seekg(m_readFileSize, std::ios::beg);
 	int maxReadfileLen{ m_defaultReadLen - m_sendLen };
 
 	if (maxReadfileLen > m_fileSize)
 		maxReadfileLen = m_fileSize;
 
-	m_file.read(reinterpret_cast<char*>(const_cast<char*>(m_sendBuffer + m_sendLen)), maxReadfileLen);
-	m_readFileSize += maxReadfileLen;
+	m_readFileSize = 0;
+	m_sendTimes = 0;
 
-	startWrite<READFROMDISK>(m_sendBuffer, m_sendLen + maxReadfileLen);
+	int needLen{ stringLen(maxReadfileLen) + 1 };
 
+	char *numBuffer{ m_charMemoryPool.getMemory(needLen) }, *bufferIter{};
+
+	if (!numBuffer)
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	bufferIter = numBuffer;
+
+	*bufferIter++ = '0';
+
+	if (maxReadfileLen > 99999999)
+		*bufferIter++ = maxReadfileLen / 100000000 + '0';
+	if (maxReadfileLen > 9999999)
+		*bufferIter++ = maxReadfileLen / 10000000 % 10 + '0';
+	if (maxReadfileLen > 999999)
+		*bufferIter++ = maxReadfileLen / 1000000 % 10 + '0';
+	if (maxReadfileLen > 99999)
+		*bufferIter++ = maxReadfileLen / 100000 % 10 + '0';
+	if (maxReadfileLen > 9999)
+		*bufferIter++ = maxReadfileLen / 10000 % 10 + '0';
+	if (maxReadfileLen > 999)
+		*bufferIter++ = maxReadfileLen / 1000 % 10 + '0';
+	if (maxReadfileLen > 99)
+		*bufferIter++ = maxReadfileLen / 100 % 10 + '0';
+	if (maxReadfileLen > 9)
+		*bufferIter++ = maxReadfileLen / 10 % 10 + '0';
+	*bufferIter++ = maxReadfileLen % 10 + '0';
+
+
+	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	std::vector<std::string_view> &command{ std::get<0>(*redisRequest).get() };
+	std::vector<unsigned int> &commandSize{ std::get<2>(*redisRequest).get() };
+	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+
+
+	command.clear();
+	commandSize.clear();
+	resultVec.clear();
+	resultNumVec.clear();
+	try
+	{
+		//如果是/，则设置一个默认路径，这里假定默认为login.html
+		command.emplace_back(std::string_view(REDISNAMESPACE::getrange, REDISNAMESPACE::getrangeLen));
+		command.emplace_back(m_buffer->getView().target());
+		command.emplace_back(std::string_view(numBuffer, 1));
+		command.emplace_back(std::string_view(numBuffer + 1, needLen - 1));
+
+		commandSize.emplace_back(4);
+
+
+		std::get<1>(*redisRequest) = 1;
+		std::get<3>(*redisRequest) = 1;
+		std::get<6>(*redisRequest) = std::bind(&HTTPSERVICE::handleReadFileFromRedis, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiRedisReadSlave->insertRedisRequest(redisRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+	}
+	catch (const std::exception &e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
 }
 
 
 
-void HTTPSERVICE::ReadFileFromDiskLoop()
+void HTTPSERVICE::handleReadFileFromRedis(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+
+	int sendLen{};
+
+	if (result)
+	{
+		//首次发送
+		if (!m_sendTimes)
+		{
+			if (!resultVec.empty())
+			{
+				std::copy(resultVec[0].cbegin(), resultVec[0].cend(), const_cast<char*>(m_sendBuffer) + m_sendLen);
+				sendLen = m_sendLen + resultVec[0].size();
+				m_readFileSize= resultVec[0].size();
+				startWrite<READFROMREDIS>(m_sendBuffer, sendLen);
+			}
+			else
+			{
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
+		}
+		else
+		{
+			//非首次发送
+			if (!resultVec.empty())
+			{
+				std::copy(resultVec[0].cbegin(), resultVec[0].cend(), const_cast<char*>(m_sendBuffer));
+				sendLen = resultVec[0].size();
+				m_readFileSize += resultVec[0].size();
+				startWrite<READFROMREDIS>(m_sendBuffer, sendLen);
+			}
+			else
+			{
+				//如果从redis中读取文件而发送中途出现错误，则在此重置状态，停止发送，客户端自己设置超时卡掉这次请求，并继续处理下一次请求，或者清空掉socket层接受到的数据，再重新stratRead
+
+				switch (m_parseStatus)
+				{
+				case PARSERESULT::complete:
+					recoverMemory();
+					startRead();
+					break;
+				case PARSERESULT::check_messageComplete:
+					//因为这里的内存块可能不是默认读取内存块，所以回收操作应该在copy处理之后才进行
+					if (m_readBuffer != m_buffer->getBuffer())
+					{
+						std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+						m_readBuffer = m_buffer->getBuffer();
+						m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+						m_maxReadLen = m_defaultReadLen;
+					}
+					recoverMemory();
+					parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+					break;
+					//default处理请求非法以及因内存申请错误的情况
+				default:
+					recoverMemory();
+					startRead();
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		//首次错误返回回复消息
+		if (m_sendTimes)
+		{
+			handleERRORMESSAGE(em);
+		}
+		else
+		{
+			//如果从redis中读取文件而发送中途出现错误，则在此重置状态，停止发送，客户端自己设置超时卡掉这次请求，并继续处理下一次请求，或者清空掉socket层接受到的数据，再重新stratRead
+			
+			switch (m_parseStatus)
+			{
+			case PARSERESULT::complete:
+				recoverMemory();
+				startRead();
+				break;
+			case PARSERESULT::check_messageComplete:
+				//因为这里的内存块可能不是默认读取内存块，所以回收操作应该在copy处理之后才进行
+				if (m_readBuffer != m_buffer->getBuffer())
+				{
+					std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+					m_readBuffer = m_buffer->getBuffer();
+					m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+					m_maxReadLen = m_defaultReadLen;
+				}
+				recoverMemory();
+				parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+				break;
+				//default处理请求非法以及因内存申请错误的情况
+			default:
+				recoverMemory();
+				startRead();
+				break;
+			}
+		}
+	}
+}
+
+
+
+void HTTPSERVICE::ReadFileFromRedisLoop()
 {
 	//已经发送完毕整个文件给客户端
 	if (m_readFileSize == m_fileSize)
 	{
-		//关闭读取文件
-		if (m_file.is_open())
-			m_file.close();
-
 		//清理资源
-		std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
-		m_charMemoryPool.prepare();
-		m_charPointerMemoryPool.prepare();
+		recoverMemory();
 
 		m_fileSize = 0;
 
@@ -1296,22 +1581,157 @@ void HTTPSERVICE::ReadFileFromDiskLoop()
 			}
 			parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
 			break;
+		default:
+			startRead();
+			break;
 		}
 	}
 	else
 	{
-		//循环将文件装载进发送buffer中发送给客户端
-		m_file.seekg(m_readFileSize, std::ios::beg);
-		int maxReadfileLen{ m_defaultReadLen  };
+		//循环从redis中请求消息装载发送buffer中发送给客户端
 
+		int maxReadfileLen{ m_defaultReadLen };
 
 		if (maxReadfileLen > (m_fileSize - m_readFileSize))
 			maxReadfileLen = (m_fileSize - m_readFileSize);
 
-		m_file.read(reinterpret_cast<char*>(const_cast<char*>(m_sendBuffer)), maxReadfileLen);
-		m_readFileSize += maxReadfileLen;
+		int leftRange{ m_readFileSize },  rightRange{ m_readFileSize + maxReadfileLen };
+		int leftLen{ stringLen(leftRange) }, rightLen{ stringLen(rightRange) };
+		int needLen{ leftLen + rightLen };
 
-		startWrite<READFROMDISK>(m_sendBuffer, maxReadfileLen);
+		char *numBuffer{ m_charMemoryPool.getMemory(needLen) }, *bufferIter{};
+
+		if (!numBuffer)
+			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+		bufferIter = numBuffer;
+
+		
+		if (leftRange > 99999999)
+			*bufferIter++ = leftRange / 100000000 + '0';
+		if (leftRange > 9999999)
+			*bufferIter++ = leftRange / 10000000 % 10 + '0';
+		if (leftRange > 999999)
+			*bufferIter++ = leftRange / 1000000 % 10 + '0';
+		if (leftRange > 99999)
+			*bufferIter++ = leftRange / 100000 % 10 + '0';
+		if (leftRange > 9999)
+			*bufferIter++ = leftRange / 10000 % 10 + '0';
+		if (leftRange > 999)
+			*bufferIter++ = leftRange / 1000 % 10 + '0';
+		if (leftRange > 99)
+			*bufferIter++ = leftRange / 100 % 10 + '0';
+		if (leftRange > 9)
+			*bufferIter++ = leftRange / 10 % 10 + '0';
+		*bufferIter++ = leftRange % 10 + '0';
+
+
+		if (rightRange > 99999999)
+			*bufferIter++ = rightRange / 100000000 + '0';
+		if (rightRange > 9999999)
+			*bufferIter++ = rightRange / 10000000 % 10 + '0';
+		if (rightRange > 999999)
+			*bufferIter++ = rightRange / 1000000 % 10 + '0';
+		if (rightRange > 99999)
+			*bufferIter++ = rightRange / 100000 % 10 + '0';
+		if (rightRange > 9999)
+			*bufferIter++ = rightRange / 10000 % 10 + '0';
+		if (rightRange > 999)
+			*bufferIter++ = rightRange / 1000 % 10 + '0';
+		if (rightRange > 99)
+			*bufferIter++ = rightRange / 100 % 10 + '0';
+		if (rightRange > 9)
+			*bufferIter++ = rightRange / 10 % 10 + '0';
+		*bufferIter++ = rightRange % 10 + '0';
+
+
+
+		std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+
+		std::vector<std::string_view> &command{ std::get<0>(*redisRequest).get() };
+		std::vector<unsigned int> &commandSize{ std::get<2>(*redisRequest).get() };
+		std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
+		std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+
+
+		command.clear();
+		commandSize.clear();
+		resultVec.clear();
+		resultNumVec.clear();
+		try
+		{
+			//如果是/，则设置一个默认路径，这里假定默认为login.html
+			command.emplace_back(std::string_view(REDISNAMESPACE::getrange, REDISNAMESPACE::getrangeLen));
+			command.emplace_back(m_buffer->getView().target());
+			command.emplace_back(std::string_view(numBuffer, leftLen));
+			command.emplace_back(std::string_view(numBuffer + leftLen, rightLen));
+
+			commandSize.emplace_back(4);
+
+
+			std::get<1>(*redisRequest) = 1;
+			std::get<3>(*redisRequest) = 1;
+			std::get<6>(*redisRequest) = std::bind(&HTTPSERVICE::handleReadFileFromRedis, this, std::placeholders::_1, std::placeholders::_2);
+
+			if (!m_multiRedisReadSlave->insertRedisRequest(redisRequest))
+			{
+				//清理资源
+				recoverMemory();
+
+				m_fileSize = 0;
+
+				//接收新请求
+				switch (m_parseStatus)
+				{
+				case PARSERESULT::complete:
+					startRead();
+					break;
+				case PARSERESULT::check_messageComplete:
+					if (m_readBuffer != m_buffer->getBuffer())
+					{
+						std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+						m_readBuffer = m_buffer->getBuffer();
+						m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+						m_maxReadLen = m_defaultReadLen;
+					}
+					parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+					break;
+				default:
+					startRead();
+					break;
+				}
+
+			}
+		}
+		catch (const std::exception &e)
+		{
+			//清理资源
+			recoverMemory();
+
+			m_fileSize = 0;
+
+			//接收新请求
+			switch (m_parseStatus)
+			{
+			case PARSERESULT::complete:
+				startRead();
+				break;
+			case PARSERESULT::check_messageComplete:
+				if (m_readBuffer != m_buffer->getBuffer())
+				{
+					std::copy(m_messageBegin, m_messageEnd, m_buffer->getBuffer());
+					m_readBuffer = m_buffer->getBuffer();
+					m_messageBegin = m_readBuffer, m_messageEnd = m_readBuffer + (m_messageEnd - m_messageBegin);
+					m_maxReadLen = m_defaultReadLen;
+				}
+				parseReadData(m_messageBegin, m_messageEnd - m_messageBegin);
+				break;
+			default:
+				startRead();
+				break;
+			}
+
+		}
 	}
 
 }
