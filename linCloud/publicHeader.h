@@ -431,7 +431,8 @@ enum HTTPBOUNDARYHEADERLEN
 
 static const std::unordered_map<std::string_view, char>urlMap         
 {
-{"%08",'\b'} ,{"%09",'\t'},{"%0A",'\n'},{"%0a",'\n'},{"%0D",'\r'},{"%0d",'\r'},
+{"%08",'\b'} ,{"%09",'\t'},
+{"%0A",'\n'},{"%0a",'\n'},{"%0D",'\r'},{"%0d",'\r'},
 {"%20",' '}, { "%21",'!'},{"%22",'\"'} ,{"%23",'#'} ,{ "%24",'$'} ,{"%25",'%'} ,{"%26",'&' } ,{"%27", '\''} ,{"%28",'('}, {"%29",')'} ,
 {"%2A",'*'},{"%2a",'*'},{"%2B",'+'} ,{"%2b",'+'} ,{"%2C",','},{"%2c",','},{"%2D",'-'},{"%2d",'-'},{"%2E",'.'},{"%2e",'.'},{"%2F",'/'},{"%2f",'/'},
 {"%30",'0'},{"%31",'1'},{"%32",'2'},{"%33",'3'},{"%34",'4'},{"%35",'5'},{"%36",'6'},{"%37",'7'},{"%38",'8'},{"%39",'9'},
@@ -447,8 +448,8 @@ static const std::unordered_map<std::string_view, char>urlMap
 {"%6A",'j'},{"%6B",'k'},{"%6C",'l'}, {"%6D",'m' },{"%6E",'n'}, {"%6F",'o'},
 {"%6a",'j'},{"%6b",'k'},{"%6c",'l'}, {"%6d",'m' },{"%6e",'n'}, {"%6f",'o'},
 {"%70",'p'},{"%71",'q'},{"%72",'r'},{"%73",'s'},{"%74",'t'},{"%75",'u'},{"%76",'v'},{"%77",'w'},{"%78",'x'},{"%79",'y'},
-{"%7A",'z'}, {"%7B",'{'}, {"%7C",'|'},{"%7D",'}'},{"%7E",'~'},
-{"%7b",'{'}, {"%7c",'|'},{"%7d",'}'},{"%7e",'~'}
+{"%7A",'z'},{"%7B",'{'}, {"%7C",'|'},{"%7D",'}'},{"%7E",'~'},
+{"%7a",'z'},{"%7b",'{'}, {"%7c",'|'},{"%7d",'}'},{"%7e",'~'}
 };
 
 
@@ -471,125 +472,122 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 	desLen = 0;
 	if (len > 0)
 	{
-		try
+		const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
+		decltype(urlMap)::const_iterator iter;
+		int index{}, index1, index2, index3, BeginToEndLen{};
+		char ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch8;
+
+		while (iterBegin != iterEnd)
 		{
-			const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
-			decltype(urlMap)::const_iterator iter;
-			int index{},index1,index2,index3;
-			char ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7,ch8;
+			iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
+				std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
+			//查找%或+
 
-			while (std::distance(iterBegin, iterEnd))
+			//iterFirst保存上次存进sstr的实际位置，将iterBegin之前的iterFirst空余字符存进来先
+			if (std::distance(iterFirst, iterBegin))
 			{
-				iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'), 
-					std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
-				//查找%或+
+				std::copy(iterFirst, iterBegin, des + desLen);
+				desLen += std::distance(iterFirst, iterBegin);
+				iterFirst = iterBegin;
+			}
 
-				//iterFirst保存上次存进sstr的实际位置，将iterBegin之前的iterFirst空余字符存进来先
-				if (std::distance(iterFirst, iterBegin))
-				{
-					std::copy(iterFirst, iterBegin, des + desLen);
-					desLen += std::distance(iterFirst, iterBegin);
-					iterFirst = iterBegin;
-				}
-				if (std::distance(iterBegin, iterEnd))  //如果iterBegin不到尾部
-				{
+			BeginToEndLen = std::distance(iterBegin, iterEnd);
+			if (BeginToEndLen)  //如果iterBegin不到尾部
+			{
 
-					//如果iterBegin所在位置为%，则首先判断iterBegin到尾部的剩余字符至少为3个，否则就直接存%
-					//如果为3个以上，那么先截取3位，比对是否符合url编码规则中的情况，是则进行转换，
-					//如果头3位不符合，则判断iterBegin到尾部剩余字符是否至少为9个，如果不是，则直接存%
-					//如果是9个，则尝试判断是否为中文，如果不是，则直接存%
-					//如果为+，则替换为‘ ’
-					if (*iterBegin == '%')
+				//如果iterBegin所在位置为%，则首先判断iterBegin到尾部的剩余字符至少为3个，否则就直接存%
+				//如果为3个以上，那么先截取3位，比对是否符合url编码规则中的情况，是则进行转换，
+				//如果头3位不符合，则判断iterBegin到尾部剩余字符是否至少为9个，如果不是，则直接存%
+				//如果是9个，则尝试判断是否为中文，如果不是，则直接存%
+				//如果为+，则替换为‘ ’
+				if (*iterBegin == '%')
+				{
+					if (BeginToEndLen > 2)
 					{
-						if (std::distance(iterBegin, iterEnd) > 2)
+						std::string_view temp(iterBegin, 3);
+						iter = urlMap.find(temp);
+						if (iter != urlMap.cend())
 						{
-							std::string_view temp(iterBegin, 3);
-							iter = urlMap.find(temp);
-							if (iter != urlMap.end())
-							{
-								*(des + desLen++) = iter->second;
-								iterFirst = (iterBegin += 2);
-							}
-							else
-							{
-								//最终中文选择unicode  \u0391-\uffe5  范围，此范围可以连同中文标点一起识别
-								//utf8下为   0xce91   0xefbfa5
-								//将unicode字符拆开填入utf8中计算得到中文范围为 0xe4b880   0xe9bea5，改良原中文判断办法
-										//  11100100     10111000      10000000       4e00   228*65536  + 184*256   +  128*1    111001001011100010000000
-										// 14942208     47104           14989440
-										//  11101001     10111110      10100101       9fa5                                      111010011011111010100101
-										//  15269888     48640         165     15318693
-										//   https://www.cnblogs.com/sosoft/p/3456631.html
-										//  [ \u2E80-\uFE4F]      0xe2ba80    0xefb98f
-										//  11100010     10111010    10000000             111000101011101010000000          e2ba80
-										//  11101111     10111001    10001111             111011111011100110001111          efb98f
-										//https://blog.csdn.net/tenpage/article/details/8729851?utm_term=unicode%E8%8C%83%E5%9B%B4%E4%B8%AD%E6%96%87%E6%A0%87%E7%82%B9%E7%AC%A6%E5%8F%B7&utm_medium=distribute.pc_aggpage_search_result.none-task-blog-2~all~sobaiduweb~default-0-8729851&spm=3001.4430
-										//   汉字范围 \u0391-\uffe5 (中文)
-										//  11001110  10010001                            1100111010010001                  ce91
-										//  11101111     10111111    10100101             111011111011111110100101          efbfa5
-										//先用位判断是两位utf8还是三位utf8处理
+							*(des + desLen++) = iter->second;
+							iterFirst = (iterBegin += 2);
+						}
+						else
+						{
+							//最终中文选择unicode  \u0391-\uffe5  范围，此范围可以连同中文标点一起识别
+							//utf8下为   0xce91   0xefbfa5
+							//将unicode字符拆开填入utf8中计算得到中文范围为 0xe4b880   0xe9bea5，改良原中文判断办法
+									//  11100100     10111000      10000000       4e00   228*65536  + 184*256   +  128*1    111001001011100010000000
+									// 14942208     47104           14989440
+									//  11101001     10111110      10100101       9fa5                                      111010011011111010100101
+									//  15269888     48640         165     15318693
+									//   https://www.cnblogs.com/sosoft/p/3456631.html
+									//  [ \u2E80-\uFE4F]      0xe2ba80    0xefb98f
+									//  11100010     10111010    10000000             111000101011101010000000          e2ba80
+									//  11101111     10111001    10001111             111011111011100110001111          efb98f
+									//https://blog.csdn.net/tenpage/article/details/8729851?utm_term=unicode%E8%8C%83%E5%9B%B4%E4%B8%AD%E6%96%87%E6%A0%87%E7%82%B9%E7%AC%A6%E5%8F%B7&utm_medium=distribute.pc_aggpage_search_result.none-task-blog-2~all~sobaiduweb~default-0-8729851&spm=3001.4430
+									//   汉字范围 \u0391-\uffe5 (中文)
+									//  11001110  10010001                            1100111010010001                  ce91
+									//  11101111     10111111    10100101             111011111011111110100101          efbfa5
+									//先用位判断是两位utf8还是三位utf8处理
 
-										//判断是否是utf8中的中文
-								//先考虑两字节的，再考虑三字节的
-								if (std::distance(iterBegin, iterEnd) > 5)
+									//判断是否是utf8中的中文
+							//先考虑两字节的，再考虑三字节的
+							if (BeginToEndLen > 5)
+							{
+								ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
+									ch3 = *(iterBegin + 3), ch4 = *(iterBegin + 4), ch5 = *(iterBegin + 5);
+
+								if (ch0 == '%' && isalnum(ch1) && isalnum(ch2) &&
+									ch3 == '%' && isalnum(ch4) && isalnum(ch5)
+									)
 								{
-									ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
-										ch3 = *(iterBegin + 3), ch4 = *(iterBegin + 4), ch5 = *(iterBegin + 5);
+									index1 = (isdigit(ch1) ? ch1 - '0' : islower(ch1) ? (ch1 - 'a' + 10) : (ch1 - 'A' + 10)) * 16;
+									index1 += (isdigit(ch2) ? ch2 - '0' : islower(ch2) ? (ch2 - 'a' + 10) : (ch2 - 'A' + 10));
 
-									if (ch0 == '%' && isalnum(ch1) && isalnum(ch2) &&
-										ch3 == '%' && isalnum(ch4) && isalnum(ch5)
-										)
+									index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
+									index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
+
+									// 双字节情况  110开头       10开头
+									if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
 									{
-										index1 = (isdigit(ch1) ? ch1 - '0' : islower(ch1) ? (ch1 - 'a' + 10) : (ch1 - 'A' + 10)) * 16;
-										index1 += (isdigit(ch2) ? ch2 - '0' : islower(ch2) ? (ch2 - 'a' + 10) : (ch2 - 'A' + 10));
+										index = index1 * pow2561 + index2 * pow2560;
 
-										index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
-										index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
-
-										// 双字节情况  110开头       10开头
-										if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
+										//
+										if (index >= utf8ChineseMin)
 										{
-											index = index1 * pow2561 + index2 * pow2560;
-
-											//
-											if (index >= utf8ChineseMin)
-											{
-												*(des + desLen++) = static_cast<char>(index1);
-												*(des + desLen++) = static_cast<char>(index2);
-												iterFirst = (iterBegin += 5);
-											}
-											else
-												*(des + desLen++) = '%';
+											*(des + desLen++) = static_cast<char>(index1);
+											*(des + desLen++) = static_cast<char>(index2);
+											iterFirst = (iterBegin += 5);
 										}
 										else
+											*(des + desLen++) = '%';
+									}
+									else
+									{
+										//判断是否是三字节情况
+										if (BeginToEndLen > 8)
 										{
-											//判断是否是三字节情况
-											if (std::distance(iterBegin, iterEnd) > 8)
+											if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
 											{
-												if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
+												index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
+												index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
+
+
+												// 三字节情况  1110开头    10开头  10开头
+												if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
+													&& getbit(index3, 7) && !getbit(index3, 6))
 												{
 													index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
 													index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
 
+													index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
 
-													// 三字节情况  1110开头    10开头  10开头
-													if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
-														&& getbit(index3, 7) && !getbit(index3, 6))
+													if (index <= utf8ChineseMax)
 													{
-														index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
-														index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
-
-														index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
-
-														if (index <= utf8ChineseMax)
-														{
-															*(des + desLen++) = static_cast<char>(index1);
-															*(des + desLen++) = static_cast<char>(index2);
-															*(des + desLen++) = static_cast<char>(index3);
-															iterFirst = (iterBegin += 8);
-														}
-														else
-															*(des + desLen++) = '%';
+														*(des + desLen++) = static_cast<char>(index1);
+														*(des + desLen++) = static_cast<char>(index2);
+														*(des + desLen++) = static_cast<char>(index3);
+														iterFirst = (iterBegin += 8);
 													}
 													else
 														*(des + desLen++) = '%';
@@ -600,29 +598,27 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 											else
 												*(des + desLen++) = '%';
 										}
+										else
+											*(des + desLen++) = '%';
 									}
-									else
-										*(des + desLen++) = '%';
 								}
 								else
 									*(des + desLen++) = '%';
 							}
+							else
+								*(des + desLen++) = '%';
 						}
-						else
-							*(des + desLen++) = '%';
 					}
 					else
-						*(des + desLen++) = ' ';
-					++iterBegin;
-					++iterFirst;
+						*(des + desLen++) = '%';
 				}
+				else
+					*(des + desLen++) = ' ';
+				++iterBegin;
+				++iterFirst;
 			}
-			return true;
 		}
-		catch (const std::exception &e)
-		{
-			return false;
-		}
+		return true;
 	}
 	return true;
 }
@@ -646,109 +642,107 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 	desLen = 0;
 	if (len > 0)
 	{
-		try
+		const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
+		desLen = len;
+		decltype(urlMap)::const_iterator iter;
+		int index{}, index1, index2, index3, BeginToEndLen{};
+		char *des{ const_cast<char*>(source) };
+		char ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch8;
+
+
+		while (iterBegin != iterEnd)
 		{
-			const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
-			desLen = len;
-			decltype(urlMap)::const_iterator iter;
-			int index{},index1,index2,index3;
-			char *des{ const_cast<char*>(source) };
-			char ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch8;
+			iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
+				std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
+			//查找%或+
 
-
-			while (std::distance(iterBegin, iterEnd))
+			BeginToEndLen = std::distance(iterBegin, iterEnd);
+			if (BeginToEndLen)  //如果iterBegin不到尾部
 			{
-				iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
-					std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
-				//查找%或+
 
-				if (std::distance(iterBegin, iterEnd))  //如果iterBegin不到尾部
+				//如果iterBegin所在位置为%，则首先判断iterBegin到尾部的剩余字符至少为3个，否则就直接存%
+				//如果为3个以上，那么先截取3位，比对是否符合url编码规则中的情况，是则进行转换，
+				//如果头3位不符合，则判断iterBegin到尾部剩余字符是否至少为6个，如果不是，则直接存%
+				//如果是6个，则尝试判断是否为中文，如果不是，则直接存%
+				//如果为+，则替换为‘ ’
+				if (*iterBegin == '%')
 				{
-
-					//如果iterBegin所在位置为%，则首先判断iterBegin到尾部的剩余字符至少为3个，否则就直接存%
-					//如果为3个以上，那么先截取3位，比对是否符合url编码规则中的情况，是则进行转换，
-					//如果头3位不符合，则判断iterBegin到尾部剩余字符是否至少为6个，如果不是，则直接存%
-					//如果是6个，则尝试判断是否为中文，如果不是，则直接存%
-					//如果为+，则替换为‘ ’
-					if (*iterBegin == '%')
+					if (BeginToEndLen > 2)
 					{
-						if (std::distance(iterBegin, iterEnd) > 2)
+						std::string_view temp(iterBegin, 3);
+						iter = urlMap.find(temp);
+						if (iter != urlMap.cend())
 						{
-							std::string_view temp(iterBegin, 3);
-							iter = urlMap.find(temp);
-							if (iter != urlMap.end())
+							desLen = std::distance(source, iterBegin);
+							*(des + desLen++) = iter->second;
+							iterBegin += 3;
+							break;
+						}
+						else
+						{
+							//最终中文选择unicode  \u0391-\uffe5  范围，此范围可以连同中文标点一起识别
+							//utf8下为   0xce91   0xefbfa5
+							//先考虑两字节的，再考虑三字节的
+							if (BeginToEndLen > 5)
 							{
-								desLen = std::distance(source, iterBegin);
-								*(des + desLen++) = iter->second;
-								iterBegin += 3;
-								break;
-							}
-							else
-							{
-								//最终中文选择unicode  \u0391-\uffe5  范围，此范围可以连同中文标点一起识别
-								//utf8下为   0xce91   0xefbfa5
-								//先考虑两字节的，再考虑三字节的
-								if (std::distance(iterBegin, iterEnd) > 5)
+								ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
+									ch3 = *(iterBegin + 3), ch4 = *(iterBegin + 4), ch5 = *(iterBegin + 5);
+
+								if (ch0 == '%' && isalnum(ch1) && isalnum(ch2) &&
+									ch3 == '%' && isalnum(ch4) && isalnum(ch5)
+									)
 								{
-									ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
-										ch3 = *(iterBegin + 3), ch4 = *(iterBegin + 4), ch5 = *(iterBegin + 5);
+									index1 = (isdigit(ch1) ? ch1 - '0' : islower(ch1) ? (ch1 - 'a' + 10) : (ch1 - 'A' + 10)) * 16;
+									index1 += (isdigit(ch2) ? ch2 - '0' : islower(ch2) ? (ch2 - 'a' + 10) : (ch2 - 'A' + 10));
 
-									if (ch0 == '%' && isalnum(ch1) && isalnum(ch2) &&
-										ch3 == '%' && isalnum(ch4) && isalnum(ch5)
-										)
+									index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
+									index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
+
+									// 双字节情况  110开头       10开头
+									if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
 									{
-										index1 = (isdigit(ch1) ? ch1 - '0' : islower(ch1) ? (ch1 - 'a' + 10) : (ch1 - 'A' + 10)) * 16;
-										index1 += (isdigit(ch2) ? ch2 - '0' : islower(ch2) ? (ch2 - 'a' + 10) : (ch2 - 'A' + 10));
+										index = index1 * pow2561 + index2 * pow2560;
 
-										index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
-										index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
-
-										// 双字节情况  110开头       10开头
-										if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
+										//
+										if (index >= utf8ChineseMin)
 										{
-											index = index1 * pow2561 + index2 * pow2560;
-
-											//
-											if (index >= utf8ChineseMin)
-											{
-												desLen = std::distance(source, iterBegin);
-												*(des + desLen++) = static_cast<char>(index1);
-												*(des + desLen++) = static_cast<char>(index2);
-												iterBegin += 6;
-												break;
-											}
+											desLen = std::distance(source, iterBegin);
+											*(des + desLen++) = static_cast<char>(index1);
+											*(des + desLen++) = static_cast<char>(index2);
+											iterBegin += 6;
+											break;
 										}
-										else
+									}
+									else
+									{
+										//判断是否是三字节情况
+										if (BeginToEndLen > 8)
 										{
-											//判断是否是三字节情况
-											if (std::distance(iterBegin, iterEnd) > 8)
-											{
-												ch6 = *(iterBegin + 6), ch7 = *(iterBegin + 7), ch8 = *(iterBegin + 8);
+											ch6 = *(iterBegin + 6), ch7 = *(iterBegin + 7), ch8 = *(iterBegin + 8);
 
-												if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
+											if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
+											{
+												index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
+												index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
+
+
+												// 三字节情况  1110开头    10开头  10开头
+												if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
+													&& getbit(index3, 7) && !getbit(index3, 6))
 												{
 													index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
 													index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
 
+													index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
 
-													// 三字节情况  1110开头    10开头  10开头
-													if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
-														&& getbit(index3, 7) && !getbit(index3, 6))
+													if (index <= utf8ChineseMax)
 													{
-														index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
-														index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
-
-														index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
-
-														if (index <= utf8ChineseMax)
-														{
-															desLen = std::distance(source, iterBegin);
-															*(des + desLen++) = static_cast<char>(index1);
-															*(des + desLen++) = static_cast<char>(index2);
-															*(des + desLen++) = static_cast<char>(index3);
-															iterBegin += 9;
-															break;
-														}
+														desLen = std::distance(source, iterBegin);
+														*(des + desLen++) = static_cast<char>(index1);
+														*(des + desLen++) = static_cast<char>(index2);
+														*(des + desLen++) = static_cast<char>(index3);
+														iterBegin += 9;
+														break;
 													}
 												}
 											}
@@ -758,116 +752,116 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 							}
 						}
 					}
-					else
-					{
-						desLen = std::distance(source, iterBegin);
-						*(des + desLen++) = ' ';
-						++iterBegin;
-						break;
-					}
-					++iterBegin;
 				}
+				else
+				{
+					desLen = std::distance(source, iterBegin);
+					*(des + desLen++) = ' ';
+					++iterBegin;
+					break;
+				}
+				++iterBegin;
+			}
+		}
+
+		iterFirst = iterBegin;
+
+		while (iterBegin != iterEnd)
+		{
+			iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
+				std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
+			//查找%或+
+
+			//iterFirst保存上次存进sstr的实际位置，将iterBegin之前的iterFirst空余字符存进来先
+			if (std::distance(iterFirst, iterBegin))
+			{
+				std::copy(iterFirst, iterBegin, des + desLen);
+				desLen += std::distance(iterFirst, iterBegin);
+				iterFirst = iterBegin;
 			}
 
-			iterFirst = iterBegin;
-
-			while (std::distance(iterBegin, iterEnd))
+			BeginToEndLen = std::distance(iterBegin, iterEnd);
+			if (BeginToEndLen)  //如果iterBegin不到尾部
 			{
-				iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
-					std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
-				//查找%或+
 
-				//iterFirst保存上次存进sstr的实际位置，将iterBegin之前的iterFirst空余字符存进来先
-				if (std::distance(iterFirst, iterBegin))
+				//如果iterBegin所在位置为%，则首先判断iterBegin到尾部的剩余字符至少为3个，否则就直接存%
+				//如果为3个以上，那么先截取3位，比对是否符合url编码规则中的情况，是则进行转换，
+				//如果头3位不符合，则判断iterBegin到尾部剩余字符是否至少为9个，如果不是，则直接存%
+				//如果是9个，则尝试判断是否为中文，如果不是，则直接存%
+				//如果为+，则替换为‘ ’
+				if (*iterBegin == '%')
 				{
-					std::copy(iterFirst, iterBegin, des + desLen);
-					desLen += std::distance(iterFirst, iterBegin);
-					iterFirst = iterBegin;
-				}
-				if (std::distance(iterBegin, iterEnd))  //如果iterBegin不到尾部
-				{
-
-					//如果iterBegin所在位置为%，则首先判断iterBegin到尾部的剩余字符至少为3个，否则就直接存%
-					//如果为3个以上，那么先截取3位，比对是否符合url编码规则中的情况，是则进行转换，
-					//如果头3位不符合，则判断iterBegin到尾部剩余字符是否至少为9个，如果不是，则直接存%
-					//如果是9个，则尝试判断是否为中文，如果不是，则直接存%
-					//如果为+，则替换为‘ ’
-					if (*iterBegin == '%')
+					if (BeginToEndLen > 2)
 					{
-						if (std::distance(iterBegin, iterEnd) > 2)
+						std::string_view temp(iterBegin, 3);
+						iter = urlMap.find(temp);
+						if (iter != urlMap.cend())
 						{
-							std::string_view temp(iterBegin, 3);
-							iter = urlMap.find(temp);
-							if (iter != urlMap.end())
+							*(des + desLen++) = iter->second;
+							iterFirst = (iterBegin += 2);
+						}
+						else
+						{
+							//最终中文选择unicode  \u0391-\uffe5  范围，此范围可以连同中文标点一起识别
+							//utf8下为   0xce91   0xefbfa5
+							if (BeginToEndLen > 5)
 							{
-								*(des + desLen++) = iter->second;
-								iterFirst = (iterBegin += 2);
-							}
-							else
-							{
-								//最终中文选择unicode  \u0391-\uffe5  范围，此范围可以连同中文标点一起识别
-								//utf8下为   0xce91   0xefbfa5
-								if (std::distance(iterBegin, iterEnd) > 5)
+								ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
+									ch3 = *(iterBegin + 3), ch4 = *(iterBegin + 4), ch5 = *(iterBegin + 5);
+
+								if (ch0 == '%' && isalnum(ch1) && isalnum(ch2) &&
+									ch3 == '%' && isalnum(ch4) && isalnum(ch5)
+									)
 								{
-									ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
-										ch3 = *(iterBegin + 3), ch4 = *(iterBegin + 4), ch5 = *(iterBegin + 5);
+									index1 = (isdigit(ch1) ? ch1 - '0' : islower(ch1) ? (ch1 - 'a' + 10) : (ch1 - 'A' + 10)) * 16;
+									index1 += (isdigit(ch2) ? ch2 - '0' : islower(ch2) ? (ch2 - 'a' + 10) : (ch2 - 'A' + 10));
 
-									if (ch0 == '%' && isalnum(ch1) && isalnum(ch2) &&
-										ch3 == '%' && isalnum(ch4) && isalnum(ch5)
-										)
+									index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
+									index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
+
+									// 双字节情况  110开头       10开头
+									if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
 									{
-										index1 = (isdigit(ch1) ? ch1 - '0' : islower(ch1) ? (ch1 - 'a' + 10) : (ch1 - 'A' + 10)) * 16;
-										index1 += (isdigit(ch2) ? ch2 - '0' : islower(ch2) ? (ch2 - 'a' + 10) : (ch2 - 'A' + 10));
+										index = index1 * pow2561 + index2 * pow2560;
 
-										index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
-										index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
-
-										// 双字节情况  110开头       10开头
-										if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
+										//
+										if (index >= utf8ChineseMin)
 										{
-											index = index1 * pow2561 + index2 * pow2560;
-
-											//
-											if (index >= utf8ChineseMin)
-											{
-												*(des + desLen++) = static_cast<char>(index1);
-												*(des + desLen++) = static_cast<char>(index2);
-												iterFirst = (iterBegin += 5);
-											}
-											else
-												*(des + desLen++) = '%';
+											*(des + desLen++) = static_cast<char>(index1);
+											*(des + desLen++) = static_cast<char>(index2);
+											iterFirst = (iterBegin += 5);
 										}
 										else
+											*(des + desLen++) = '%';
+									}
+									else
+									{
+										//判断是否是三字节情况
+										if (BeginToEndLen > 8)
 										{
-											//判断是否是三字节情况
-											if (std::distance(iterBegin, iterEnd) > 8)
-											{
-												ch6 = *(iterBegin + 6), ch7 = *(iterBegin + 7), ch8 = *(iterBegin + 8);
+											ch6 = *(iterBegin + 6), ch7 = *(iterBegin + 7), ch8 = *(iterBegin + 8);
 
-												if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
+											if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
+											{
+												index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
+												index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
+
+
+												// 三字节情况  1110开头    10开头  10开头
+												if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
+													&& getbit(index3, 7) && !getbit(index3, 6))
 												{
 													index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
 													index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
 
+													index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
 
-													// 三字节情况  1110开头    10开头  10开头
-													if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
-														&& getbit(index3, 7) && !getbit(index3, 6))
+													if (index <= utf8ChineseMax)
 													{
-														index3 = (isdigit(ch7) ? ch7 - '0' : islower(ch7) ? (ch7 - 'a' + 10) : (ch7 - 'A' + 10)) * 16;
-														index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
-
-														index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
-
-														if (index <= utf8ChineseMax)
-														{
-															*(des + desLen++) = static_cast<char>(index1);
-															*(des + desLen++) = static_cast<char>(index2);
-															*(des + desLen++) = static_cast<char>(index3);
-															iterFirst = (iterBegin += 8);
-														}
-														else
-															*(des + desLen++) = '%';
+														*(des + desLen++) = static_cast<char>(index1);
+														*(des + desLen++) = static_cast<char>(index2);
+														*(des + desLen++) = static_cast<char>(index3);
+														iterFirst = (iterBegin += 8);
 													}
 													else
 														*(des + desLen++) = '%';
@@ -878,29 +872,27 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 											else
 												*(des + desLen++) = '%';
 										}
+										else
+											*(des + desLen++) = '%';
 									}
-									else
-										*(des + desLen++) = '%';
 								}
 								else
 									*(des + desLen++) = '%';
 							}
+							else
+								*(des + desLen++) = '%';
 						}
-						else
-							*(des + desLen++) = '%';
 					}
 					else
-						*(des + desLen++) = ' ';
-					++iterBegin;
-					++iterFirst;
+						*(des + desLen++) = '%';
 				}
+				else
+					*(des + desLen++) = ' ';
+				++iterBegin;
+				++iterFirst;
 			}
-			return true;
 		}
-		catch (const std::exception &e)
-		{
-			return false;
-		}
+		return true;
 	}
 	return true;
 }
