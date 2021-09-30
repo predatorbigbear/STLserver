@@ -146,7 +146,6 @@
     <ClInclude Include="staticString.h" />
     <ClInclude Include="STLTimeWheel.h" />
     <ClInclude Include="STLtreeFast.h" />
-    <ClInclude Include="templateSafeList.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>

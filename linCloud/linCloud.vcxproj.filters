@@ -77,9 +77,6 @@
     <ClInclude Include="safeList.h">
       <Filter>safeList</Filter>
     </ClInclude>
-    <ClInclude Include="templateSafeList.h">
-      <Filter>templateSaftList</Filter>
-    </ClInclude>
     <ClInclude Include="readBuffer.h">
       <Filter>readBuffer</Filter>
     </ClInclude>
