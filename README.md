@@ -35,6 +35,11 @@ STLserver内添加上从body解析获取返回string长度的逻辑进行对比
 ![044](https://user-images.githubusercontent.com/20834575/133878752-7008f52a-9067-4915-9e30-7e92b82decd4.jpg)
 
 编译说明：
+安装vs2017或2019过程中，需要勾上linux开发的组件
+![07](https://user-images.githubusercontent.com/20834575/135704938-afa9cfb2-4526-436c-9b19-9037fa3efcf1.jpg)
+
+
+
 首先下载源码压缩包，解压后得到以下文件夹
 ![01](https://user-images.githubusercontent.com/20834575/135703908-e9029251-7c8d-4b46-b609-6b74e6f49b64.jpg)
 
