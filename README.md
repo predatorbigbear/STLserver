@@ -1,7 +1,7 @@
 20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
 
 
-编译选项设置：
+vs2022编译选项设置：
 ![QQ20250630-075541](https://github.com/user-attachments/assets/e48d1fee-c0fb-440d-bb53-1fc784cbc389)
 
 ![QQ20250630-075551](https://github.com/user-attachments/assets/6fd00da1-3e50-4a33-9172-64032b01911d)
