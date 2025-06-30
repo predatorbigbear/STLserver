@@ -1,6 +1,12 @@
 20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
 
 
+
+wrk测试接口4 qps图：
+![QQ20250630-152617](https://github.com/user-attachments/assets/da3ea4b5-2657-4553-aa7a-e976055663bc)
+
+
+
 vs2022编译选项设置：
 ![QQ20250630-075541](https://github.com/user-attachments/assets/e48d1fee-c0fb-440d-bb53-1fc784cbc389)
 
