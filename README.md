@@ -14,6 +14,14 @@ https://www.bilibili.com/video/BV1pAgCzqEaP
 测试视频：
 https://b23.tv/ENpHX9d
 
+主要优化点是将其中几个调用频繁，时间比较长的函数针对性优化了：
+![profile1](https://github.com/user-attachments/assets/e0a2ae49-6852-4cd9-bad1-dc4382dbe819)
+![profil2](https://github.com/user-attachments/assets/27e4dcde-9714-4b9a-bf70-a0e8ba0ab7df)
+
+
+
+
+
 问了一下deepseek:
 ![EFA7A0D0CE0347C87A32C888A6797991](https://github.com/user-attachments/assets/61b0e129-a90a-46ff-bccf-8b848340e2fe)
 
