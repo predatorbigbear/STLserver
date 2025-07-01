@@ -1,4 +1,4 @@
-![QQ20250701-143358](https://github.com/user-attachments/assets/3c9703fc-1352-4278-bfb2-edffdf13f03e)20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
+20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
 
 
 
@@ -24,6 +24,9 @@ https://b23.tv/ENpHX9d
 ![1](https://github.com/user-attachments/assets/3e800886-414b-42b5-bff2-e87364e1aa85)
 ![3](https://github.com/user-attachments/assets/2f5c65bd-7b20-4f62-88dc-9306dd27cae6)
 ![2](https://github.com/user-attachments/assets/6c53e51d-4153-40b8-b4fb-df662bc88998)
+![4](https://github.com/user-attachments/assets/bc9bdc3b-f72e-4a47-8bf6-c45b146299ac)
+
+
 
 
 vs2022编译选项设置：
