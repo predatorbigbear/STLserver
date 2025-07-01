@@ -14,7 +14,7 @@ https://www.bilibili.com/video/BV1pAgCzqEaP
 测试视频：
 https://b23.tv/ENpHX9d
 
-问了以下deepseek:
+问了一下deepseek:
 ![EFA7A0D0CE0347C87A32C888A6797991](https://github.com/user-attachments/assets/61b0e129-a90a-46ff-bccf-8b848340e2fe)
 
 ![QQ20250701-143409](https://github.com/user-attachments/assets/adcc0e3c-f374-4797-83d2-255a996d5625)
