@@ -8,6 +8,11 @@ wrk测试接口4 qps图：
 测试视频：
 https://www.bilibili.com/video/BV1pAgCzqEaP
 
+经过优化后的wrk测试接口4  qps图：
+![屏幕录制 2025-07-01 130647 mp4_20250701_131046711](https://github.com/user-attachments/assets/2b226413-54ba-4e75-bfbc-6b76f7176f50)
+
+测试视频：
+待上传，稍后更新
 
 
 vs2022编译选项设置：
