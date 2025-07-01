@@ -1,4 +1,4 @@
-20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
+![QQ20250701-143358](https://github.com/user-attachments/assets/3c9703fc-1352-4278-bfb2-edffdf13f03e)20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
 
 
 
@@ -13,6 +13,13 @@ https://www.bilibili.com/video/BV1pAgCzqEaP
 
 测试视频：
 https://b23.tv/ENpHX9d
+
+问了以下deepseek:
+![EFA7A0D0CE0347C87A32C888A6797991](https://github.com/user-attachments/assets/61b0e129-a90a-46ff-bccf-8b848340e2fe)
+
+![QQ20250701-143409](https://github.com/user-attachments/assets/adcc0e3c-f374-4797-83d2-255a996d5625)
+![QQ20250701-143358](https://github.com/user-attachments/assets/db8e0513-7aa1-47af-8a70-8b96c7204e28)
+![QQ20250701-143334](https://github.com/user-attachments/assets/074b0771-4915-4a8b-b97f-744dceb124f2)
 
 
 vs2022编译选项设置：
