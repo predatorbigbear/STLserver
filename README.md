@@ -27,6 +27,8 @@ https://b23.tv/ENpHX9d
 ![2](https://github.com/user-attachments/assets/8f247d72-cae1-4fca-8e40-ce114dd1bbd0)
 ![3](https://github.com/user-attachments/assets/26003e29-161d-45ea-8ff3-f8e313df45e1)
 ![4](https://github.com/user-attachments/assets/60b50fc1-d306-4557-82b8-e135832f27ad)
+或者更极端一点，这么问 
+在2ghz多核环境中，仅使用1个核并且用C++实现http服务器，使用wrk创建100条连接测试，本机内解析一次http请求，再查询一次redis，将查询结果以http响应和json格式返回，并且访问redis的tcp连接只有1条，内部数据还有加锁解锁，并且没有绑定cpu的情况下，qps达到5万是什么水平
 
 
 
