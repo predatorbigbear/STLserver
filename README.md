@@ -22,16 +22,12 @@ https://b23.tv/ENpHX9d
 
 
 
-问了一下deepseek:
-![1](https://github.com/user-attachments/assets/1b848062-d271-4efd-9784-77b214d2f5ce)
-![2](https://github.com/user-attachments/assets/7626a66d-7446-4292-b1b9-5a60b7244f35)
-![3](https://github.com/user-attachments/assets/79b13d2c-0665-4bd4-bddf-a3116f0b02a0)
-![4](https://github.com/user-attachments/assets/0547a163-b17e-4bc8-a062-610a67b9e4a1)
+问了一下deepseek，答案有所变化，应该是有厂家联系过deepseek改过测试数据，但是你依然可以这么问，限定一下测试条件:
+![1](https://github.com/user-attachments/assets/124e547b-f275-4c6b-bfa9-8e848f925e84)
+![2](https://github.com/user-attachments/assets/8f247d72-cae1-4fca-8e40-ce114dd1bbd0)
+![3](https://github.com/user-attachments/assets/26003e29-161d-45ea-8ff3-f8e313df45e1)
+![4](https://github.com/user-attachments/assets/60b50fc1-d306-4557-82b8-e135832f27ad)
 
-
-![5](https://github.com/user-attachments/assets/8d4878e2-e371-4a3a-98dd-358821e068c6)
-![6](https://github.com/user-attachments/assets/b1e2d436-25fa-4e05-a374-ef6a42f677c6)
-![7](https://github.com/user-attachments/assets/a9a8a52e-565f-41f8-b14a-c295b814a2fe)
 
 
 
