@@ -27,6 +27,10 @@ https://www.bilibili.com/video/BV1pAgCzqEaP
 测试视频：
 https://b23.tv/ENpHX9d
 
+4 io_context 和 8 redis连接下  接口4测试 qps达到12万，并且cpu还没有到满：
+ https://b23.tv/5HJ0vO0
+ 
+
 主要优化点是将其中几个调用频繁，时间比较长的函数针对性优化了：
 ![profile1](https://github.com/user-attachments/assets/e0a2ae49-6852-4cd9-bad1-dc4382dbe819)
 ![profil2](https://github.com/user-attachments/assets/27e4dcde-9714-4b9a-bf70-a0e8ba0ab7df)
