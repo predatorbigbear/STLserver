@@ -30,7 +30,7 @@ https://b23.tv/ENpHX9d
 
 ![2ghz 4核8redis连接下接口4 qps测试过程，高达12万qps mp4_20250705_162605455](https://github.com/user-attachments/assets/ce70d1d4-2f19-4226-8482-09eb68a6e734)
 
-4 io_context 和 8 redis连接下  接口4测试 qps达到12万，并且cpu还没有到满，根据rust生命周期理论优化出来的：
+4 io_context 和 8 redis连接下  接口4测试 qps达到12万，并且cpu还没有到满，根据rust生命周期理论优化出来的，全过程实现了零拷贝，并且进行了极端级代码优化：
  https://b23.tv/5HJ0vO0
  
 
