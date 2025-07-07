@@ -1,3 +1,10 @@
+在main中设置ioPool->setThreadNum(success, 1);         m1.setMultiRedisRead(ioPool, success, "127.0.0.1", 6379, 1);         
+
+使用单核单redis连接测试
+
+wrk测试命令如下：
+wrk -t4 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4
+
 
 
 
