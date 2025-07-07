@@ -5,6 +5,9 @@
 wrk测试命令如下：
 wrk -t4 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4
 
+post.lua中Transfer-Encoding 如果要设置chunked的话，那么自己需要准备一些数据进行测试，所以我现在post.lua中Transfer-Encoding中改了不带chunked参数
+
+
 
 
 
