@@ -1,8 +1,0 @@
-﻿  Validating sources
-  Copying sources remotely to '101.32.203.226'
-  Validating architecture
-  Starting remote build
-  Compiling sources:
-  httpService.cpp
-  Linking objects
-  linCloud.vcxproj -> D:\linuxCloud\linCloud\linCloud\bin\x64\Release\linCloud.out
