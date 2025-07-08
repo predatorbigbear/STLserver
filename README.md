@@ -1,3 +1,15 @@
+http头部比搜狗workflow多解析了两个，可以对比workflow的这个函数
+
+![QQ20250708-083429](https://github.com/user-attachments/assets/feed259e-ccc6-4049-bc81-643f1f70433b)
+
+稍后更新qps测试视频
+
+
+
+
+
+
+
 在main中设置ioPool->setThreadNum(success, 1);         m1.setMultiRedisRead(ioPool, success, "127.0.0.1", 6379, 1);         
 
 使用单核单redis连接测试
