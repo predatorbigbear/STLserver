@@ -2,7 +2,6 @@ http头部比搜狗workflow多解析了两个，可以对比workflow的这个函
 
 ![QQ20250708-083429](https://github.com/user-attachments/assets/feed259e-ccc6-4049-bc81-643f1f70433b)
 
-稍后更新qps测试视频
 
 
 
@@ -40,6 +39,11 @@ post.lua中Transfer-Encoding 如果要设置chunked的话，那么自己需要�
 
 
 20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
+
+
+20250708   包含头部解析的接口4 wrk测试qps过程视频：
+https://b23.tv/RyW1sNP
+
 
 
 //////////////////////////////////这些是旧的测试视频，新的视频待上传////////////////////////////////
