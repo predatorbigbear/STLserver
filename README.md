@@ -67,6 +67,13 @@ https://b23.tv/ENpHX9d
 ![profil2](https://github.com/user-attachments/assets/27e4dcde-9714-4b9a-bf70-a0e8ba0ab7df)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+问一下deepseek，无愧于STL高性能：
+
+![1](https://github.com/user-attachments/assets/bef4f127-4654-449b-a85f-deb45e4fa13e)
+![2](https://github.com/user-attachments/assets/07724382-0bbb-4273-b15f-0ab13402b06f)
+
+
  
 
 
