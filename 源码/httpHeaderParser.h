@@ -29,7 +29,7 @@
 //所有解析模块默认命名规则是头部名称+parse
 //发现异常字符串情况可以到我的github里面提出，或者加qq 1075716088
 //每一个解析类均提供const char*    std::string   以及  std::string_view 版本，方便使用 
-
+//所有解析类都不会设置析构函数，请配置对象池使用，避免反复创建
 
 
 
@@ -512,4 +512,426 @@ private:
 	bool isDeflate‌{ false };
 	bool isGzip{ false };
 	bool is‌Identity{ true };    //‌Identity不需要处理，默认都支持
+};
+
+
+
+
+
+
+
+struct Connection_PARSER
+{
+	Connection_PARSER() = default;
+
+	void init()
+	{
+		isUpgrade = isProxy_Authorization = isKeep_Alive‌ = is‌TE = isTrailer = false;
+	}
+
+	//httpVersion    1.0  true     1.1  false
+	bool parseFast(const char* strBegin, const char* strEnd, bool httpVersion)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		if (httpVersion)
+			isKeep_Alive‌ = false;
+		else
+			isKeep_Alive‌ = true;
+
+		const char* iterBegin{}, * iterEnd{};
+		char ch{};
+
+		while (strBegin != strEnd)
+		{
+			iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+			if (iterBegin == strEnd)
+				return true;
+
+			iterEnd = std::find_if(iterBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, ',')));
+
+			if (std::distance(iterBegin, iterEnd) > 1)
+			{
+				switch (*iterBegin)
+				{
+				case 'u':
+				case'U':
+					isUpgrade = true;
+					break;
+				case 'p':
+				case 'P':
+					isProxy_Authorization = true;
+					break;
+				case 'k':
+				case 'K':
+					isKeep_Alive‌ = true;
+					break;
+				case 'c':
+				case 'C':
+					isKeep_Alive‌ = false;
+					break;
+				case 't':
+				case 'T':
+					ch = *(iterBegin + 1);
+					if (ch == 'e' || ch == 'E')
+						is‌TE = true;
+					else
+						isTrailer = true;
+					break;
+				default:
+					break;
+				}
+			}
+			else
+				return false;
+
+			if (iterEnd == strEnd)
+				return true;
+
+			strBegin = std::find_if(iterEnd, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ',')));
+		}
+	}
+
+	bool parseFast(const std::string& str, bool httpVersion)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size(), httpVersion);
+	}
+
+	bool parseFast(const std::string_view str, bool httpVersion)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.data(), str.data() + str.size(), httpVersion);
+	}
+
+
+
+
+
+	bool parseStrong(const char* strBegin, const char* strEnd, bool httpVersion)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		if (httpVersion)
+			isKeep_Alive‌ = false;
+		else
+			isKeep_Alive‌ = true;
+
+		const char* iterBegin{}, * iterEnd{};
+		char ch{};
+
+		static std::string upgrade{ "upgrade" }, proxy_authorization{ "proxy-authorization" };
+		static std::string keepAlive{ "keep-alive" }, closeStr{ "close" }, TE{ "te" }, Trailer{ "trailer" };
+
+		while (strBegin != strEnd)
+		{
+			iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+			if (iterBegin == strEnd)
+				return true;
+
+			iterEnd = std::find_if(iterBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, ',')));
+
+			//不匹配时也不进行退出，留个余地给自定义类型值处理
+			if (std::distance(iterBegin, iterEnd) > 1)
+			{
+				switch (*iterBegin)
+				{
+				case 'u':
+				case'U':
+					if (std::equal(upgrade.cbegin(), upgrade.cend(), iterBegin, iterEnd,
+						std::bind(std::equal_to<>(), std::placeholders::_1, std::bind(tolower, std::placeholders::_2))));
+					isUpgrade = true;
+					break;
+				case 'p':
+				case 'P':
+					if (std::equal(proxy_authorization.cbegin(), proxy_authorization.cend(), iterBegin, iterEnd,
+						std::bind(std::equal_to<>(), std::placeholders::_1, std::bind(tolower, std::placeholders::_2))));
+					isProxy_Authorization = true;
+					break;
+				case 'k':
+				case 'K':
+					if (std::equal(keepAlive.cbegin(), keepAlive.cend(), iterBegin, iterEnd,
+						std::bind(std::equal_to<>(), std::placeholders::_1, std::bind(tolower, std::placeholders::_2))));
+					isKeep_Alive‌ = true;
+					break;
+				case 'c':
+				case 'C':
+					if (std::equal(closeStr.cbegin(), closeStr.cend(), iterBegin, iterEnd,
+						std::bind(std::equal_to<>(), std::placeholders::_1, std::bind(tolower, std::placeholders::_2))));
+					isKeep_Alive‌ = false;
+					break;
+				case 't':
+				case 'T':
+					ch = *(iterBegin + 1);
+					if (ch == 'e' || ch == 'E')
+					{
+						if (std::equal(TE.cbegin(), TE.cend(), iterBegin, iterEnd,
+							std::bind(std::equal_to<>(), std::placeholders::_1, std::bind(tolower, std::placeholders::_2))));
+						is‌TE = true;
+					}
+					else
+					{
+						if (std::equal(Trailer.cbegin(), Trailer.cend(), iterBegin, iterEnd,
+							std::bind(std::equal_to<>(), std::placeholders::_1, std::bind(tolower, std::placeholders::_2))));
+						isTrailer = true;
+					}
+					break;
+				default:
+					break;
+				}
+			}
+
+			if (iterEnd == strEnd)
+				return true;
+
+			strBegin = std::find_if(iterEnd, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ',')));
+		}
+	}
+
+	bool parseStrong(const std::string& str, bool httpVersion)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size(), httpVersion);
+	}
+
+	bool parseStrong(const std::string_view str, bool httpVersion)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size(), httpVersion);
+	}
+
+	bool hasUpgrade()
+	{
+		return isUpgrade;
+	}
+
+	bool hasProxy_Authorization()
+	{
+		return isProxy_Authorization;
+	}
+
+	bool hasKeep_Alive()
+	{
+		return isKeep_Alive‌;
+	}
+
+	bool hasTE()
+	{
+		return is‌TE;
+	}
+
+	bool hasTrailer()
+	{
+		return isTrailer;
+	}
+
+
+private:
+	//Connection中值大小写不敏感
+	bool isUpgrade{ false };
+	bool isProxy_Authorization{ false };
+	bool isKeep_Alive‌{ false };    //‌HTTP/1.0‌：默认关闭     ‌HTTP/1.1  默认启用
+	bool is‌TE{ false };
+	bool isTrailer{ false };
+
+	//其他非标准字段值自己加入
+};
+
+
+
+
+
+
+//这个类只有fast解析，没有strong的
+struct Content_Length_PARSER
+{
+	Content_Length_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		if (iterEnd == std::make_reverse_iterator(iterBegin).base())
+			return false;
+
+		int index{ -1 }, num{ 1 }, sum{};
+
+		//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
+		if (!std::all_of(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), [&index, &num, &sum](const char ch)
+		{
+			if (!std::isdigit(ch))
+				return false;
+			if (++index)
+				num *= 10;
+			sum += (ch - '0') * num;
+			return true;
+		}))
+			return false;
+
+		if (sum > maxLen)
+			return false;
+		len = sum;
+
+		return true;
+	}
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	const unsigned int getLen()
+	{
+		return len;
+	}
+
+
+private:
+	unsigned int len{};
+	const unsigned int maxLen{};     //body最大值，自己设置
+};
+
+
+
+
+
+// fast直接提取类型名和  ; 后面的key  value值
+//这个类没有strong
+struct Content_Type_PARSER
+{
+	Content_Type_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 5)
+			return false;
+
+		const char* type1Begin{}, * type1End{}, * type2Begin{}, * type2End{}, * keyBegin{}, * keyEnd{}, * valueBegin{}, * valueEnd{};
+
+		type1Begin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (type1Begin == strEnd)
+			return false;
+
+		type1End = std::find(type1Begin + 1, strEnd, '/');
+
+		if (type1End == strEnd)
+			return false;
+
+		type2Begin = type1End + 1;
+
+		if (type2Begin == strEnd)
+			return false;
+
+		type2End = std::find_if(type2Begin + 1, strEnd,
+			std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+
+		typeName = std::string_view(type1Begin, std::distance(type1Begin, type2End));
+
+		if (type2End == strEnd)
+		{
+			key = value = {};
+			return true;
+		}
+
+		keyBegin = std::find_if(type2End, strEnd,
+			std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ';')));
+
+		keyEnd = std::find(keyBegin + 1, strEnd, '=');
+
+		if (keyEnd == strEnd)
+			return false;
+
+		valueBegin = std::find_if(keyEnd + 1, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (valueBegin == strEnd)
+			return false;
+
+		valueEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(valueBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		key = std::string_view(keyBegin, std::distance(keyBegin, keyEnd));
+
+		value = std::string_view(valueBegin, std::distance(valueBegin, valueEnd));
+
+		return true;
+
+	}
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.size() < 5)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 5)
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	std::string_view getType()
+	{
+		return typeName;
+	}
+
+	std::string_view getKey()
+	{
+		return key;
+	}
+
+	std::string_view getValue()
+	{
+		return value;
+	}
+
+
+
+private:
+	std::string_view typeName{};
+	std::string_view key{};
+	std::string_view value{};
 };
