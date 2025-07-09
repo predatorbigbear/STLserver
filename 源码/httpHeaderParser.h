@@ -261,6 +261,11 @@ struct HOST_PARSER
 		return hostName;
 	}
 
+	unsigned int getPort()
+	{
+		return port;
+	}
+
 
 private:
 	bool hostNameEmpty{ true };
