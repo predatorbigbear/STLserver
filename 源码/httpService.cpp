@@ -5268,8 +5268,6 @@ bool HTTPSERVICE::parseHttpHeader()
 			{
 				if (isHttp11 || !isHttp10)
 					return false;
-				else
-					return true;
 			}
 			if (iter1End != strEnd)
 			{
