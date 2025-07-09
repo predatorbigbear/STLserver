@@ -3407,7 +3407,7 @@ void MULTIREDISREAD::shutdownLoop()
 
 void MULTIREDISREAD::cancelLoop()
 {
-	if (ec.value())
+	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
 		m_sock->cancel(ec);
@@ -3424,7 +3424,7 @@ void MULTIREDISREAD::cancelLoop()
 
 void MULTIREDISREAD::closeLoop()
 {
-	if (ec.value())
+	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
 		m_sock->close(ec);

@@ -1680,7 +1680,7 @@ void HTTPSERVICE::shutdownLoop()
 
 void HTTPSERVICE::cancelLoop()
 {
-	if (ec.value())
+	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
 		m_buffer->getSock()->cancel(ec);
@@ -1697,7 +1697,7 @@ void HTTPSERVICE::cancelLoop()
 
 void HTTPSERVICE::closeLoop()
 {
-	if (ec.value())
+	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
 		m_buffer->getSock()->close(ec);
