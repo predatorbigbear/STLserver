@@ -4,7 +4,7 @@
 #include<algorithm>
 #include<functional>
 #include<cctype>
-
+#include<string>
 
 
 //做个高性能http头部零拷贝解析模块
@@ -28,7 +28,7 @@
 //将函数实现定义在类内是因为分开文件  函数不同类更难查看
 //所有解析模块默认命名规则是头部名称+parse
 //发现异常字符串情况可以到我的github里面提出，或者加qq 1075716088
-
+//每一个解析类均提供const char*    std::string   以及  std::string_view 版本，方便使用 
 
 
 
@@ -111,6 +111,27 @@ struct HOST_PARSER
 		return true;
 	}
 
+	bool parseFast(const std::string& str, bool isHttp11)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size(), isHttp11);
+	}
+
+	bool parseFast(const std::string_view str, bool isHttp11)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.data(), str.data() + str.size(), isHttp11);
+	}
+
+
+
+
+
+
+
+
 	//‌域名字符限制
 	//英文字母（a - z，不区分大小写）
 	//数字（0 - 9）
@@ -120,6 +141,7 @@ struct HOST_PARSER
 	//非法端口格式
 	//仅检测非中文域名以及非ip地址
 	//严格非法字符检测
+	//数字域名和IP地址暂不处理，因为无法区分究竟是哪个
 	bool parseStrong(const char* strbegin, const char* strEnd, bool isHttp11)
 	{
 		if (!strbegin || !strEnd || std::distance(strEnd, strbegin) > 0)
@@ -251,6 +273,24 @@ struct HOST_PARSER
 		return true;
 	}
 
+
+	bool parseStrong(const std::string& str, bool isHttp11)
+	{
+		if (str.empty())
+			return false;
+		return parseStrong(str.c_str(), str.c_str()+str.size(), isHttp11);
+	}
+
+
+	bool parseStrong(const std::string_view str, bool isHttp11)
+	{
+		if (str.empty())
+			return false;
+
+		return parseStrong(str.data(), str.data() + str.size(), isHttp11);
+	}
+
+
 	bool isHostNameEmpty()
 	{
 		return hostNameEmpty;
@@ -272,4 +312,203 @@ private:
 	std::string_view hostName{};
 	unsigned int port{};
 	const unsigned int defaultPort{};     //默认端口，自己根据需要填写
+};
+
+
+
+
+
+
+
+
+
+
+
+struct Transfer_Encoding_PARSER
+{
+	Transfer_Encoding_PARSER() = default;
+
+	void init()
+	{
+		isChunked = is‌Compress = isDeflate‌ = isGzip = false;
+		is‌Identity = true;
+	}
+
+	//仅根据第二个字符快速判断，在确保格式设置正确的场景下使用
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 0)
+			return false;
+
+		const char* iterbegin{}, * iterEnd{};
+
+		while (strBegin != strEnd)
+		{
+			iterbegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+			if (iterbegin == strEnd)
+				return true;
+
+			iterEnd = std::find(iterbegin + 1, strEnd, ',');
+
+			if (std::distance(iterbegin, iterEnd) > 3)
+			{
+				switch (*(iterbegin + 1))
+				{
+				case 'h':
+					isChunked = true;
+					break;
+				case 'o':
+					is‌Compress = true;
+					break;
+				case 'e':
+					isDeflate‌ = true;
+					break;
+				case 'z':
+					isGzip = true;
+					break;
+				default:
+					break;
+				}
+			}
+			else
+				return false;
+
+			strBegin = iterEnd + 1;
+		}
+	}
+
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+
+
+
+
+
+
+
+
+
+	//严格比对所有字符,可以在开发环境中使用strong测试，正式环境启动fast加快解析速度
+	bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 0)
+			return false;
+
+		const char* iterbegin{}, * iterEnd{};
+
+		static const std::string chunked{ "chunked" }, compress{ "compress" }, deflate{ "deflate" }, gzip{ "gzip" };
+
+		while (strBegin != strEnd)
+		{
+			iterbegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+			if (iterbegin == strEnd)
+				return true;
+
+			iterEnd = std::find(iterbegin + 1, strEnd, ',');
+
+
+			switch (*(iterbegin + 1))
+			{
+			case 'h':
+				if (!std::equal(chunked.cbegin(), chunked.cend(), iterbegin, iterEnd))
+					return false;
+				isChunked = true;
+				break;
+			case 'o':
+				if (!std::equal(compress.cbegin(), compress.cend(), iterbegin, iterEnd))
+					return false;
+				is‌Compress = true;
+				break;
+			case 'e':
+				if (!std::equal(deflate.cbegin(), deflate.cend(), iterbegin, iterEnd))
+					return false;
+				isDeflate‌ = true;
+				break;
+			case 'z':
+				if (!std::equal(gzip.cbegin(), gzip.cend(), iterbegin, iterEnd))
+					return false;
+				isGzip = true;
+				break;
+			case 'd':
+				break;
+			default:
+				return false;
+				break;
+			}
+
+			if (iterEnd == strEnd)
+				return true;
+
+			strBegin = iterEnd + 1;
+		}
+	}
+
+
+	bool parseStrong(const std::string& str)
+	{
+		if (str.empty())
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+
+	bool parseStrong(const std::string_view str)
+	{
+		if (str.empty())
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+
+
+
+
+	bool hasChunked()
+	{
+		return isChunked;
+	}
+
+	bool hasCompress()
+	{
+		return is‌Compress;
+	}
+
+	bool hasDeflate‌()
+	{
+		return isDeflate‌;
+	}
+
+	bool hasGzip‌()
+	{
+		return isGzip;
+	}
+
+	bool hasIdentity‌()
+	{
+		return is‌Identity;
+	}
+
+
+private:
+	bool isChunked{ false };
+	bool is‌Compress{ false };
+	bool isDeflate‌{ false };
+	bool isGzip{ false };
+	bool is‌Identity{ true };    //‌Identity不需要处理，默认都支持
 };
