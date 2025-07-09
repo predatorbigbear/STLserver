@@ -155,6 +155,7 @@ struct HOST_PARSER
 			return true;
 		}
 
+		const char* sourceBegin{ strbegin };
 		const char* hostNameBegin{}, * hostNameEnd{}, * portBegin{}, * portEnd{}, * iterBegin{}, * iterEnd{}, * thisBegin{}, * thisEnd{};
 		//是否出现过点号
 		bool hasDot{ false };
@@ -176,7 +177,7 @@ struct HOST_PARSER
 
 		while (strbegin != strEnd)
 		{
-			if (*(strbegin - 1) == '.')
+			if (strbegin != sourceBegin && *(strbegin - 1) == '.')
 				thisBegin = iterBegin;
 
 			iterBegin = std::find_if(strbegin, strEnd,
