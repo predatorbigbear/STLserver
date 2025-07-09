@@ -5,7 +5,7 @@
 #include<functional>
 #include<cctype>
 #include<string>
-
+#include<map>
 
 //做个高性能http头部零拷贝解析模块
 // 这个模块将实现所有http 头部解析处理，需要的可以从这里调用使用
@@ -934,4 +934,86 @@ private:
 	std::string_view typeName{};
 	std::string_view key{};
 	std::string_view value{};
+};
+
+
+
+
+
+
+
+// fast直接提取cookie key value值
+//这个类没有strong
+struct Cookie_PARSER
+{
+	Cookie_PARSER() = default;
+
+	void init()
+	{
+		cookieMap.clear();
+	}
+
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* keyBegin{}, * keyEnd{}, * valueBegin{}, * valueEnd{};
+
+		while (strBegin != strEnd)
+		{
+			keyBegin = std::find_if(strBegin, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ';')));
+
+			if (keyBegin == strEnd)
+				return true;
+
+			keyEnd = std::find_if(keyBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, '=')));
+
+			if (keyEnd == strEnd)
+				return false;
+
+			valueBegin = std::find_if(keyEnd + 1, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, '=')));
+
+			if (valueBegin == strEnd)
+				return false;
+
+			valueEnd = std::find_if(valueBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+
+			cookieMap.insert(std::make_pair(std::string_view(keyBegin, std::distance(keyBegin, keyEnd)), std::string_view(valueBegin, std::distance(valueBegin, valueEnd))));
+
+			if (valueEnd == strEnd)
+				return true;
+			else
+				strBegin = valueEnd + 1;
+		}
+	}
+
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	const std::map<std::string_view, std::string_view>& getCookieMap()
+	{
+		return cookieMap;
+	}
+
+
+private:
+	//在少量数据的情况下，使用map比unordered_map性能更高
+	std::map<std::string_view, std::string_view>cookieMap;
 };
