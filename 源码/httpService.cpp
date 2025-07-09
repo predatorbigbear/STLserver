@@ -5266,7 +5266,7 @@ bool HTTPSERVICE::parseHttpHeader()
 			//判断请求的目标服务标识是否为空  比如:80  没有前面的网址信息  HTTP / 1.0：允许缺失
 			if (iter1Begin == iter1End)
 			{
-				if (isHttp11 || !isHttp10)
+				if (isHttp11)
 					return false;
 			}
 			if (iter1End != strEnd)
