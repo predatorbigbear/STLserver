@@ -5,7 +5,7 @@
 #include<functional>
 #include<cctype>
 #include<string>
-
+#include<unordered_map>
 
 //做个高性能http头部零拷贝解析模块
 // 这个模块将实现所有http 头部解析处理，需要的可以从这里调用使用
@@ -826,4 +826,193 @@ struct Content_Length_PARSER
 private:
 	unsigned int len{};
 	const unsigned int maxLen{};     //body最大值，自己设置
+};
+
+
+
+
+
+// fast直接提取类型名和  ; 后面的key  value值
+//这个类没有strong
+struct Content_Type_PARSER
+{
+	Content_Type_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 5)
+			return false;
+
+		const char* type1Begin{}, * type1End{}, * type2Begin{}, * type2End{}, * keyBegin{}, * keyEnd{}, * valueBegin{}, * valueEnd{};
+
+		type1Begin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (type1Begin == strEnd)
+			return false;
+
+		type1End = std::find(type1Begin + 1, strEnd, '/');
+
+		if (type1End == strEnd)
+			return false;
+
+		type2Begin = type1End + 1;
+
+		if (type2Begin == strEnd)
+			return false;
+
+		type2End = std::find_if(type2Begin + 1, strEnd,
+			std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+
+		typeName = std::string_view(type1Begin, std::distance(type1Begin, type2End));
+
+		if (type2End == strEnd)
+		{
+			key = value = {};
+			return true;
+		}
+
+		keyBegin = std::find_if(type2End, strEnd,
+			std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ';')));
+
+		keyEnd = std::find(keyBegin + 1, strEnd, '=');
+
+		if (keyEnd == strEnd)
+			return false;
+
+		valueBegin = std::find_if(keyEnd + 1, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (valueBegin == strEnd)
+			return false;
+
+		valueEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(valueBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		key = std::string_view(keyBegin, std::distance(keyBegin, keyEnd));
+
+		value = std::string_view(valueBegin, std::distance(valueBegin, valueEnd));
+
+		return true;
+
+	}
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.size() < 5)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 5)
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	std::string_view getType()
+	{
+		return typeName;
+	}
+
+	std::string_view getKey()
+	{
+		return key;
+	}
+
+	std::string_view getValue()
+	{
+		return value;
+	}
+
+
+
+private:
+	std::string_view typeName{};
+	std::string_view key{};
+	std::string_view value{};
+};
+
+
+
+
+
+
+
+// fast直接提取cookie key value值
+//这个类没有strong
+struct Cookie_PARSER
+{
+	Cookie_PARSER() = default;
+
+	void init()
+	{
+		cookieMap.clear();
+	}
+
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* keyBegin{}, * keyEnd{}, * valueBegin{}, * valueEnd{};
+
+		while (strBegin != strEnd)
+		{
+			keyBegin = std::find_if(strBegin, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ';')));
+
+			if (keyBegin == strEnd)
+				return true;
+
+			keyEnd = std::find_if(keyBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, '=')));
+
+			if (keyEnd == strEnd)
+				return false;
+
+			valueBegin = std::find_if(keyEnd + 1, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, '=')));
+
+			if (valueBegin == strEnd)
+				return false;
+
+			valueEnd = std::find_if(valueBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+
+			cookieMap.insert(std::make_pair(std::string_view(keyBegin, std::distance(keyBegin, keyEnd)), std::string_view(valueBegin, std::distance(valueBegin, valueEnd))));
+
+			if (valueEnd == strEnd)
+				return true;
+			else
+				strBegin = valueEnd + 1;
+		}
+	}
+
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	const std::unordered_map<std::string_view, std::string_view>& getCookieMap()
+	{
+		return cookieMap;
+	}
+
+
+private:
+	std::unordered_map<std::string_view, std::string_view>cookieMap;
 };
