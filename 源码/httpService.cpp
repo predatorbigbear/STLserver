@@ -5263,9 +5263,14 @@ bool HTTPSERVICE::parseHttpHeader()
 			//斜杠（/）属于 URI 路径部分，‌禁止出现在 Host 值中
 			iter1End = std::find_if(iter1Begin, strEnd,
 				std::bind(std::logical_or<bool>(),std::bind(std::equal_to<>(),std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '/')));
-			//判断请求的目标服务标识是否为空  比如:80  没有前面的网址信息
+			//判断请求的目标服务标识是否为空  比如:80  没有前面的网址信息  HTTP / 1.0：允许缺失
 			if (iter1Begin == iter1End)
-				return false;
+			{
+				if (isHttp11 || !isHttp10)
+					return false;
+				else
+					return true;
+			}
 			if (iter1End != strEnd)
 			{
 				//斜杠（/）属于 URI 路径部分，‌禁止出现在 Host 值中
@@ -5300,6 +5305,9 @@ bool HTTPSERVICE::parseHttpHeader()
 		}
 		else
 		{
+			//HTTP/1.1强制要求请求必须包含Host字段，缺失或值为空均为非法
+			if (isHttp11)
+				return false;
 			m_HostNameBegin = m_HostNameEnd = nullptr;
 		}
 	}
