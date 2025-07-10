@@ -7,7 +7,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 	const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize)
 	:m_redisIP(redisIP), m_redisPort(redisPort), m_ioc(ioc), m_unlockFun(unlockFun), m_receiveBufferMaxSize(memorySize),
 	m_outRangeMaxSize(outRangeMaxSize),
-	m_commandMaxSize(commandSize), m_log(log), m_timeWheel(timeWheel), m_messageList(commandSize * 2)
+	m_commandMaxSize(commandSize), m_log(log), m_timeWheel(timeWheel), m_messageList(commandSize * 3)
 
 {
 	if (!ioc)
