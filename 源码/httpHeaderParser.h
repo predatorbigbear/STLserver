@@ -6,6 +6,7 @@
 #include<cctype>
 #include<string>
 #include<map>
+#include<ctime>
 
 //做个高性能http头部零拷贝解析模块
 // 这个模块将实现所有http 头部解析处理，需要的可以从这里调用使用
@@ -1014,4 +1015,453 @@ struct Cookie_PARSER
 private:
 	//在少量数据的情况下，使用map比unordered_map性能更高
 	std::map<std::string_view, std::string_view>cookieMap;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct Date_PARSER
+{
+	Date_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+	bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 28)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+		int thousand{}, hundred{}, ten{}, one{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'S':
+			//Sun
+			if (*(iterBegin + 1) == 'u')
+				m_tm.tm_wday = 0;
+			else  //Sat
+				m_tm.tm_wday = 6;
+			break;
+		case 'M':    //Mon
+			m_tm.tm_wday = 1;
+			break;
+		case 'T':    //Tue
+			if (*(iterBegin + 1) == 'u')
+				m_tm.tm_wday = 2;
+			else
+				m_tm.tm_wday = 4;
+			break;
+		case 'W':
+			m_tm.tm_wday = 3;
+			break;
+		case 'F':
+			m_tm.tm_wday = 5;
+			break;
+		default:
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_mday = ten + one;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isupper, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'J':
+			if (*(iterBegin + 1) == 'a')
+				m_tm.tm_mon = 0;
+			else
+			{
+				if (*(iterBegin + 2) == 'n')
+					m_tm.tm_mon = 5;
+				else
+					m_tm.tm_mon = 6;
+			}
+			break;
+		case 'F':
+			m_tm.tm_mon = 1;
+			break;
+		case 'M':
+			if (*(iterBegin + 2) == 'r')
+				m_tm.tm_mon = 2;
+			else
+				m_tm.tm_mon = 4;
+			break;
+		case 'A':
+			if (*(iterBegin + 1) == 'p')
+				m_tm.tm_mon = 3;
+			else
+				m_tm.tm_mon = 7;
+			break;
+		case 'S':
+			m_tm.tm_mon = 8;
+			break;
+		case 'O':
+			m_tm.tm_mon = 9;
+			break;
+		case 'N':
+			m_tm.tm_mon = 10;
+			break;
+		default:
+			m_tm.tm_mon = 11;
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 4)
+			return false;
+
+		thousand = (*iterBegin++ - '0') * 1000;
+		hundred = (*iterBegin++ - '0') * 100;
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_year = thousand + hundred + ten + one - 1900;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_hour = ten + one;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_min = ten + one;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_sec = ten + one;
+
+		m_time = std::mktime(&m_tm);
+
+		return true;
+	}
+
+	bool parseFast(const std::string& str)
+	{
+		if (str.size() < 28)
+			return false;
+
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 28)
+			return false;
+
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+
+	bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 28)
+			return false;
+
+		static std::string GMT{ "GMT" };
+		const char* iterBegin{}, * iterEnd{};
+		int thousand{}, hundred{}, ten{}, one{};
+		int num{}, sum{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'S':
+			//Sun
+			if (*(iterBegin + 1) == 'u' && *(iterBegin + 2) == 'n')
+				m_tm.tm_wday = 0;
+			else if (*(iterBegin + 1) == 'a' && *(iterBegin + 2) == 't')
+				m_tm.tm_wday = 6;
+			else
+				return false;
+			break;
+		case 'M':    //Mon
+			if (*(iterBegin + 1) == 'o' && *(iterBegin + 2) == 'n')
+				m_tm.tm_wday = 1;
+			else
+				return false;
+			break;
+		case 'T':    //Tue
+			if (*(iterBegin + 1) == 'u' && *(iterBegin + 2) == 'e')
+				m_tm.tm_wday = 2;
+			else if (*(iterBegin + 1) == 'h' && *(iterBegin + 2) == 'u')
+				m_tm.tm_wday = 4;
+			else
+				return false;
+			break;
+		case 'W':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'd')
+				m_tm.tm_wday = 3;
+			else
+				return false;
+			break;
+		case 'F':
+			if (*(iterBegin + 1) == 'r' && *(iterBegin + 2) == 'i')
+				m_tm.tm_wday = 5;
+			else
+				return false;
+			break;
+		default:
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+
+		m_tm.tm_mday = sum;
+		iterBegin += 2;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isupper, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'J':
+			if (*(iterBegin + 1) == 'a' && *(iterBegin + 2) == 'n')
+				m_tm.tm_mon = 0;
+			else if (*(iterBegin + 1) == 'u')
+			{
+				if (*(iterBegin + 2) == 'n')
+					m_tm.tm_mon = 5;
+				else if (*(iterBegin + 2) == 'l')
+					m_tm.tm_mon = 6;
+				else
+					return false;
+			}
+			else
+				return false;
+			break;
+		case 'F':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'b')
+				m_tm.tm_mon = 1;
+			else
+				return false;
+			break;
+		case 'M':
+			if (*(iterBegin + 1) == 'a')
+			{
+				if (*(iterBegin + 2) == 'r')
+					m_tm.tm_mon = 2;
+				else if (*(iterBegin + 2) == 'y')
+					m_tm.tm_mon = 4;
+				else
+					return false;
+			}
+			else
+				return false;
+			break;
+		case 'A':
+			if (*(iterBegin + 1) == 'p' && *(iterBegin + 2) == 'r')
+				m_tm.tm_mon = 3;
+			else if (*(iterBegin + 1) == 'u' && *(iterBegin + 2) == 'g')
+				m_tm.tm_mon = 7;
+			else
+				return false;
+			break;
+		case 'S':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'p')
+				m_tm.tm_mon = 8;
+			else
+				return false;
+			break;
+		case 'O':
+			if (*(iterBegin + 1) == 'c' && *(iterBegin + 2) == 't')
+				m_tm.tm_mon = 9;
+			else
+				return false;
+			break;
+		case 'N':
+			if (*(iterBegin + 1) == 'o' && *(iterBegin + 2) == 'v')
+				m_tm.tm_mon = 10;
+			else
+				return false;
+			break;
+		case 'D':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'c')
+				m_tm.tm_mon = 11;
+			else
+				return false;
+			break;
+		default:
+			return false;
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 4)
+			return false;
+
+		num = 10000, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 4, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+
+		m_tm.tm_year = sum - 1900;
+		iterBegin += 4;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+		m_tm.tm_hour = sum;
+		iterBegin += 2;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+		m_tm.tm_min = sum;
+		iterBegin += 2;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+		m_tm.tm_sec = sum;
+		iterBegin += 2;
+
+		if (std::search(iterBegin, strEnd, GMT.cbegin(), GMT.cend()) == strEnd)
+			return false;
+
+
+		m_time = std::mktime(&m_tm);
+
+		return true;
+	}
+
+	bool parseStrong(const std::string& str)
+	{
+		if (str.size() < 28)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+	bool parseStrong(const std::string_view str)
+	{
+		if (str.size() < 28)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+	std::time_t getTimeStamp()
+	{
+		return m_time;
+	}
+
+
+
+private:
+	struct tm m_tm {};
+	std::time_t m_time{};
 };
