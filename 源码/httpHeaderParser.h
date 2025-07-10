@@ -7,6 +7,7 @@
 #include<string>
 #include<map>
 #include<ctime>
+#include<numeric>
 
 //做个高性能http头部零拷贝解析模块
 // 这个模块将实现所有http 头部解析处理，需要的可以从这里调用使用
@@ -49,7 +50,7 @@ struct HOST_PARSER
 	//isHttp11的传值   http1.1传true    1.0传false
 	//仅检查HTTP/1.1下Host字段是否为空
 	//‌非法端口格式
-	bool parseFast(const char* strbegin, const char* strEnd, bool isHttp11)
+	const bool parseFast(const char* strbegin, const char* strEnd, bool isHttp11)
 	{
 		if (!strbegin || !strEnd || std::distance(strEnd, strbegin) > 0)
 			return false;
@@ -112,14 +113,14 @@ struct HOST_PARSER
 		return true;
 	}
 
-	bool parseFast(const std::string& str, bool isHttp11)
+	const bool parseFast(const std::string& str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size(), isHttp11);
 	}
 
-	bool parseFast(const std::string_view str, bool isHttp11)
+	const bool parseFast(const std::string_view str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
@@ -143,7 +144,7 @@ struct HOST_PARSER
 	//仅检测非中文域名以及非ip地址
 	//严格非法字符检测
 	//数字域名和IP地址暂不处理，因为无法区分究竟是哪个
-	bool parseStrong(const char* strbegin, const char* strEnd, bool isHttp11)
+	const bool parseStrong(const char* strbegin, const char* strEnd, bool isHttp11)
 	{
 		if (!strbegin || !strEnd || std::distance(strEnd, strbegin) > 0)
 			return false;
@@ -276,7 +277,7 @@ struct HOST_PARSER
 	}
 
 
-	bool parseStrong(const std::string& str, bool isHttp11)
+	const bool parseStrong(const std::string& str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
@@ -284,7 +285,7 @@ struct HOST_PARSER
 	}
 
 
-	bool parseStrong(const std::string_view str, bool isHttp11)
+	const bool parseStrong(const std::string_view str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
@@ -293,17 +294,17 @@ struct HOST_PARSER
 	}
 
 
-	bool isHostNameEmpty()
+	const bool isHostNameEmpty()
 	{
 		return hostNameEmpty;
 	}
 
-	std::string_view getHostNameView()
+	const std::string_view getHostNameView()
 	{
 		return hostName;
 	}
 
-	unsigned int getPort()
+	const unsigned int getPort()
 	{
 		return port;
 	}
@@ -337,7 +338,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 	//仅根据第二个字符快速判断，在确保格式设置正确的场景下使用
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 0)
 			return false;
@@ -381,7 +382,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.empty())
 			return false;
@@ -389,7 +390,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.empty())
 			return false;
@@ -406,7 +407,7 @@ struct Transfer_Encoding_PARSER
 
 
 	//严格比对所有字符,可以在开发环境中使用strong测试，正式环境启动fast加快解析速度
-	bool parseStrong(const char* strBegin, const char* strEnd)
+	const bool parseStrong(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 0)
 			return false;
@@ -462,7 +463,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseStrong(const std::string& str)
+	const bool parseStrong(const std::string& str)
 	{
 		if (str.empty())
 			return false;
@@ -470,7 +471,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseStrong(const std::string_view str)
+	const bool parseStrong(const std::string_view str)
 	{
 		if (str.empty())
 			return false;
@@ -481,27 +482,27 @@ struct Transfer_Encoding_PARSER
 
 
 
-	bool hasChunked()
+	const bool hasChunked()
 	{
 		return isChunked;
 	}
 
-	bool hasCompress()
+	const bool hasCompress()
 	{
 		return is‌Compress;
 	}
 
-	bool hasDeflate‌()
+	const bool hasDeflate‌()
 	{
 		return isDeflate‌;
 	}
 
-	bool hasGzip‌()
+	const bool hasGzip‌()
 	{
 		return isGzip;
 	}
 
-	bool hasIdentity‌()
+	const bool hasIdentity‌()
 	{
 		return is‌Identity;
 	}
@@ -531,7 +532,7 @@ struct Connection_PARSER
 	}
 
 	//httpVersion    1.0  true     1.1  false
-	bool parseFast(const char* strBegin, const char* strEnd, bool httpVersion)
+	const bool parseFast(const char* strBegin, const char* strEnd, bool httpVersion)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -597,14 +598,14 @@ struct Connection_PARSER
 		}
 	}
 
-	bool parseFast(const std::string& str, bool httpVersion)
+	const bool parseFast(const std::string& str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size(), httpVersion);
 	}
 
-	bool parseFast(const std::string_view str, bool httpVersion)
+	const bool parseFast(const std::string_view str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
@@ -615,7 +616,7 @@ struct Connection_PARSER
 
 
 
-	bool parseStrong(const char* strBegin, const char* strEnd, bool httpVersion)
+	const bool parseStrong(const char* strBegin, const char* strEnd, bool httpVersion)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -699,41 +700,41 @@ struct Connection_PARSER
 		}
 	}
 
-	bool parseStrong(const std::string& str, bool httpVersion)
+	const bool parseStrong(const std::string& str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseStrong(str.c_str(), str.c_str() + str.size(), httpVersion);
 	}
 
-	bool parseStrong(const std::string_view str, bool httpVersion)
+	const bool parseStrong(const std::string_view str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseStrong(str.data(), str.data() + str.size(), httpVersion);
 	}
 
-	bool hasUpgrade()
+	const bool hasUpgrade()
 	{
 		return isUpgrade;
 	}
 
-	bool hasProxy_Authorization()
+	const bool hasProxy_Authorization()
 	{
 		return isProxy_Authorization;
 	}
 
-	bool hasKeep_Alive()
+	const bool hasKeep_Alive()
 	{
 		return isKeep_Alive‌;
 	}
 
-	bool hasTE()
+	const bool hasTE()
 	{
 		return is‌TE;
 	}
 
-	bool hasTrailer()
+	const bool hasTrailer()
 	{
 		return isTrailer;
 	}
@@ -766,7 +767,7 @@ struct Content_Length_PARSER
 	}
 
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -802,14 +803,14 @@ struct Content_Length_PARSER
 		return true;
 	}
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.size() < 1)
 			return false;
@@ -842,7 +843,7 @@ struct Content_Type_PARSER
 
 	}
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 5)
 			return false;
@@ -898,31 +899,31 @@ struct Content_Type_PARSER
 
 	}
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.size() < 5)
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.size() < 5)
 			return false;
 		return parseFast(str.data(), str.data() + str.size());
 	}
 
-	std::string_view getType()
+	const std::string_view getType()
 	{
 		return typeName;
 	}
 
-	std::string_view getKey()
+	const std::string_view getKey()
 	{
 		return key;
 	}
 
-	std::string_view getValue()
+	const std::string_view getValue()
 	{
 		return value;
 	}
@@ -952,7 +953,7 @@ struct Cookie_PARSER
 		cookieMap.clear();
 	}
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -992,14 +993,14 @@ struct Cookie_PARSER
 	}
 
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.empty())
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.empty())
 			return false;
@@ -1038,7 +1039,7 @@ struct Date_PARSER
 
 	}
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 28)
 			return false;
@@ -1178,7 +1179,7 @@ struct Date_PARSER
 		return true;
 	}
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.size() < 28)
 			return false;
@@ -1186,7 +1187,7 @@ struct Date_PARSER
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.size() < 28)
 			return false;
@@ -1195,7 +1196,7 @@ struct Date_PARSER
 	}
 
 
-	bool parseStrong(const char* strBegin, const char* strEnd)
+	const bool parseStrong(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 28)
 			return false;
@@ -1440,21 +1441,21 @@ struct Date_PARSER
 		return true;
 	}
 
-	bool parseStrong(const std::string& str)
+	const bool parseStrong(const std::string& str)
 	{
 		if (str.size() < 28)
 			return false;
 		return parseStrong(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseStrong(const std::string_view str)
+	const bool parseStrong(const std::string_view str)
 	{
 		if (str.size() < 28)
 			return false;
 		return parseStrong(str.data(), str.data() + str.size());
 	}
 
-	std::time_t getTimeStamp()
+	const std::time_t getTimeStamp()
 	{
 		return m_time;
 	}
@@ -1464,4 +1465,116 @@ struct Date_PARSER
 private:
 	struct tm m_tm {};
 	std::time_t m_time{};
+};
+
+
+
+
+
+
+struct Age_PARSER
+{
+	Age_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+	const bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		int index{ -1 }, num{ 1 };
+
+		age = std::accumulate(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), 0, [&index, &num](int sum, const char ch)
+		{
+			if (++index)
+				num *= 10;
+			return sum += (ch - '0') * num;
+		});
+
+		return true;
+	}
+
+	const bool parseFast(const std::string& str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+
+	const bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		int index{ -1 }, num{ 1 }, sum{};
+
+		if (!std::all_of(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), [&index, &num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				if (++index)
+					num *= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+
+		age = sum;
+		return true;
+	}
+
+	const bool parseStrong(const std::string& str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseStrong(const std::string_view str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+	const unsigned int getAge()
+	{
+		return age;
+	}
+
+
+private:
+	unsigned int age{};
 };
