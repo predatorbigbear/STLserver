@@ -1910,3 +1910,100 @@ private:
 	int s_maxAge{ -1 };          //-1表示没有这个字段
 	bool isImmutable{ false };
 };
+
+
+
+
+
+struct Pragma_PARSER
+{
+	Pragma_PARSER() = default;
+
+	void init()
+	{
+		isNoCache = false;
+	}
+
+
+	//HTTP Pragma头部是HTTP/1.0时代的遗留字段，其标准化值只有"no-cache"
+	const bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 8)
+			return false;
+
+		const char* iterBegin{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		if (*iterBegin != 'n')
+			return false;
+
+		isNoCache = true;
+
+		return true;
+	}
+
+	const bool parseFast(const std::string& str)
+	{
+		if (str.size() < 8)
+			return false;
+
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 8)
+			return false;
+
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	const bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 8)
+			return false;
+
+		const char* iterBegin{};
+
+		static const std::string no_cache{ "no-cache" };
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		if (std::distance(iterBegin, strEnd) < no_cache.size() || !std::equal(iterBegin, iterBegin + no_cache.size(), no_cache.cbegin(), no_cache.cend()))
+			return false;
+
+		isNoCache = true;
+
+		return true;
+	}
+
+	const bool parseStrong(const std::string& str)
+	{
+		if (str.size() < 8)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseStrong(const std::string_view str)
+	{
+		if (str.size() < 8)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+	const bool getNoCache()
+	{
+		return isNoCache;
+	}
+
+private:
+	bool isNoCache{ false };
+
+};
