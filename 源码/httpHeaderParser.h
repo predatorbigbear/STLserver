@@ -779,8 +779,6 @@ struct Content_Length_PARSER
 
 		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
 
-		if (iterEnd == std::make_reverse_iterator(iterBegin).base())
-			return false;
 
 		int index{ -1 }, num{ 1 }, sum{};
 
