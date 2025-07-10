@@ -5,7 +5,9 @@
 #include<functional>
 #include<cctype>
 #include<string>
-#include<unordered_map>
+#include<map>
+#include<ctime>
+#include<numeric>
 
 //做个高性能http头部零拷贝解析模块
 // 这个模块将实现所有http 头部解析处理，需要的可以从这里调用使用
@@ -48,7 +50,7 @@ struct HOST_PARSER
 	//isHttp11的传值   http1.1传true    1.0传false
 	//仅检查HTTP/1.1下Host字段是否为空
 	//‌非法端口格式
-	bool parseFast(const char* strbegin, const char* strEnd, bool isHttp11)
+	const bool parseFast(const char* strbegin, const char* strEnd, bool isHttp11)
 	{
 		if (!strbegin || !strEnd || std::distance(strEnd, strbegin) > 0)
 			return false;
@@ -111,14 +113,14 @@ struct HOST_PARSER
 		return true;
 	}
 
-	bool parseFast(const std::string& str, bool isHttp11)
+	const bool parseFast(const std::string& str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size(), isHttp11);
 	}
 
-	bool parseFast(const std::string_view str, bool isHttp11)
+	const bool parseFast(const std::string_view str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
@@ -142,7 +144,7 @@ struct HOST_PARSER
 	//仅检测非中文域名以及非ip地址
 	//严格非法字符检测
 	//数字域名和IP地址暂不处理，因为无法区分究竟是哪个
-	bool parseStrong(const char* strbegin, const char* strEnd, bool isHttp11)
+	const bool parseStrong(const char* strbegin, const char* strEnd, bool isHttp11)
 	{
 		if (!strbegin || !strEnd || std::distance(strEnd, strbegin) > 0)
 			return false;
@@ -275,7 +277,7 @@ struct HOST_PARSER
 	}
 
 
-	bool parseStrong(const std::string& str, bool isHttp11)
+	const bool parseStrong(const std::string& str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
@@ -283,7 +285,7 @@ struct HOST_PARSER
 	}
 
 
-	bool parseStrong(const std::string_view str, bool isHttp11)
+	const bool parseStrong(const std::string_view str, bool isHttp11)
 	{
 		if (str.empty())
 			return false;
@@ -292,17 +294,17 @@ struct HOST_PARSER
 	}
 
 
-	bool isHostNameEmpty()
+	const bool isHostNameEmpty()
 	{
 		return hostNameEmpty;
 	}
 
-	std::string_view getHostNameView()
+	const std::string_view getHostNameView()
 	{
 		return hostName;
 	}
 
-	unsigned int getPort()
+	const unsigned int getPort()
 	{
 		return port;
 	}
@@ -336,7 +338,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 	//仅根据第二个字符快速判断，在确保格式设置正确的场景下使用
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 0)
 			return false;
@@ -380,7 +382,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.empty())
 			return false;
@@ -388,7 +390,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.empty())
 			return false;
@@ -405,7 +407,7 @@ struct Transfer_Encoding_PARSER
 
 
 	//严格比对所有字符,可以在开发环境中使用strong测试，正式环境启动fast加快解析速度
-	bool parseStrong(const char* strBegin, const char* strEnd)
+	const bool parseStrong(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 0)
 			return false;
@@ -461,7 +463,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseStrong(const std::string& str)
+	const bool parseStrong(const std::string& str)
 	{
 		if (str.empty())
 			return false;
@@ -469,7 +471,7 @@ struct Transfer_Encoding_PARSER
 	}
 
 
-	bool parseStrong(const std::string_view str)
+	const bool parseStrong(const std::string_view str)
 	{
 		if (str.empty())
 			return false;
@@ -480,27 +482,27 @@ struct Transfer_Encoding_PARSER
 
 
 
-	bool hasChunked()
+	const bool hasChunked()
 	{
 		return isChunked;
 	}
 
-	bool hasCompress()
+	const bool hasCompress()
 	{
 		return is‌Compress;
 	}
 
-	bool hasDeflate‌()
+	const bool hasDeflate‌()
 	{
 		return isDeflate‌;
 	}
 
-	bool hasGzip‌()
+	const bool hasGzip‌()
 	{
 		return isGzip;
 	}
 
-	bool hasIdentity‌()
+	const bool hasIdentity‌()
 	{
 		return is‌Identity;
 	}
@@ -530,7 +532,7 @@ struct Connection_PARSER
 	}
 
 	//httpVersion    1.0  true     1.1  false
-	bool parseFast(const char* strBegin, const char* strEnd, bool httpVersion)
+	const bool parseFast(const char* strBegin, const char* strEnd, bool httpVersion)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -596,14 +598,14 @@ struct Connection_PARSER
 		}
 	}
 
-	bool parseFast(const std::string& str, bool httpVersion)
+	const bool parseFast(const std::string& str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size(), httpVersion);
 	}
 
-	bool parseFast(const std::string_view str, bool httpVersion)
+	const bool parseFast(const std::string_view str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
@@ -614,7 +616,7 @@ struct Connection_PARSER
 
 
 
-	bool parseStrong(const char* strBegin, const char* strEnd, bool httpVersion)
+	const bool parseStrong(const char* strBegin, const char* strEnd, bool httpVersion)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -698,41 +700,41 @@ struct Connection_PARSER
 		}
 	}
 
-	bool parseStrong(const std::string& str, bool httpVersion)
+	const bool parseStrong(const std::string& str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseStrong(str.c_str(), str.c_str() + str.size(), httpVersion);
 	}
 
-	bool parseStrong(const std::string_view str, bool httpVersion)
+	const bool parseStrong(const std::string_view str, bool httpVersion)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseStrong(str.data(), str.data() + str.size(), httpVersion);
 	}
 
-	bool hasUpgrade()
+	const bool hasUpgrade()
 	{
 		return isUpgrade;
 	}
 
-	bool hasProxy_Authorization()
+	const bool hasProxy_Authorization()
 	{
 		return isProxy_Authorization;
 	}
 
-	bool hasKeep_Alive()
+	const bool hasKeep_Alive()
 	{
 		return isKeep_Alive‌;
 	}
 
-	bool hasTE()
+	const bool hasTE()
 	{
 		return is‌TE;
 	}
 
-	bool hasTrailer()
+	const bool hasTrailer()
 	{
 		return isTrailer;
 	}
@@ -765,7 +767,7 @@ struct Content_Length_PARSER
 	}
 
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -779,8 +781,6 @@ struct Content_Length_PARSER
 
 		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
 
-		if (iterEnd == std::make_reverse_iterator(iterBegin).base())
-			return false;
 
 		int index{ -1 }, num{ 1 }, sum{};
 
@@ -803,14 +803,14 @@ struct Content_Length_PARSER
 		return true;
 	}
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.size() < 1)
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.size() < 1)
 			return false;
@@ -843,7 +843,7 @@ struct Content_Type_PARSER
 
 	}
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 5)
 			return false;
@@ -899,31 +899,31 @@ struct Content_Type_PARSER
 
 	}
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.size() < 5)
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.size() < 5)
 			return false;
 		return parseFast(str.data(), str.data() + str.size());
 	}
 
-	std::string_view getType()
+	const std::string_view getType()
 	{
 		return typeName;
 	}
 
-	std::string_view getKey()
+	const std::string_view getKey()
 	{
 		return key;
 	}
 
-	std::string_view getValue()
+	const std::string_view getValue()
 	{
 		return value;
 	}
@@ -953,7 +953,7 @@ struct Cookie_PARSER
 		cookieMap.clear();
 	}
 
-	bool parseFast(const char* strBegin, const char* strEnd)
+	const bool parseFast(const char* strBegin, const char* strEnd)
 	{
 		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
 			return false;
@@ -993,26 +993,920 @@ struct Cookie_PARSER
 	}
 
 
-	bool parseFast(const std::string& str)
+	const bool parseFast(const std::string& str)
 	{
 		if (str.empty())
 			return false;
 		return parseFast(str.c_str(), str.c_str() + str.size());
 	}
 
-	bool parseFast(const std::string_view str)
+	const bool parseFast(const std::string_view str)
 	{
 		if (str.empty())
 			return false;
 		return parseFast(str.data(), str.data() + str.size());
 	}
 
-	const std::unordered_map<std::string_view, std::string_view>& getCookieMap()
+	const std::map<std::string_view, std::string_view>& getCookieMap()
 	{
 		return cookieMap;
 	}
 
 
 private:
-	std::unordered_map<std::string_view, std::string_view>cookieMap;
+	//在少量数据的情况下，使用map比unordered_map性能更高
+	std::map<std::string_view, std::string_view>cookieMap;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct Date_PARSER
+{
+	Date_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+	const bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 28)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+		int thousand{}, hundred{}, ten{}, one{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'S':
+			//Sun
+			if (*(iterBegin + 1) == 'u')
+				m_tm.tm_wday = 0;
+			else  //Sat
+				m_tm.tm_wday = 6;
+			break;
+		case 'M':    //Mon
+			m_tm.tm_wday = 1;
+			break;
+		case 'T':    //Tue
+			if (*(iterBegin + 1) == 'u')
+				m_tm.tm_wday = 2;
+			else
+				m_tm.tm_wday = 4;
+			break;
+		case 'W':
+			m_tm.tm_wday = 3;
+			break;
+		case 'F':
+			m_tm.tm_wday = 5;
+			break;
+		default:
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_mday = ten + one;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isupper, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'J':
+			if (*(iterBegin + 1) == 'a')
+				m_tm.tm_mon = 0;
+			else
+			{
+				if (*(iterBegin + 2) == 'n')
+					m_tm.tm_mon = 5;
+				else
+					m_tm.tm_mon = 6;
+			}
+			break;
+		case 'F':
+			m_tm.tm_mon = 1;
+			break;
+		case 'M':
+			if (*(iterBegin + 2) == 'r')
+				m_tm.tm_mon = 2;
+			else
+				m_tm.tm_mon = 4;
+			break;
+		case 'A':
+			if (*(iterBegin + 1) == 'p')
+				m_tm.tm_mon = 3;
+			else
+				m_tm.tm_mon = 7;
+			break;
+		case 'S':
+			m_tm.tm_mon = 8;
+			break;
+		case 'O':
+			m_tm.tm_mon = 9;
+			break;
+		case 'N':
+			m_tm.tm_mon = 10;
+			break;
+		default:
+			m_tm.tm_mon = 11;
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 4)
+			return false;
+
+		thousand = (*iterBegin++ - '0') * 1000;
+		hundred = (*iterBegin++ - '0') * 100;
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_year = thousand + hundred + ten + one - 1900;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_hour = ten + one;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_min = ten + one;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		ten = (*iterBegin++ - '0') * 10;
+		one = (*iterBegin++ - '0');
+		m_tm.tm_sec = ten + one;
+
+		m_time = std::mktime(&m_tm);
+
+		return true;
+	}
+
+	const bool parseFast(const std::string& str)
+	{
+		if (str.size() < 28)
+			return false;
+
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 28)
+			return false;
+
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+
+	const bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 28)
+			return false;
+
+		static std::string GMT{ "GMT" };
+		const char* iterBegin{}, * iterEnd{};
+		int thousand{}, hundred{}, ten{}, one{};
+		int num{}, sum{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'S':
+			//Sun
+			if (*(iterBegin + 1) == 'u' && *(iterBegin + 2) == 'n')
+				m_tm.tm_wday = 0;
+			else if (*(iterBegin + 1) == 'a' && *(iterBegin + 2) == 't')
+				m_tm.tm_wday = 6;
+			else
+				return false;
+			break;
+		case 'M':    //Mon
+			if (*(iterBegin + 1) == 'o' && *(iterBegin + 2) == 'n')
+				m_tm.tm_wday = 1;
+			else
+				return false;
+			break;
+		case 'T':    //Tue
+			if (*(iterBegin + 1) == 'u' && *(iterBegin + 2) == 'e')
+				m_tm.tm_wday = 2;
+			else if (*(iterBegin + 1) == 'h' && *(iterBegin + 2) == 'u')
+				m_tm.tm_wday = 4;
+			else
+				return false;
+			break;
+		case 'W':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'd')
+				m_tm.tm_wday = 3;
+			else
+				return false;
+			break;
+		case 'F':
+			if (*(iterBegin + 1) == 'r' && *(iterBegin + 2) == 'i')
+				m_tm.tm_wday = 5;
+			else
+				return false;
+			break;
+		default:
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+
+		m_tm.tm_mday = sum;
+		iterBegin += 2;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isupper, std::placeholders::_1));
+
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 3)
+			return false;
+
+		switch (*iterBegin)
+		{
+		case 'J':
+			if (*(iterBegin + 1) == 'a' && *(iterBegin + 2) == 'n')
+				m_tm.tm_mon = 0;
+			else if (*(iterBegin + 1) == 'u')
+			{
+				if (*(iterBegin + 2) == 'n')
+					m_tm.tm_mon = 5;
+				else if (*(iterBegin + 2) == 'l')
+					m_tm.tm_mon = 6;
+				else
+					return false;
+			}
+			else
+				return false;
+			break;
+		case 'F':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'b')
+				m_tm.tm_mon = 1;
+			else
+				return false;
+			break;
+		case 'M':
+			if (*(iterBegin + 1) == 'a')
+			{
+				if (*(iterBegin + 2) == 'r')
+					m_tm.tm_mon = 2;
+				else if (*(iterBegin + 2) == 'y')
+					m_tm.tm_mon = 4;
+				else
+					return false;
+			}
+			else
+				return false;
+			break;
+		case 'A':
+			if (*(iterBegin + 1) == 'p' && *(iterBegin + 2) == 'r')
+				m_tm.tm_mon = 3;
+			else if (*(iterBegin + 1) == 'u' && *(iterBegin + 2) == 'g')
+				m_tm.tm_mon = 7;
+			else
+				return false;
+			break;
+		case 'S':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'p')
+				m_tm.tm_mon = 8;
+			else
+				return false;
+			break;
+		case 'O':
+			if (*(iterBegin + 1) == 'c' && *(iterBegin + 2) == 't')
+				m_tm.tm_mon = 9;
+			else
+				return false;
+			break;
+		case 'N':
+			if (*(iterBegin + 1) == 'o' && *(iterBegin + 2) == 'v')
+				m_tm.tm_mon = 10;
+			else
+				return false;
+			break;
+		case 'D':
+			if (*(iterBegin + 1) == 'e' && *(iterBegin + 2) == 'c')
+				m_tm.tm_mon = 11;
+			else
+				return false;
+			break;
+		default:
+			return false;
+			break;
+		}
+
+		iterBegin += 3;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 4)
+			return false;
+
+		num = 10000, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 4, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+
+		m_tm.tm_year = sum - 1900;
+		iterBegin += 4;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+		m_tm.tm_hour = sum;
+		iterBegin += 2;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+		m_tm.tm_min = sum;
+		iterBegin += 2;
+
+		iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+		if (iterBegin == strEnd || std::distance(iterBegin, strEnd) < 2)
+			return false;
+
+		num = 100, sum = 0;
+		if (!std::all_of(iterBegin, iterBegin + 2, [&num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				num /= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+		m_tm.tm_sec = sum;
+		iterBegin += 2;
+
+		if (std::search(iterBegin, strEnd, GMT.cbegin(), GMT.cend()) == strEnd)
+			return false;
+
+
+		m_time = std::mktime(&m_tm);
+
+		return true;
+	}
+
+	const bool parseStrong(const std::string& str)
+	{
+		if (str.size() < 28)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseStrong(const std::string_view str)
+	{
+		if (str.size() < 28)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+	const std::time_t getTimeStamp()
+	{
+		return m_time;
+	}
+
+
+
+private:
+	struct tm m_tm {};
+	std::time_t m_time{};
+};
+
+
+
+
+
+
+struct Age_PARSER
+{
+	Age_PARSER() = default;
+
+	void init()
+	{
+
+	}
+
+	const bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		int index{ -1 }, num{ 1 };
+
+		age = std::accumulate(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), 0, [&index, &num](int sum, const char ch)
+		{
+			if (++index)
+				num *= 10;
+			return sum += (ch - '0') * num;
+		});
+
+		return true;
+	}
+
+	const bool parseFast(const std::string& str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+
+	const bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 1)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+
+		iterBegin = std::find_if(strBegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+		if (iterBegin == strEnd)
+			return false;
+
+		iterEnd = std::find_if(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(iterBegin), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' ')).base();
+
+		int index{ -1 }, num{ 1 }, sum{};
+
+		if (!std::all_of(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), [&index, &num, &sum](const char ch)
+		{
+			if (isdigit(ch))
+			{
+				if (++index)
+					num *= 10;
+				sum += (ch - '0') * num;
+				return true;
+			}
+			return false;
+		}))
+			return false;
+
+		age = sum;
+		return true;
+	}
+
+	const bool parseStrong(const std::string& str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseStrong(const std::string_view str)
+	{
+		if (str.size() < 1)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+	const unsigned int getAge()
+	{
+		return age;
+	}
+
+
+private:
+	unsigned int age{};
+};
+
+
+
+
+
+
+struct Cache_Control_‌PARSER
+{
+	Cache_Control_‌PARSER() = default;
+
+	void init()
+	{
+		maxAge = s_maxAge = -1;
+		isNo_cache = isNo_store = isPrivate = isMust_revalidate = isImmutable = isPublic = false;
+	}
+
+	const bool parseFast(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 6)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+		int index{ -1 }, num{ 1 }, thisDistance{};
+
+		while (strBegin != strEnd)
+		{
+			iterBegin = std::find_if(strBegin, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ',')));
+
+			if (iterBegin == strEnd)
+				return true;
+
+			thisDistance = std::distance(iterBegin, strEnd);
+			switch (*iterBegin)
+			{
+			case 'm':
+				if (thisDistance < 9)
+					return false;
+				if (*(iterBegin + 1) == 'a')
+				{
+					iterBegin += 8;
+					iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+					if (iterBegin == iterEnd)
+						return false;
+					iterEnd = std::find_if_not(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+					index = -1, num = 1;
+					maxAge = std::accumulate(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), 0, [&index, &num](int sum, const char ch)
+					{
+						if (++index)
+							num *= 10;
+						return sum += (ch - '0') * num;
+					});
+					strBegin = std::find(iterEnd, strEnd, ',');
+				}
+				else
+				{
+					if (thisDistance < 15)
+						return false;
+					iterBegin += 15;
+					isMust_revalidate = true;
+					strBegin = std::find(iterBegin, strEnd, ',');
+				}
+				break;
+			case 'n':
+				if (thisDistance < 8)
+					return false;
+				if (*(iterBegin + 3) == 'c')
+					isNo_cache = true;
+				else
+					isNo_store = true;
+				iterBegin += 8;
+				strBegin = std::find(iterBegin, strEnd, ',');
+				break;
+			case 'p':
+				if (thisDistance < 6)
+					return false;
+				if (*(iterBegin + 1) == 'u')
+				{
+					isPublic = true;
+				}
+				else
+				{
+					isPrivate = true;
+				}
+				iterBegin += 6;
+				strBegin = std::find(iterBegin, strEnd, ',');
+				break;
+			case 's':
+				if (thisDistance < 9)
+					return false;
+				iterBegin += 9;
+				iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+				if (iterBegin == iterEnd)
+					return false;
+				iterEnd = std::find_if_not(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+				index = -1, num = 1;
+				s_maxAge = std::accumulate(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), 0, [&index, &num](int sum, const char ch)
+				{
+					if (++index)
+						num *= 10;
+					return sum += (ch - '0') * num;
+				});
+				strBegin = std::find(iterEnd, strEnd, ',');
+				break;
+			case 'i':
+				if (thisDistance < 9)
+					return false;
+				isImmutable = true;
+				iterBegin += 9;
+				strBegin = std::find(iterBegin, strEnd, ',');
+				break;
+			default:
+				return false;
+				break;
+			}
+		}
+		return true;
+	}
+
+
+	const bool parseFast(const std::string& str)
+	{
+		if (str.size() < 6)
+			return false;
+		return parseFast(str.c_str(), str.c_str() + str.size());
+	}
+
+	const bool parseFast(const std::string_view str)
+	{
+		if (str.size() < 6)
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+
+
+	const bool parseStrong(const char* strBegin, const char* strEnd)
+	{
+		if (!strBegin || !strEnd || std::distance(strBegin, strEnd) < 6)
+			return false;
+
+		const char* iterBegin{}, * iterEnd{};
+		int index{ -1 }, num{ 1 }, thisDistance{};
+
+		static const std::string maxAgeStr{ "max-age" }, mustRevalidateStr{ "must-revalidate" }, noCacheStr{ "no-cache" };
+		static const std::string noStoreStr{ "no-store" }, publicStr{ "public" }, privateStr{ "private" };
+		static const std::string s_maxageStr{ "s-maxage" }, immutableStr{ "immutable" };
+
+		while (strBegin != strEnd)
+		{
+			iterBegin = std::find_if(strBegin, strEnd,
+				std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '), std::bind(std::not_equal_to<>(), std::placeholders::_1, ',')));
+
+			if (iterBegin == strEnd)
+				return true;
+
+			thisDistance = std::distance(iterBegin, strEnd);
+			switch (*iterBegin)
+			{
+			case 'm':
+				if (thisDistance < 9)
+					return false;
+				if (*(iterBegin + 1) == 'a')
+				{
+					if (!std::equal(iterBegin + 2, iterBegin + maxAgeStr.size(), maxAgeStr.cbegin() + 2, maxAgeStr.cend()))
+						return false;
+					iterBegin += 8;
+					iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+					if (iterBegin == iterEnd)
+						return false;
+					iterEnd = std::find_if_not(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+					index = -1, num = 1;
+					maxAge = std::accumulate(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), 0, [&index, &num](int sum, const char ch)
+					{
+						if (++index)
+							num *= 10;
+						return sum += (ch - '0') * num;
+					});
+					strBegin = std::find(iterEnd, strEnd, ',');
+				}
+				else
+				{
+					if (thisDistance < 15)
+						return false;
+					if (!std::equal(iterBegin + 1, iterBegin + mustRevalidateStr.size(), mustRevalidateStr.cbegin() + 1, mustRevalidateStr.cend()))
+						return false;
+					iterBegin += 15;
+					isMust_revalidate = true;
+					strBegin = std::find(iterBegin, strEnd, ',');
+				}
+				break;
+			case 'n':
+				if (thisDistance < 8)
+					return false;
+				if (*(iterBegin + 3) == 'c')
+				{
+					if (!std::equal(iterBegin + 1, iterBegin + noCacheStr.size(), noCacheStr.cbegin() + 1, noCacheStr.cend()))
+						return false;
+					isNo_cache = true;
+				}
+				else
+				{
+					if (!std::equal(iterBegin + 1, iterBegin + noStoreStr.size(), noStoreStr.cbegin() + 1, noStoreStr.cend()))
+						return false;
+					isNo_store = true;
+				}
+				iterBegin += 8;
+				strBegin = std::find(iterBegin, strEnd, ',');
+				break;
+			case 'p':
+				if (thisDistance < 6)
+					return false;
+				if (*(iterBegin + 1) == 'u')
+				{
+					if (!std::equal(iterBegin + 2, iterBegin + publicStr.size(), publicStr.cbegin() + 2, publicStr.cend()))
+						return false;
+					isPublic = true;
+				}
+				else
+				{
+					if (thisDistance < 7)
+						return false;
+					if (!std::equal(iterBegin + 1, iterBegin + privateStr.size(), privateStr.cbegin() + 1, privateStr.cend()))
+						return false;
+					isPrivate = true;
+				}
+				iterBegin += 6;
+				strBegin = std::find(iterBegin, strEnd, ',');
+				break;
+			case 's':
+				if (thisDistance < 9)
+					return false;
+				if (!std::equal(iterBegin + 1, iterBegin + s_maxageStr.size(), s_maxageStr.cbegin() + 1, s_maxageStr.cend()))
+					return false;
+				iterBegin += 9;
+				iterBegin = std::find_if(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+				if (iterBegin == iterEnd)
+					return false;
+				iterEnd = std::find_if_not(iterBegin, strEnd, std::bind(isdigit, std::placeholders::_1));
+				index = -1, num = 1;
+				s_maxAge = std::accumulate(std::make_reverse_iterator(iterEnd), std::make_reverse_iterator(iterBegin), 0, [&index, &num](int sum, const char ch)
+				{
+					if (++index)
+						num *= 10;
+					return sum += (ch - '0') * num;
+				});
+				strBegin = std::find(iterEnd, strEnd, ',');
+				break;
+			case 'i':
+				if (thisDistance < 9)
+					return false;
+				if (!std::equal(iterBegin + 1, iterBegin + immutableStr.size(), immutableStr.cbegin() + 1, immutableStr.cend()))
+					return false;
+				isImmutable = true;
+				iterBegin += 9;
+				strBegin = std::find(iterBegin, strEnd, ',');
+				break;
+			default:
+				return false;
+				break;
+			}
+		}
+		return true;
+	}
+
+
+	const bool parseStrong(const std::string& str)
+	{
+		if (str.size() < 6)
+			return false;
+		return parseStrong(str.c_str(), str.c_str() + str.size());
+	}
+
+
+	const bool parseStrong(const std::string_view str)
+	{
+		if (str.size() < 6)
+			return false;
+		return parseStrong(str.data(), str.data() + str.size());
+	}
+
+	const int getMaxAge()
+	{
+		return maxAge;
+	}
+
+	const bool getNo_cache()
+	{
+		return isNo_cache;
+	}
+
+	const bool getNo_store()
+	{
+		return isNo_store;
+	}
+
+	const bool getPublic()
+	{
+		return isPublic;
+	}
+
+	const bool getPrivate()
+	{
+		return isPrivate;
+	}
+
+	const bool getMust_revalidate()
+	{
+		return isMust_revalidate;
+	}
+
+	const int getS_maxAge()
+	{
+		return s_maxAge;
+	}
+
+	const bool getImmutable()
+	{
+		return isImmutable;
+	}
+
+
+private:
+	int maxAge{ -1 };           //-1表示没有这个字段
+	bool isNo_cache{ false };
+	bool isNo_store{ false };
+	bool isPublic{ false };
+	bool isPrivate{ false };
+	bool isMust_revalidate{ false };
+	int s_maxAge{ -1 };          //-1表示没有这个字段
+	bool isImmutable{ false };
 };
