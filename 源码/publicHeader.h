@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 
@@ -330,7 +330,7 @@ enum HTTPBOUNDARYHEADERLEN
 
 
 
-//url±àÂë¹æÔòÇë¿´   https://baike.baidu.com/item/URL%E7%BC%96%E7%A0%81/3703727?fr=aladdin&qq-pf-to=pcqq.group  
+//urlç¼–ç è§„åˆ™è¯·çœ‹   https://baike.baidu.com/item/URL%E7%BC%96%E7%A0%81/3703727?fr=aladdin&qq-pf-to=pcqq.group  
 
 static const std::unordered_map<std::string_view, char>urlMap         
 {
@@ -357,12 +357,12 @@ static const std::unordered_map<std::string_view, char>urlMap
 
 
 
-//ÖĞÎÄ×Ö·û£¬×¨ÃÅ´æ´¢ÖĞÎÄ×Ö·ûÏà¼ÓÆğÀ´µÄÕûÊıÖµ
+//ä¸­æ–‡å­—ç¬¦ï¼Œä¸“é—¨å­˜å‚¨ä¸­æ–‡å­—ç¬¦ç›¸åŠ èµ·æ¥çš„æ•´æ•°å€¼
 static const std::unordered_set<int>chineseSet;
 
 
 
-//²âÊÔ°æ  Í¬Ê±´¦Àíurl×ªÂëºÍÖĞÎÄ×ª»»
+//æµ‹è¯•ç‰ˆ  åŒæ—¶å¤„ç†urlè½¬ç å’Œä¸­æ–‡è½¬æ¢
 static bool UrlDecodeWithTransChinese(const char *source, const int len, char * des, int &desLen, const int maxDesLen)
 {
 	static const int pow2562{ static_cast<int>(pow(256,2)) };
@@ -388,9 +388,9 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 		{
 			iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
 				std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
-			//²éÕÒ%»ò+
+			//æŸ¥æ‰¾%æˆ–+
 
-			//iterFirst±£´æÉÏ´Î´æ½øsstrµÄÊµ¼ÊÎ»ÖÃ£¬½«iterBeginÖ®Ç°µÄiterFirst¿ÕÓà×Ö·û´æ½øÀ´ÏÈ
+			//iterFirstä¿å­˜ä¸Šæ¬¡å­˜è¿›sstrçš„å®é™…ä½ç½®ï¼Œå°†iterBeginä¹‹å‰çš„iterFirstç©ºä½™å­—ç¬¦å­˜è¿›æ¥å…ˆ
 			if (std::distance(iterFirst, iterBegin))
 			{
 				std::copy(iterFirst, iterBegin, des + desLen);
@@ -399,14 +399,14 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 			}
 
 			BeginToEndLen = std::distance(iterBegin, iterEnd);
-			if (BeginToEndLen)  //Èç¹ûiterBegin²»µ½Î²²¿
+			if (BeginToEndLen)  //å¦‚æœiterBeginä¸åˆ°å°¾éƒ¨
 			{
 
-				//Èç¹ûiterBeginËùÔÚÎ»ÖÃÎª%£¬ÔòÊ×ÏÈÅĞ¶ÏiterBeginµ½Î²²¿µÄÊ£Óà×Ö·ûÖÁÉÙÎª3¸ö£¬·ñÔò¾ÍÖ±½Ó´æ%
-				//Èç¹ûÎª3¸öÒÔÉÏ£¬ÄÇÃ´ÏÈ½ØÈ¡3Î»£¬±È¶ÔÊÇ·ñ·ûºÏurl±àÂë¹æÔòÖĞµÄÇé¿ö£¬ÊÇÔò½øĞĞ×ª»»£¬
-				//Èç¹ûÍ·3Î»²»·ûºÏ£¬ÔòÅĞ¶ÏiterBeginµ½Î²²¿Ê£Óà×Ö·ûÊÇ·ñÖÁÉÙÎª9¸ö£¬Èç¹û²»ÊÇ£¬ÔòÖ±½Ó´æ%
-				//Èç¹ûÊÇ9¸ö£¬Ôò³¢ÊÔÅĞ¶ÏÊÇ·ñÎªÖĞÎÄ£¬Èç¹û²»ÊÇ£¬ÔòÖ±½Ó´æ%
-				//Èç¹ûÎª+£¬ÔòÌæ»»Îª¡® ¡¯
+				//å¦‚æœiterBeginæ‰€åœ¨ä½ç½®ä¸º%ï¼Œåˆ™é¦–å…ˆåˆ¤æ–­iterBeginåˆ°å°¾éƒ¨çš„å‰©ä½™å­—ç¬¦è‡³å°‘ä¸º3ä¸ªï¼Œå¦åˆ™å°±ç›´æ¥å­˜%
+				//å¦‚æœä¸º3ä¸ªä»¥ä¸Šï¼Œé‚£ä¹ˆå…ˆæˆªå–3ä½ï¼Œæ¯”å¯¹æ˜¯å¦ç¬¦åˆurlç¼–ç è§„åˆ™ä¸­çš„æƒ…å†µï¼Œæ˜¯åˆ™è¿›è¡Œè½¬æ¢ï¼Œ
+				//å¦‚æœå¤´3ä½ä¸ç¬¦åˆï¼Œåˆ™åˆ¤æ–­iterBeginåˆ°å°¾éƒ¨å‰©ä½™å­—ç¬¦æ˜¯å¦è‡³å°‘ä¸º9ä¸ªï¼Œå¦‚æœä¸æ˜¯ï¼Œåˆ™ç›´æ¥å­˜%
+				//å¦‚æœæ˜¯9ä¸ªï¼Œåˆ™å°è¯•åˆ¤æ–­æ˜¯å¦ä¸ºä¸­æ–‡ï¼Œå¦‚æœä¸æ˜¯ï¼Œåˆ™ç›´æ¥å­˜%
+				//å¦‚æœä¸º+ï¼Œåˆ™æ›¿æ¢ä¸ºâ€˜ â€™
 				if (*iterBegin == '%')
 				{
 					if (BeginToEndLen > 2)
@@ -420,9 +420,9 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 						}
 						else
 						{
-							//×îÖÕÖĞÎÄÑ¡Ôñunicode  \u0391-\uffe5  ·¶Î§£¬´Ë·¶Î§¿ÉÒÔÁ¬Í¬ÖĞÎÄ±êµãÒ»ÆğÊ¶±ğ
-							//utf8ÏÂÎª   0xce91   0xefbfa5
-							//½«unicode×Ö·û²ğ¿ªÌîÈëutf8ÖĞ¼ÆËãµÃµ½ÖĞÎÄ·¶Î§Îª 0xe4b880   0xe9bea5£¬¸ÄÁ¼Ô­ÖĞÎÄÅĞ¶Ï°ì·¨
+							//æœ€ç»ˆä¸­æ–‡é€‰æ‹©unicode  \u0391-\uffe5  èŒƒå›´ï¼Œæ­¤èŒƒå›´å¯ä»¥è¿åŒä¸­æ–‡æ ‡ç‚¹ä¸€èµ·è¯†åˆ«
+							//utf8ä¸‹ä¸º   0xce91   0xefbfa5
+							//å°†unicodeå­—ç¬¦æ‹†å¼€å¡«å…¥utf8ä¸­è®¡ç®—å¾—åˆ°ä¸­æ–‡èŒƒå›´ä¸º 0xe4b880   0xe9bea5ï¼Œæ”¹è‰¯åŸä¸­æ–‡åˆ¤æ–­åŠæ³•
 									//  11100100     10111000      10000000       4e00   228*65536  + 184*256   +  128*1    111001001011100010000000
 									// 14942208     47104           14989440
 									//  11101001     10111110      10100101       9fa5                                      111010011011111010100101
@@ -432,13 +432,13 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 									//  11100010     10111010    10000000             111000101011101010000000          e2ba80
 									//  11101111     10111001    10001111             111011111011100110001111          efb98f
 									//https://blog.csdn.net/tenpage/article/details/8729851?utm_term=unicode%E8%8C%83%E5%9B%B4%E4%B8%AD%E6%96%87%E6%A0%87%E7%82%B9%E7%AC%A6%E5%8F%B7&utm_medium=distribute.pc_aggpage_search_result.none-task-blog-2~all~sobaiduweb~default-0-8729851&spm=3001.4430
-									//   ºº×Ö·¶Î§ \u0391-\uffe5 (ÖĞÎÄ)
+									//   æ±‰å­—èŒƒå›´ \u0391-\uffe5 (ä¸­æ–‡)
 									//  11001110  10010001                            1100111010010001                  ce91
 									//  11101111     10111111    10100101             111011111011111110100101          efbfa5
-									//ÏÈÓÃÎ»ÅĞ¶ÏÊÇÁ½Î»utf8»¹ÊÇÈıÎ»utf8´¦Àí
+									//å…ˆç”¨ä½åˆ¤æ–­æ˜¯ä¸¤ä½utf8è¿˜æ˜¯ä¸‰ä½utf8å¤„ç†
 
-									//ÅĞ¶ÏÊÇ·ñÊÇutf8ÖĞµÄÖĞÎÄ
-							//ÏÈ¿¼ÂÇÁ½×Ö½ÚµÄ£¬ÔÙ¿¼ÂÇÈı×Ö½ÚµÄ
+									//åˆ¤æ–­æ˜¯å¦æ˜¯utf8ä¸­çš„ä¸­æ–‡
+							//å…ˆè€ƒè™‘ä¸¤å­—èŠ‚çš„ï¼Œå†è€ƒè™‘ä¸‰å­—èŠ‚çš„
 							if (BeginToEndLen > 5)
 							{
 								ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
@@ -454,7 +454,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 									index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
 									index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
 
-									// Ë«×Ö½ÚÇé¿ö  110¿ªÍ·       10¿ªÍ·
+									// åŒå­—èŠ‚æƒ…å†µ  110å¼€å¤´       10å¼€å¤´
 									if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
 									{
 										index = index1 * pow2561 + index2 * pow2560;
@@ -471,7 +471,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 									}
 									else
 									{
-										//ÅĞ¶ÏÊÇ·ñÊÇÈı×Ö½ÚÇé¿ö
+										//åˆ¤æ–­æ˜¯å¦æ˜¯ä¸‰å­—èŠ‚æƒ…å†µ
 										if (BeginToEndLen > 8)
 										{
 											if (ch6 == '%' && isalnum(ch7) && isalnum(ch8))
@@ -480,7 +480,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 												index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
 
 
-												// Èı×Ö½ÚÇé¿ö  1110¿ªÍ·    10¿ªÍ·  10¿ªÍ·
+												// ä¸‰å­—èŠ‚æƒ…å†µ  1110å¼€å¤´    10å¼€å¤´  10å¼€å¤´
 												if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
 													&& getbit(index3, 7) && !getbit(index3, 6))
 												{
@@ -533,7 +533,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 
 
 
-//²âÊÔ°æ  Í¬Ê±´¦Àíurl×ªÂëºÍÖĞÎÄ×ª»»
+//æµ‹è¯•ç‰ˆ  åŒæ—¶å¤„ç†urlè½¬ç å’Œä¸­æ–‡è½¬æ¢
 static bool UrlDecodeWithTransChinese(const char *source, const int len, int &desLen)
 {
 	static const int pow2562{ static_cast<int>(pow(256,2)) };
@@ -561,17 +561,17 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 		{
 			iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
 				std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
-			//²éÕÒ%»ò+
+			//æŸ¥æ‰¾%æˆ–+
 
 			BeginToEndLen = std::distance(iterBegin, iterEnd);
-			if (BeginToEndLen)  //Èç¹ûiterBegin²»µ½Î²²¿
+			if (BeginToEndLen)  //å¦‚æœiterBeginä¸åˆ°å°¾éƒ¨
 			{
 
-				//Èç¹ûiterBeginËùÔÚÎ»ÖÃÎª%£¬ÔòÊ×ÏÈÅĞ¶ÏiterBeginµ½Î²²¿µÄÊ£Óà×Ö·ûÖÁÉÙÎª3¸ö£¬·ñÔò¾ÍÖ±½Ó´æ%
-				//Èç¹ûÎª3¸öÒÔÉÏ£¬ÄÇÃ´ÏÈ½ØÈ¡3Î»£¬±È¶ÔÊÇ·ñ·ûºÏurl±àÂë¹æÔòÖĞµÄÇé¿ö£¬ÊÇÔò½øĞĞ×ª»»£¬
-				//Èç¹ûÍ·3Î»²»·ûºÏ£¬ÔòÅĞ¶ÏiterBeginµ½Î²²¿Ê£Óà×Ö·ûÊÇ·ñÖÁÉÙÎª6¸ö£¬Èç¹û²»ÊÇ£¬ÔòÖ±½Ó´æ%
-				//Èç¹ûÊÇ6¸ö£¬Ôò³¢ÊÔÅĞ¶ÏÊÇ·ñÎªÖĞÎÄ£¬Èç¹û²»ÊÇ£¬ÔòÖ±½Ó´æ%
-				//Èç¹ûÎª+£¬ÔòÌæ»»Îª¡® ¡¯
+				//å¦‚æœiterBeginæ‰€åœ¨ä½ç½®ä¸º%ï¼Œåˆ™é¦–å…ˆåˆ¤æ–­iterBeginåˆ°å°¾éƒ¨çš„å‰©ä½™å­—ç¬¦è‡³å°‘ä¸º3ä¸ªï¼Œå¦åˆ™å°±ç›´æ¥å­˜%
+				//å¦‚æœä¸º3ä¸ªä»¥ä¸Šï¼Œé‚£ä¹ˆå…ˆæˆªå–3ä½ï¼Œæ¯”å¯¹æ˜¯å¦ç¬¦åˆurlç¼–ç è§„åˆ™ä¸­çš„æƒ…å†µï¼Œæ˜¯åˆ™è¿›è¡Œè½¬æ¢ï¼Œ
+				//å¦‚æœå¤´3ä½ä¸ç¬¦åˆï¼Œåˆ™åˆ¤æ–­iterBeginåˆ°å°¾éƒ¨å‰©ä½™å­—ç¬¦æ˜¯å¦è‡³å°‘ä¸º6ä¸ªï¼Œå¦‚æœä¸æ˜¯ï¼Œåˆ™ç›´æ¥å­˜%
+				//å¦‚æœæ˜¯6ä¸ªï¼Œåˆ™å°è¯•åˆ¤æ–­æ˜¯å¦ä¸ºä¸­æ–‡ï¼Œå¦‚æœä¸æ˜¯ï¼Œåˆ™ç›´æ¥å­˜%
+				//å¦‚æœä¸º+ï¼Œåˆ™æ›¿æ¢ä¸ºâ€˜ â€™
 				if (*iterBegin == '%')
 				{
 					if (BeginToEndLen > 2)
@@ -587,9 +587,9 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 						}
 						else
 						{
-							//×îÖÕÖĞÎÄÑ¡Ôñunicode  \u0391-\uffe5  ·¶Î§£¬´Ë·¶Î§¿ÉÒÔÁ¬Í¬ÖĞÎÄ±êµãÒ»ÆğÊ¶±ğ
-							//utf8ÏÂÎª   0xce91   0xefbfa5
-							//ÏÈ¿¼ÂÇÁ½×Ö½ÚµÄ£¬ÔÙ¿¼ÂÇÈı×Ö½ÚµÄ
+							//æœ€ç»ˆä¸­æ–‡é€‰æ‹©unicode  \u0391-\uffe5  èŒƒå›´ï¼Œæ­¤èŒƒå›´å¯ä»¥è¿åŒä¸­æ–‡æ ‡ç‚¹ä¸€èµ·è¯†åˆ«
+							//utf8ä¸‹ä¸º   0xce91   0xefbfa5
+							//å…ˆè€ƒè™‘ä¸¤å­—èŠ‚çš„ï¼Œå†è€ƒè™‘ä¸‰å­—èŠ‚çš„
 							if (BeginToEndLen > 5)
 							{
 								ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
@@ -605,7 +605,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 									index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
 									index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
 
-									// Ë«×Ö½ÚÇé¿ö  110¿ªÍ·       10¿ªÍ·
+									// åŒå­—èŠ‚æƒ…å†µ  110å¼€å¤´       10å¼€å¤´
 									if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
 									{
 										index = index1 * pow2561 + index2 * pow2560;
@@ -622,7 +622,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 									}
 									else
 									{
-										//ÅĞ¶ÏÊÇ·ñÊÇÈı×Ö½ÚÇé¿ö
+										//åˆ¤æ–­æ˜¯å¦æ˜¯ä¸‰å­—èŠ‚æƒ…å†µ
 										if (BeginToEndLen > 8)
 										{
 											ch6 = *(iterBegin + 6), ch7 = *(iterBegin + 7), ch8 = *(iterBegin + 8);
@@ -633,7 +633,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 												index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
 
 
-												// Èı×Ö½ÚÇé¿ö  1110¿ªÍ·    10¿ªÍ·  10¿ªÍ·
+												// ä¸‰å­—èŠ‚æƒ…å†µ  1110å¼€å¤´    10å¼€å¤´  10å¼€å¤´
 												if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
 													&& getbit(index3, 7) && !getbit(index3, 6))
 												{
@@ -677,9 +677,9 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 		{
 			iterBegin = std::find_if(iterBegin, iterEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<char>(), std::placeholders::_1, '%'),
 				std::bind(std::equal_to<char>(), std::placeholders::_1, '+')));
-			//²éÕÒ%»ò+
+			//æŸ¥æ‰¾%æˆ–+
 
-			//iterFirst±£´æÉÏ´Î´æ½øsstrµÄÊµ¼ÊÎ»ÖÃ£¬½«iterBeginÖ®Ç°µÄiterFirst¿ÕÓà×Ö·û´æ½øÀ´ÏÈ
+			//iterFirstä¿å­˜ä¸Šæ¬¡å­˜è¿›sstrçš„å®é™…ä½ç½®ï¼Œå°†iterBeginä¹‹å‰çš„iterFirstç©ºä½™å­—ç¬¦å­˜è¿›æ¥å…ˆ
 			if (std::distance(iterFirst, iterBegin))
 			{
 				std::copy(iterFirst, iterBegin, des + desLen);
@@ -688,14 +688,14 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 			}
 
 			BeginToEndLen = std::distance(iterBegin, iterEnd);
-			if (BeginToEndLen)  //Èç¹ûiterBegin²»µ½Î²²¿
+			if (BeginToEndLen)  //å¦‚æœiterBeginä¸åˆ°å°¾éƒ¨
 			{
 
-				//Èç¹ûiterBeginËùÔÚÎ»ÖÃÎª%£¬ÔòÊ×ÏÈÅĞ¶ÏiterBeginµ½Î²²¿µÄÊ£Óà×Ö·ûÖÁÉÙÎª3¸ö£¬·ñÔò¾ÍÖ±½Ó´æ%
-				//Èç¹ûÎª3¸öÒÔÉÏ£¬ÄÇÃ´ÏÈ½ØÈ¡3Î»£¬±È¶ÔÊÇ·ñ·ûºÏurl±àÂë¹æÔòÖĞµÄÇé¿ö£¬ÊÇÔò½øĞĞ×ª»»£¬
-				//Èç¹ûÍ·3Î»²»·ûºÏ£¬ÔòÅĞ¶ÏiterBeginµ½Î²²¿Ê£Óà×Ö·ûÊÇ·ñÖÁÉÙÎª9¸ö£¬Èç¹û²»ÊÇ£¬ÔòÖ±½Ó´æ%
-				//Èç¹ûÊÇ9¸ö£¬Ôò³¢ÊÔÅĞ¶ÏÊÇ·ñÎªÖĞÎÄ£¬Èç¹û²»ÊÇ£¬ÔòÖ±½Ó´æ%
-				//Èç¹ûÎª+£¬ÔòÌæ»»Îª¡® ¡¯
+				//å¦‚æœiterBeginæ‰€åœ¨ä½ç½®ä¸º%ï¼Œåˆ™é¦–å…ˆåˆ¤æ–­iterBeginåˆ°å°¾éƒ¨çš„å‰©ä½™å­—ç¬¦è‡³å°‘ä¸º3ä¸ªï¼Œå¦åˆ™å°±ç›´æ¥å­˜%
+				//å¦‚æœä¸º3ä¸ªä»¥ä¸Šï¼Œé‚£ä¹ˆå…ˆæˆªå–3ä½ï¼Œæ¯”å¯¹æ˜¯å¦ç¬¦åˆurlç¼–ç è§„åˆ™ä¸­çš„æƒ…å†µï¼Œæ˜¯åˆ™è¿›è¡Œè½¬æ¢ï¼Œ
+				//å¦‚æœå¤´3ä½ä¸ç¬¦åˆï¼Œåˆ™åˆ¤æ–­iterBeginåˆ°å°¾éƒ¨å‰©ä½™å­—ç¬¦æ˜¯å¦è‡³å°‘ä¸º9ä¸ªï¼Œå¦‚æœä¸æ˜¯ï¼Œåˆ™ç›´æ¥å­˜%
+				//å¦‚æœæ˜¯9ä¸ªï¼Œåˆ™å°è¯•åˆ¤æ–­æ˜¯å¦ä¸ºä¸­æ–‡ï¼Œå¦‚æœä¸æ˜¯ï¼Œåˆ™ç›´æ¥å­˜%
+				//å¦‚æœä¸º+ï¼Œåˆ™æ›¿æ¢ä¸ºâ€˜ â€™
 				if (*iterBegin == '%')
 				{
 					if (BeginToEndLen > 2)
@@ -709,8 +709,8 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 						}
 						else
 						{
-							//×îÖÕÖĞÎÄÑ¡Ôñunicode  \u0391-\uffe5  ·¶Î§£¬´Ë·¶Î§¿ÉÒÔÁ¬Í¬ÖĞÎÄ±êµãÒ»ÆğÊ¶±ğ
-							//utf8ÏÂÎª   0xce91   0xefbfa5
+							//æœ€ç»ˆä¸­æ–‡é€‰æ‹©unicode  \u0391-\uffe5  èŒƒå›´ï¼Œæ­¤èŒƒå›´å¯ä»¥è¿åŒä¸­æ–‡æ ‡ç‚¹ä¸€èµ·è¯†åˆ«
+							//utf8ä¸‹ä¸º   0xce91   0xefbfa5
 							if (BeginToEndLen > 5)
 							{
 								ch0 = *iterBegin, ch1 = *(iterBegin + 1), ch2 = *(iterBegin + 2),
@@ -726,7 +726,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 									index2 = (isdigit(ch4) ? ch4 - '0' : islower(ch4) ? (ch4 - 'a' + 10) : (ch4 - 'A' + 10)) * 16;
 									index2 += (isdigit(ch5) ? ch5 - '0' : islower(ch5) ? (ch5 - 'a' + 10) : (ch5 - 'A' + 10));
 
-									// Ë«×Ö½ÚÇé¿ö  110¿ªÍ·       10¿ªÍ·
+									// åŒå­—èŠ‚æƒ…å†µ  110å¼€å¤´       10å¼€å¤´
 									if (getbit(index1, 7) && getbit(index1, 6) && !getbit(index1, 5) && getbit(index2, 7) && !getbit(index2, 6))
 									{
 										index = index1 * pow2561 + index2 * pow2560;
@@ -743,7 +743,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 									}
 									else
 									{
-										//ÅĞ¶ÏÊÇ·ñÊÇÈı×Ö½ÚÇé¿ö
+										//åˆ¤æ–­æ˜¯å¦æ˜¯ä¸‰å­—èŠ‚æƒ…å†µ
 										if (BeginToEndLen > 8)
 										{
 											ch6 = *(iterBegin + 6), ch7 = *(iterBegin + 7), ch8 = *(iterBegin + 8);
@@ -754,7 +754,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, int &de
 												index3 += (isdigit(ch8) ? ch8 - '0' : islower(ch8) ? (ch8 - 'a' + 10) : (ch8 - 'A' + 10));
 
 
-												// Èı×Ö½ÚÇé¿ö  1110¿ªÍ·    10¿ªÍ·  10¿ªÍ·
+												// ä¸‰å­—èŠ‚æƒ…å†µ  1110å¼€å¤´    10å¼€å¤´  10å¼€å¤´
 												if (getbit(index1, 7) && getbit(index1, 6) && getbit(index1, 5) && !getbit(index1, 4) && getbit(index2, 7) && !getbit(index2, 6)
 													&& getbit(index3, 7) && !getbit(index3, 6))
 												{
@@ -976,9 +976,9 @@ static int Utf8ToGbk(char *src_str, size_t src_len, char *dst_str, size_t dst_le
 ///////////////////////////////////////////////////////////////  parse         //////////////////////////////////////////////////////////////////////
 
 
-//praseBodyÎª°²È«°æ±¾
+//praseBodyä¸ºå®‰å…¨ç‰ˆæœ¬
 
-//praseBodyFastÄÚ²¿µ÷ÓÃpraseBodyUnsafe ·Ç°²È«°æ±¾ÒÔ»ñµÃĞÔÄÜ¼ÓËÙ£¬Ö»ÓĞµ±¿ª·¢ÕßÈ·¶¨¾ø¶Ô°²È«Ê±²ÅÊ¹ÓÃ
+//praseBodyFastå†…éƒ¨è°ƒç”¨praseBodyUnsafe éå®‰å…¨ç‰ˆæœ¬ä»¥è·å¾—æ€§èƒ½åŠ é€Ÿï¼Œåªæœ‰å½“å¼€å‘è€…ç¡®å®šç»å¯¹å®‰å…¨æ—¶æ‰ä½¿ç”¨
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN>
@@ -1111,8 +1111,12 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 				if (iterEnd != iterLast)
 					return false;
 
+				int len{};
+				//å¯¹bodyè¿›è¡Œurlè½¬ç å’Œä¸­æ–‡è½¬æ¢ï¼Œæ­¤ç§ä¸­æ–‡è½¬æ¢åªåœ¨charset=UTF-8ä¸‹æœ‰ç”¨  å¯ä»¥ç”¨postmanè®¾ç½®
+				UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
+
 				*des = iterBegin;
-				*(++des) = iterEnd;
+				*(++des) = iterBegin + len;
 			}
 		}
 
@@ -1152,8 +1156,12 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 			if (iterEnd == iterLast)
 				return false;
 
+			int len{};
+			//å¯¹bodyè¿›è¡Œurlè½¬ç å’Œä¸­æ–‡è½¬æ¢ï¼Œæ­¤ç§ä¸­æ–‡è½¬æ¢åªåœ¨charset=UTF-8ä¸‹æœ‰ç”¨  å¯ä»¥ç”¨postmanè®¾ç½®
+			UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
+
 			*des = iterBegin;
-			*(++des) = iterEnd;
+			*(++des) = iterBegin + len;
 			iterBegin = iterEnd;
 		}
 		else
@@ -1379,7 +1387,7 @@ namespace HTTPRESPONSEREADY
 
 
 
-	//ÓÃÓÚ¶Ô100-continue×ö³ö´¦Àí
+	//ç”¨äºå¯¹100-continueåšå‡ºå¤„ç†
 	//https://blog.csdn.net/taoshihan/article/details/104273017?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link
 	static const char *http100Continue{ "HTTP/1.1 100 Continue\r\n\r\n" };
 	static size_t http100ContinueLen{ strlen(http100Continue) };
