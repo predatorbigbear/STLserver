@@ -2819,11 +2819,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (dataBufferVec.empty())
 			{
-				//对query Para进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用
-				if (!UrlDecodeWithTransChinese(paraBegin, paraEnd - paraBegin, len))
-					return PARSERESULT::invaild;
 
-				finalParaBegin = paraBegin, finalParaEnd = paraBegin + len;
+				finalParaBegin = paraBegin, finalParaEnd = paraEnd;
 			}
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			else
@@ -2848,11 +2845,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				std::copy(m_readBuffer, const_cast<char*>(paraEnd), newBufferIter);
 				newBufferIter += std::distance(m_readBuffer, const_cast<char*>(paraEnd));
 
-				//对query Para进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用
-				if (!UrlDecodeWithTransChinese(newBuffer, std::distance(newBuffer, newBufferIter), len))
-					return PARSERESULT::invaild;
 
-				finalParaBegin = newBuffer, finalParaEnd = newBuffer + len;
+				finalParaBegin = newBuffer, finalParaEnd = newBufferIter;
 
 				dataBufferVec.clear();
 			}
