@@ -26,6 +26,8 @@ struct IOcontextPool
 
 	void stop();
 
+	const size_t getThreadNum();
+
 private:
 	std::shared_ptr<std::vector<std::shared_ptr<boost::asio::io_context>>>m_ioc{};
 	boost::thread_group m_tg;
@@ -37,5 +39,6 @@ private:
 	bool m_hasRun{ false };
 	bool m_hasSetThreadNum{ false };
 
+	size_t m_threadNum{};
 	size_t m_ioNum{};
 };

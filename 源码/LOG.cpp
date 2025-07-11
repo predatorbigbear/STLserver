@@ -235,7 +235,7 @@ LOG & LOG::operator<<(const std::string &log)
 }
 
 
-LOG & LOG::operator<<(const int & num)
+LOG & LOG::operator<<(const int  num)
 {
 	// TODO: 在此处插入 return 语句
 	m_check = false;
@@ -594,7 +594,7 @@ LOG & LOG::operator<<(const int & num)
 }
 
 
-LOG & LOG::operator<<(const unsigned int & num)
+LOG & LOG::operator<<(const unsigned int  num)
 {
 	// TODO: 在此处插入 return 语句
 	m_check = false;

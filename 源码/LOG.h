@@ -92,9 +92,9 @@ private:
 
 	LOG& operator<<(const std::string &log);
 
-	LOG& operator<<(const int &num);
+	LOG& operator<<(const int num);
 
-	LOG& operator<<(const unsigned int &num);
+	LOG& operator<<(const unsigned int num);
 
 	LOG& operator<<(const char ch);
 
