@@ -253,17 +253,17 @@ void HTTPSERVICE::testBody()
 {
 	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-	
-	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-
-	m_buffer->setBodyLen(m_len);
 
 
 	const char *source{ &*m_buffer->getView().body().cbegin() };
-	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	std::string_view testView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
+	std::string_view parameterView{ *(BodyBuffer+2),*(BodyBuffer + 3) - *(BodyBuffer+2) };
+	std::string_view numberView{ *(BodyBuffer + 4),*(BodyBuffer + 5) - *(BodyBuffer + 4) };
 	
 	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
@@ -732,11 +732,14 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 			if (!st1.clear())
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
+			//如果确定不需要开启json转码处理，可以不带<TRANSFORMTYPE>即可，默认不开启json转码处理
 
-			if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+			//启用json转码处理
+			if (!st1.put<TRANSFORMTYPE>(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-			makeSendJson(st1);
+			//启用json转码处理
+			makeSendJson<TRANSFORMTYPE>(st1);
 		}
 		else
 		{
@@ -2816,11 +2819,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (dataBufferVec.empty())
 			{
-				//对query Para进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用
-				if (!UrlDecodeWithTransChinese(paraBegin, paraEnd - paraBegin, len))
-					return PARSERESULT::invaild;
 
-				finalParaBegin = paraBegin, finalParaEnd = paraBegin + len;
+				finalParaBegin = paraBegin, finalParaEnd = paraEnd;
 			}
 			//如果很长，横跨了不同分段，那么进行整合再处理
 			else
@@ -2845,11 +2845,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				std::copy(m_readBuffer, const_cast<char*>(paraEnd), newBufferIter);
 				newBufferIter += std::distance(m_readBuffer, const_cast<char*>(paraEnd));
 
-				//对query Para进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用
-				if (!UrlDecodeWithTransChinese(newBuffer, std::distance(newBuffer, newBufferIter), len))
-					return PARSERESULT::invaild;
 
-				finalParaBegin = newBuffer, finalParaEnd = newBuffer + len;
+				finalParaBegin = newBuffer, finalParaEnd = newBufferIter;
 
 				dataBufferVec.clear();
 			}
@@ -4416,38 +4413,28 @@ check_len:
 		find_finalBodyEnd:
 			if (std::distance(iterFindBegin, iterFindEnd) >= m_bodyLen)
 			{
-				//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置参数 pingpong验证中文值   /2为pingpong测试函数
-				if (!UrlDecodeWithTransChinese(iterFindBegin, m_bodyLen, len))
-					return PARSERESULT::invaild;
 
-				finalBodyBegin = iterFindBegin, finalBodyEnd = iterFindBegin + len;
-				refMyReView.setBody(finalBodyBegin, len);
+				finalBodyBegin = iterFindBegin, finalBodyEnd = iterFindBegin + m_bodyLen;
+				refMyReView.setBody(finalBodyBegin, m_bodyLen);
 				hasBody = true;
 				messageBegin = iterFindBegin + m_bodyLen;
 				goto check_messageComplete;
 			}
 			else
 			{
-				if (std::distance(iterFindBegin, iterFinalEnd) >= m_bodyLen)
+				
+				char* newReadBuffer{ m_MemoryPool.getMemory<char*>(m_bodyLen) };
+				if (!newReadBuffer)
 				{
-					bodyBegin = iterFindBegin;
-					m_startPos = std::distance(m_readBuffer, const_cast<char*>(iterFindEnd));
+					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_finalBodyEnd !newReadBuffer");
+					return PARSERESULT::invaild;
 				}
-				else
-				{
-					char* newReadBuffer{ m_MemoryPool.getMemory<char*>(m_bodyLen) };
-					if (!newReadBuffer)
-					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_finalBodyEnd !newReadBuffer");
-						return PARSERESULT::invaild;
-					}
 
-					std::copy(iterFindBegin, iterFindEnd, newReadBuffer);
+				std::copy(iterFindBegin, iterFindEnd, newReadBuffer);
 
-					m_startPos = std::distance(iterFindBegin, iterFindEnd);
-					finalBodyBegin = m_readBuffer = newReadBuffer;
-					m_maxReadLen = m_bodyLen;
-				}
+				m_startPos = std::distance(iterFindBegin, iterFindEnd);
+				finalBodyBegin = m_readBuffer = newReadBuffer;
+				m_maxReadLen = m_bodyLen;
 				return PARSERESULT::find_finalBodyEnd;
 			}
 		}
