@@ -1,10 +1,10 @@
-#include "multiSqlReadSWPool.h"
+﻿#include "multiSqlReadSWPool.h"
 
 MULTISQLREADSWPOOL::MULTISQLREADSWPOOL(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<std::function<void()>> unlockFun, const std::string & SQLHOST,
 	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, std::shared_ptr<LOGPOOL> logPool,
-	const unsigned int commandMaxSize, const int bufferNum) :
+	const unsigned int commandMaxSize, const int bufferNum, const unsigned int bufferSize) :
 	m_bufferNum(bufferNum), m_unlockFun(unlockFun), m_SQLHOST(SQLHOST), m_SQLUSER(SQLUSER), m_SQLPASSWORD(SQLPASSWORD),
-	m_SQLDB(SQLDB), m_SQLPORT(SQLPORT), m_ioPool(ioPool), m_commandMaxSize(commandMaxSize),m_logPool(logPool)
+	m_SQLDB(SQLDB), m_SQLPORT(SQLPORT), m_ioPool(ioPool), m_commandMaxSize(commandMaxSize),m_logPool(logPool), m_bufferSize(bufferSize)
 {
 	if (!ioPool)
 		throw std::runtime_error("ioPool is nullptr");
@@ -29,6 +29,8 @@ MULTISQLREADSWPOOL::MULTISQLREADSWPOOL(std::shared_ptr<IOcontextPool> ioPool, st
 		throw std::runtime_error("bufferNum is invaild");
 	if (!commandMaxSize)
 		throw std::runtime_error("commandMaxSize is invaild");
+	if (!bufferSize)
+		throw std::runtime_error("bufferSize is invaild");
 
 	m_loop.reset(new std::function<void()>(std::bind(&MULTISQLREADSWPOOL::nextReady, this)));
 	readyReadyList();
@@ -53,7 +55,8 @@ void MULTISQLREADSWPOOL::readyReadyList()
 	for (unsigned int i = 0; i != m_bufferNum; ++i)
 	{
 		m_sqlMutex.lock();
-		m_sqlPool.emplace_back(std::make_shared<MULTISQLREADSW>(m_ioPool->getIoNext(), m_loop, m_SQLHOST, m_SQLUSER, m_SQLPASSWORD, m_SQLDB, m_SQLPORT, m_commandMaxSize, m_logPool->getLogNext()));
+		m_sqlPool.emplace_back(std::make_shared<MULTISQLREADSW>(m_ioPool->getIoNext(), m_loop, m_SQLHOST, m_SQLUSER, m_SQLPASSWORD, m_SQLDB, m_SQLPORT, 
+			m_commandMaxSize, m_logPool->getLogNext(), m_bufferSize));
 	}
 	m_sqlMutex.lock();
 	(*m_unlockFun)();

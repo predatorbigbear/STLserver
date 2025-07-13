@@ -1,4 +1,4 @@
-#include "MiddleCenter.h"
+ï»¿#include "MiddleCenter.h"
 
 
 
@@ -164,6 +164,7 @@ void MiddleCenter::setMultiRedisRead(std::shared_ptr<IOcontextPool> ioPool, bool
 			m_mutex.unlock();
 			return;
 		}
+
 		m_multiRedisReadPoolMaster.reset(new MULTIREDISREADPOOL(ioPool, m_logPool, m_unlockFun,
 			m_timeWheel,
 			redisIP, redisPort, bufferNum, memorySize, outRangeMaxSize, commandSize));
@@ -203,7 +204,7 @@ void MiddleCenter::setMultiRedisWrite(std::shared_ptr<IOcontextPool> ioPool, boo
 
 
 void MiddleCenter::setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string & SQLHOST, const std::string & SQLUSER, const std::string & SQLPASSWORD,
-	const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, const int bufferNum)
+	const std::string & SQLDB, const std::string & SQLPORT, const int bufferNum, const unsigned int commandMaxSize, const unsigned int bufferSize)
 {
 	try
 	{
@@ -213,7 +214,7 @@ void MiddleCenter::setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool
 			m_mutex.unlock();
 			return;
 		}
-		m_multiSqlReadSWPoolMaster.reset(new MULTISQLREADSWPOOL(ioPool, m_unlockFun, SQLHOST, SQLUSER, SQLPASSWORD, SQLDB, SQLPORT, m_logPool, commandMaxSize, bufferNum));
+		m_multiSqlReadSWPoolMaster.reset(new MULTISQLREADSWPOOL(ioPool, m_unlockFun, SQLHOST, SQLUSER, SQLPASSWORD, SQLDB, SQLPORT, m_logPool, commandMaxSize, bufferNum, bufferSize));
 		success = true;
 	}
 	catch (const std::exception& e)
@@ -249,7 +250,7 @@ void MiddleCenter::setMultiSqlWriteSW(std::shared_ptr<IOcontextPool> ioPool, boo
 }
 
 
-//¼ÓÔØmysql¿âÎÄ¼ş£¬ÔÚµ÷ÓÃmysql C apiÖ®Ç°µ÷ÓÃ
+//åŠ è½½mysqlåº“æ–‡ä»¶ï¼Œåœ¨è°ƒç”¨mysql C apiä¹‹å‰è°ƒç”¨
 void MiddleCenter::initMysql(bool& success)
 {
 	m_mutex.lock();
@@ -258,7 +259,7 @@ void MiddleCenter::initMysql(bool& success)
 		m_mutex.unlock();
 		return;
 	}
-	if (mysql_library_init(0, NULL, NULL)) //ÔÚËùÓĞÏß³Ì¶ÔMYSQL C APIµ÷ÓÃÖ®Ç°µ÷ÓÃ
+	if (mysql_library_init(0, NULL, NULL)) //åœ¨æ‰€æœ‰çº¿ç¨‹å¯¹MYSQL C APIè°ƒç”¨ä¹‹å‰è°ƒç”¨
 	{
 		std::cout << "mysql_library_init error\n";
 		success = false;
@@ -308,7 +309,7 @@ bool MiddleCenter::gzip(const char* source, const int sourLen, std::string& outP
 	{
 		memset(&zs, 0, sizeof(zs));
 
-		// Ê¹ÓÃ×î¸ßÑ¹Ëõ¼¶±ğZ_BEST_COMPRESSION(9)
+		// ä½¿ç”¨æœ€é«˜å‹ç¼©çº§åˆ«Z_BEST_COMPRESSION(9)
 		if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED,
 			15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
 		{

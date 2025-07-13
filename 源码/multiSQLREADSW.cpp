@@ -1,9 +1,10 @@
-#include "multiSQLREADSW.h"
+ï»¿#include "multiSQLREADSW.h"
 
 MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>> unlockFun, const std::string & SQLHOST, 
 	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, 
-	std::shared_ptr<LOG> log)
-	:m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB), m_unlockFun(unlockFun), m_commandMaxSize(commandMaxSize),m_log(log)
+	std::shared_ptr<LOG> log, const unsigned int bufferSize)
+	:m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB), m_unlockFun(unlockFun), m_commandMaxSize(commandMaxSize),m_log(log),
+	m_messageBufferMaxSize(bufferSize)
 {
 	if (SQLHOST.empty())
 		throw std::runtime_error("SQLHOST is empty");
@@ -35,9 +36,16 @@ MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std
 	m_waitMessageList.reset(new std::shared_ptr<resultTypeSW>[m_commandMaxSize]);
 	m_waitMessageListMaxSize = m_commandMaxSize;
 
+	m_messageList.reset(m_commandMaxSize * 6);
+
 
 	m_timer.reset(new boost::asio::steady_timer(*ioc));
 	m_freeSqlResultFun.reset(new std::function<void(std::reference_wrapper<std::vector<MYSQL_RES*>>)>(std::bind(&MULTISQLREADSW::FreeResult, this, std::placeholders::_1)));
+
+
+	m_messageBuffer.reset(new char[m_messageBufferMaxSize]);
+	m_messageBufferMaxSize = m_messageBufferMaxSize;
+
 
 
 	if (!(m_mysql = mysql_init(m_mysql)))
@@ -60,25 +68,40 @@ std::shared_ptr<std::function<void(std::reference_wrapper<std::vector<MYSQL_RES*
 
 
 
-bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> sqlRequest)
+bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest)
 {
-	if(std::get<0>(*sqlRequest).get().empty() || 
-		std::any_of(std::get<0>(*sqlRequest).get().cbegin(), std::get<0>(*sqlRequest).get().cend(), [](auto const sw)
-	{
-		return sw.empty();
-	}) || !std::get<1>(*sqlRequest) || std::get<1>(*sqlRequest) > m_commandMaxSize)
+	if (!sqlRequest)
 		return false;
 
-	m_mutex.lock();
-	if (!m_hasConnect)
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+
+	if(std::get<0>(thisRequest).get().empty() ||
+		std::any_of(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), [](auto const sw)
 	{
-		m_mutex.unlock();
+		return sw.empty();
+	}) || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize)
+		return false;
+
+	std::vector<MYSQL_RES*>& vec{ std::get<2>(thisRequest).get() };
+
+	if (!vec.empty())
+	{
+		for (auto res : vec)
+		{
+			mysql_free_result(res);
+		}
+		vec.clear();
+	}
+	
+
+	if (!m_hasConnect.load())
+	{
 		return false;
 	}
-	if (!m_queryStatus)
+	if (!m_queryStatus.load())
 	{
-		m_queryStatus=true;
-		m_mutex.unlock();
+		m_queryStatus.store(true);
 
 		m_sendLen = std::accumulate(std::get<0>(*sqlRequest).get().cbegin(),std::get<0>(*sqlRequest).get().cend(),0,[](auto &sum,auto const sw)
 		{
@@ -93,17 +116,15 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> sqlRequest)
 				m_messageBufferMaxSize = m_sendLen;
 			}
 		}
-		catch (const std::exception &e)
+		catch (const std::bad_alloc &e)
 		{
-			m_mutex.lock();
-			m_queryStatus=false;
-			m_mutex.unlock();
+			m_queryStatus.store(false);
 			return false;
 		}
 		
 
 		char *buffer{ m_messageBuffer.get() };
-		for (auto sw : std::get<0>(*sqlRequest).get())
+		for (auto sw : std::get<0>(thisRequest).get())
 		{
 			std::copy(sw.cbegin(), sw.cend(), buffer);
 			buffer += sw.size();
@@ -112,22 +133,21 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> sqlRequest)
 		m_messageBufferNowSize = m_sendLen;
 		m_waitMessageListNowSize = 1;
 		*(m_waitMessageList.get()) = sqlRequest;
-		m_commandNowSize = std::get<1>(*sqlRequest);
+		m_commandNowSize = std::get<1>(thisRequest);
 		m_sendMessage = m_messageBuffer.get();
 
 		
 		readyQuery();
 
-		//½øÈë´¦Àíº¯Êı
+		//è¿›å…¥å¤„ç†å‡½æ•°
 		firstQuery();
 
 		return true;
 	}
 	else
 	{
-		m_mutex.unlock();
-		//Èç¹ûÕıÔÚÖ´ĞĞ×´Ì¬
-		//Ôò³¢ÊÔ²åÈë´ı²åÈë¶ÓÁĞÖ®ÖĞ
+		//å¦‚æœæ­£åœ¨æ‰§è¡ŒçŠ¶æ€
+		//åˆ™å°è¯•æ’å…¥å¾…æ’å…¥é˜Ÿåˆ—ä¹‹ä¸­
 
 		m_messageList.lock();
 		
@@ -146,19 +166,19 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> sqlRequest)
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 
-	//Ê×ÏÈÅĞ¶ÏÊÇ·ñÒÑ¾­Á¬½Ó£¬
-	//Î´Á¬½ÓÖ±½ÓÅĞ¶ÏÊ§°Ü£¬ÒòÎªÎ´Á¬½ÓÏÂÄ¿Ç°»á½øĞĞÇå¿Õ²Ù×÷
+	//é¦–å…ˆåˆ¤æ–­æ˜¯å¦å·²ç»è¿æ¥ï¼Œ
+	//æœªè¿æ¥ç›´æ¥åˆ¤æ–­å¤±è´¥ï¼Œå› ä¸ºæœªè¿æ¥ä¸‹ç›®å‰ä¼šè¿›è¡Œæ¸…ç©ºæ“ä½œ
 	//
-	//ÅĞ¶ÏÖ´ĞĞ×´Ì¬£¬
-	//Èç¹ûÃ»ÓĞÖ´ĞĞ£¬Ôò³¢ÊÔ½«¸Ã´ÎÇëÇóÆ´´ÕÆğÀ´£¬Ä¬ÈÏµ÷ÓÃÕßÖĞ¼ä´øÓĞ;¡£ÒÑ¾­´¦ÀíºÃ
-	//Èç¹ûÔÚÖ´ĞĞ£¬ÔòÖ±½Ó²åÈëµÈ´ı²åÈë¶ÓÁĞÖ®ÖĞ
+	//åˆ¤æ–­æ‰§è¡ŒçŠ¶æ€ï¼Œ
+	//å¦‚æœæ²¡æœ‰æ‰§è¡Œï¼Œåˆ™å°è¯•å°†è¯¥æ¬¡è¯·æ±‚æ‹¼å‡‘èµ·æ¥ï¼Œé»˜è®¤è°ƒç”¨è€…ä¸­é—´å¸¦æœ‰;ã€‚å·²ç»å¤„ç†å¥½
+	//å¦‚æœåœ¨æ‰§è¡Œï¼Œåˆ™ç›´æ¥æ’å…¥ç­‰å¾…æ’å…¥é˜Ÿåˆ—ä¹‹ä¸­
 
-	//Èç¹ûÃ»ÓĞÔÚÖ´ĞĞ×´Ì¬
-	//Ê×ÏÈÍ³¼ÆËùĞèÒªµÄ×Ö·û´®×Ü³¤¶È£¬Èç¹û²»¹»£¬½øĞĞ·ÖÅä£¬Éú³É±¾´ÎÇëÇóµÄ×Ö·û´®
-	//È»ºó½«±¾´ÎµÄÇëÇó³¢ÊÔ²åÈë´ı»ñÈ¡½á¹û¶ÓÁĞÀïÃæ
+	//å¦‚æœæ²¡æœ‰åœ¨æ‰§è¡ŒçŠ¶æ€
+	//é¦–å…ˆç»Ÿè®¡æ‰€éœ€è¦çš„å­—ç¬¦ä¸²æ€»é•¿åº¦ï¼Œå¦‚æœä¸å¤Ÿï¼Œè¿›è¡Œåˆ†é…ï¼Œç”Ÿæˆæœ¬æ¬¡è¯·æ±‚çš„å­—ç¬¦ä¸²
+	//ç„¶åå°†æœ¬æ¬¡çš„è¯·æ±‚å°è¯•æ’å…¥å¾…è·å–ç»“æœé˜Ÿåˆ—é‡Œé¢
 
-	//Èç¹ûÕıÔÚÖ´ĞĞ×´Ì¬
-	//Ôò³¢ÊÔ²åÈë´ı²åÈë¶ÓÁĞÖ®ÖĞ
+	//å¦‚æœæ­£åœ¨æ‰§è¡ŒçŠ¶æ€
+	//åˆ™å°è¯•æ’å…¥å¾…æ’å…¥é˜Ÿåˆ—ä¹‹ä¸­
 }
 
 
@@ -188,28 +208,21 @@ MULTISQLREADSW::~MULTISQLREADSW()
 
 void MULTISQLREADSW::FreeConnect()
 {
-	m_mutex.lock();
-	if (m_hasConnect)
+	if (m_hasConnect.load())
 	{
 		mysql_close(m_mysql);
-		m_hasConnect = false;
+		m_hasConnect.store(false);
 	}
-	m_mutex.unlock();
 }
 
 
 
 void MULTISQLREADSW::ConnectDatabase()
 {
-	m_mutex.lock();
-	if (!m_hasConnect)
+	if (!m_hasConnect.load())
 	{
-		m_mutex.unlock();
-
 		ConnectDatabaseLoop();
 	}
-	else
-		m_mutex.unlock();
 }
 
 
@@ -223,7 +236,7 @@ void MULTISQLREADSW::ConnectDatabaseLoop()
 	{
 		if (err)
 		{
-			std::cout << "sql error,please restart server\n";
+			
 		}
 		else
 		{
@@ -242,9 +255,7 @@ void MULTISQLREADSW::ConnectDatabaseLoop()
 			case NET_ASYNC_COMPLETE:
 				if (!resetConnect)
 					std::cout << "connect multi mysqlRead string_view success\n";
-				m_mutex.lock();
-				m_hasConnect = true;
-				m_mutex.unlock();
+				m_hasConnect.store(true);
 				if (!resetConnect)
 					(*m_unlockFun)();
 				else
@@ -270,9 +281,9 @@ void MULTISQLREADSW::firstQuery()
 	m_timer->expires_after(std::chrono::microseconds(100));
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
-		if (err)   //»Øµ÷º¯Êı´¦Àí
+		if (err)   //å›è°ƒå‡½æ•°å¤„ç†
 		{
-
+		
 		}
 		else
 		{
@@ -281,9 +292,9 @@ void MULTISQLREADSW::firstQuery()
 			case NET_ASYNC_NOT_READY:
 				firstQuery();
 				break;
-			case NET_ASYNC_ERROR:              // »Øµ÷º¯Êı´¦Àí
-				//½«´ı»ñÈ¡½á¹ûÒÔ¼°´ı²åÈë¶ÓÁĞ½øĞĞ´¦Àí£¬·µ»Ø´íÎó£¬È»ºóÇå¿Õ£¬ÖØÁ¬   Ê×ÏÈ½«ÒÑÁ¬½ÓÖÃÎ»false 
-				//Èç¹ûÊÇ´íÎóµÄ²éÑ¯»á±¨´í
+			case NET_ASYNC_ERROR:              // å›è°ƒå‡½æ•°å¤„ç†
+				//å°†å¾…è·å–ç»“æœä»¥åŠå¾…æ’å…¥é˜Ÿåˆ—è¿›è¡Œå¤„ç†ï¼Œè¿”å›é”™è¯¯ï¼Œç„¶åæ¸…ç©ºï¼Œé‡è¿   é¦–å…ˆå°†å·²è¿æ¥ç½®ä½false 
+				//å¦‚æœæ˜¯é”™è¯¯çš„æŸ¥è¯¢ä¼šæŠ¥é”™
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
 				handleAsyncError();
 				break;
@@ -304,16 +315,22 @@ void MULTISQLREADSW::firstQuery()
 
 void MULTISQLREADSW::handleAsyncError()
 {
-	m_mutex.lock();
-	m_hasConnect = false;
-	m_mutex.unlock();
+	m_hasConnect.store(false);
+	
 
 	m_messageList.lock();
-	if (!m_messageList.listSelf().empty())
+	if (!m_messageList.isEmpty())
 	{
-		for (auto const &request : m_messageList.listSelf())
-			std::get<5>(*request)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
-		m_messageList.listSelf().clear();
+		std::shared_ptr<resultTypeSW> *request{};
+		
+		do
+		{
+			m_messageList.unsafePop(*request);
+			if (*request)
+			{
+				std::get<5>(**request)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
+			}
+		} while (*request);
 	}
 	m_messageList.unlock();
 
@@ -329,10 +346,7 @@ void MULTISQLREADSW::handleAsyncError()
 	}
 
 	resetConnect = true;
-
-	m_mutex.lock();
-	m_queryStatus = false;
-	m_mutex.unlock();
+	m_queryStatus.store(false);
 
 	ConnectDatabase();
 }
@@ -345,7 +359,7 @@ void MULTISQLREADSW::store()
 	m_timer->expires_after(std::chrono::microseconds(10));
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
-		if (err)   //»Øµ÷º¯Êı´¦Àí
+		if (err)   //å›è°ƒå‡½æ•°å¤„ç†
 		{
 			//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
 		}
@@ -356,7 +370,7 @@ void MULTISQLREADSW::store()
 			case NET_ASYNC_NOT_READY:
 				store();
 				break;
-			case NET_ASYNC_ERROR:        // »Øµ÷º¯Êı´¦Àí
+			case NET_ASYNC_ERROR:        // å›è°ƒå‡½æ•°å¤„ç†
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
 				handleAsyncError();
 				break;
@@ -368,13 +382,13 @@ void MULTISQLREADSW::store()
 				if (!m_result)
 				{
 
-	                //ÇåÀí
+	                //æ¸…ç†
 					//std::get<5>(*m_sqlRequest)(true, ERRORMESSAGE::SQL_MYSQL_RES_NULL);
 				}
 				else
 				{
-					//Ê×ÏÈ¼ì²éĞĞºÍÁĞ£¬´æ´¢ÆğÀ´
-					//¸ù¾İĞĞÁĞ²»¶ÏµØ»ñÈ¡Ã¿ĞĞÊı¾İ´æ´¢£¬Ò»µ©Ê§°Ü£¬ÊÍ·Å±¾´ÎMYSQL_RESÖ¸Õë£¬ÅĞ¶Ï±¾½ÚµãÊÇ·ñ»¹ÓĞÇëÇó£¬ÓĞµÄ»°ÖÃÎ»Ìø¹ı
+					//é¦–å…ˆæ£€æŸ¥è¡Œå’Œåˆ—ï¼Œå­˜å‚¨èµ·æ¥
+					//æ ¹æ®è¡Œåˆ—ä¸æ–­åœ°è·å–æ¯è¡Œæ•°æ®å­˜å‚¨ï¼Œä¸€æ—¦å¤±è´¥ï¼Œé‡Šæ”¾æœ¬æ¬¡MYSQL_RESæŒ‡é’ˆï¼Œåˆ¤æ–­æœ¬èŠ‚ç‚¹æ˜¯å¦è¿˜æœ‰è¯·æ±‚ï¼Œæœ‰çš„è¯ç½®ä½è·³è¿‡
 					if (m_jumpThisRes)
 					{
 						mysql_free_result(m_result);
@@ -387,7 +401,7 @@ void MULTISQLREADSW::store()
 							}
 							else
 							{
-								//¼ì²é´ıÇëÇó¶ÓÁĞÖĞÊÇ·ñÓĞÏûÏ¢´æÔÚ
+								//æ£€æŸ¥å¾…è¯·æ±‚é˜Ÿåˆ—ä¸­æ˜¯å¦æœ‰æ¶ˆæ¯å­˜åœ¨
 								checkMakeMessage();
 							}
 						}
@@ -398,19 +412,18 @@ void MULTISQLREADSW::store()
 					}
 					else
 					{
-						//»ñÈ¡ĞĞÊı,ÁĞÊı
+						//è·å–è¡Œæ•°,åˆ—æ•°
 						m_rowNum = mysql_num_rows(m_result), m_fieldNum = mysql_num_fields(m_result);
 						m_rowCount = m_fieldCount = -1;
 
 
-						m_sqlRequest = *m_waitMessageListBegin;
 						try
 						{
-							std::vector<unsigned int> &rowFieldVec = std::get<3>(*m_sqlRequest);
+							std::vector<unsigned int> &rowFieldVec = std::get<3>(**m_waitMessageListBegin);
 							rowFieldVec.emplace_back(m_rowNum);
 							rowFieldVec.emplace_back(m_fieldNum);
 						}
-						catch (const std::exception &e)
+						catch (const std::bad_alloc &e)
 						{
 							handleSqlMemoryError();
 							return;
@@ -432,15 +445,13 @@ void MULTISQLREADSW::store()
 
 void MULTISQLREADSW::readyQuery()
 {
-	//¸ù¾İm_waitMessageListBegin»ñÈ¡Ã¿´ÎµÄRES
+
+	//æ ¹æ®m_waitMessageListBeginè·å–æ¯æ¬¡çš„RES
 	m_waitMessageListBegin = m_waitMessageList.get();
 	m_waitMessageListEnd = m_waitMessageListBegin + m_waitMessageListNowSize;
 
-	freeResult(m_waitMessageListBegin, m_waitMessageListEnd);
 
-	m_sqlRequest = *m_waitMessageListBegin;
-
-	m_thisCommandToalSize = std::get<1>(*m_sqlRequest);
+	m_thisCommandToalSize = std::get<1>(**m_waitMessageListBegin);
 
 	m_currentCommandSize = 0;
 
@@ -453,9 +464,8 @@ bool MULTISQLREADSW::readyNextQuery()
 {
 	if (++m_waitMessageListBegin != m_waitMessageListEnd)
 	{
-		m_sqlRequest = *m_waitMessageListBegin;
 		
-		m_thisCommandToalSize = std::get<1>(*m_sqlRequest);
+		m_thisCommandToalSize = std::get<1>(**m_waitMessageListBegin);
 
 		m_currentCommandSize = 0;
 
@@ -474,7 +484,7 @@ void MULTISQLREADSW::next_result()
 	m_timer->expires_after(std::chrono::microseconds(10));
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
-		if (err)   //»Øµ÷º¯Êı´¦Àí
+		if (err)   //å›è°ƒå‡½æ•°å¤„ç†
 		{
 			//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
 		}
@@ -485,7 +495,7 @@ void MULTISQLREADSW::next_result()
 			case NET_ASYNC_NOT_READY:
 				next_result();
 				break;
-			case NET_ASYNC_ERROR:        // »Øµ÷º¯Êı´¦Àí
+			case NET_ASYNC_ERROR:        // å›è°ƒå‡½æ•°å¤„ç†
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
 
 				handleAsyncError();
@@ -510,18 +520,16 @@ void MULTISQLREADSW::next_result()
 
 void MULTISQLREADSW::makeMessage()
 {
-	//¼òµ¥ÊµÏÖ£ºÏÈ±éÀúÒ»´Î»ñÈ¡ĞèÒªµÄ¿Õ¼ä´óĞ¡Ò»´Î·ÖÅä£¬·ÖÅä´íÎóµÄÇé¿öÏÂÈ«²¿½â³ı
-	//ºóĞøÊµÏÖ£ºÔÚ²åÈëÊ±¼ÆËãºÃ
-	//          »òÊ¹ÓÃÈİÆ÷
+	//ç®€å•å®ç°ï¼šå…ˆéå†ä¸€æ¬¡è·å–éœ€è¦çš„ç©ºé—´å¤§å°ä¸€æ¬¡åˆ†é…ï¼Œåˆ†é…é”™è¯¯çš„æƒ…å†µä¸‹å…¨éƒ¨è§£é™¤
+	//åç»­å®ç°ï¼šåœ¨æ’å…¥æ—¶è®¡ç®—å¥½
+	//          æˆ–ä½¿ç”¨å®¹å™¨
 	int index{ -1 };
 	unsigned int resultNum{};
-	// messageBufferÊ¹ÓÃ
-	std::forward_list<std::shared_ptr<resultTypeSW>>::const_iterator messageBegin{}, messageEnd{}, messageIter{};
-	std::shared_ptr<resultTypeSW> result{};
+	// messageBufferä½¿ç”¨
 
-	//waitMessage¶ÓÁĞÊ¹ÓÃ
+	//waitMessageé˜Ÿåˆ—ä½¿ç”¨
 	std::shared_ptr<resultTypeSW> *waitBegin{}, *waitEnd{}, *waitIter{};
-	//Í³¼Æ×Ö·û´®×Ü³¤¶È£¬Ã¿¸ö½ÚµãÊı¾İµÄÃüÁî¸öÊı
+	//ç»Ÿè®¡å­—ç¬¦ä¸²æ€»é•¿åº¦ï¼Œæ¯ä¸ªèŠ‚ç‚¹æ•°æ®çš„å‘½ä»¤ä¸ªæ•°
 	unsigned int totalLen{}, everyResult{};
 
 	char *bufferIter{};
@@ -532,33 +540,32 @@ void MULTISQLREADSW::makeMessage()
 		waitBegin = nullptr;
 		totalLen  = m_commandNowSize = m_waitMessageListNowSize = 0;
 
-		//Ò»°ãÇé¿öÏÂ£¬²¢²»»áÆµ·±ÔâÓö´Ë´¦µÄwhileÑ­»·Çé¿ö£¬Ö»ÓĞÔÚÄÚ´æÈ±·¦µÄÇé¿öÏÂ²Å»á½øÈëµÚ¶ş´ÎÒÔÉÏµÄwhileÑ­»·
+		//ä¸€èˆ¬æƒ…å†µä¸‹ï¼Œå¹¶ä¸ä¼šé¢‘ç¹é­é‡æ­¤å¤„çš„whileå¾ªç¯æƒ…å†µï¼Œåªæœ‰åœ¨å†…å­˜ç¼ºä¹çš„æƒ…å†µä¸‹æ‰ä¼šè¿›å…¥ç¬¬äºŒæ¬¡ä»¥ä¸Šçš„whileå¾ªç¯
 		m_messageList.lock();
-		std::forward_list<std::shared_ptr<resultTypeSW>> &flist{ m_messageList.listSelf() };
-		if (flist.empty())
+		if (m_messageList.isEmpty())
 		{
 			m_messageList.unlock();
-			m_mutex.lock();
-			m_queryStatus=false;
-			m_mutex.unlock();
+
+			m_queryStatus.store(false);
 			break;
 		}
 
 		index = -1;
 		waitBegin = m_waitMessageList.get();
-		while (!flist.empty())
+		do
 		{
-			result = *flist.cbegin();
-
-			//ÇëÇóÃüÁîÊı×ÜÊı²»Òª³¬¹ı×î´óÏŞ¶¨Öµ
-			everyResult = std::get<1>(*result);;
-			if (m_commandNowSize + everyResult > m_commandMaxSize)
+			m_messageList.unsafePop(*waitBegin);
+			if (!*waitBegin)
 				break;
+			
+
+			//è¯·æ±‚å‘½ä»¤æ•°æ€»æ•°ä¸è¦è¶…è¿‡æœ€å¤§é™å®šå€¼
+			everyResult = std::get<1>(**waitBegin);
 
 			m_commandNowSize += everyResult;
 
-			//¼ÆËãĞèÒªµÄ×Ö·û¿Õ¼ä´óĞ¡
-			for (auto const sw : std::get<0>(*result).get())
+			//è®¡ç®—éœ€è¦çš„å­—ç¬¦ç©ºé—´å¤§å°
+			for (auto const sw : std::get<0>(**waitBegin).get())
 			{
 				if (++index)
 				{
@@ -567,21 +574,23 @@ void MULTISQLREADSW::makeMessage()
 				totalLen += sw.size();
 			}
 
-			*waitBegin++ = result;
-			flist.pop_front();
-		}
+			++waitBegin;
+
+
+		} while ((std::distance(m_waitMessageList.get(), waitBegin) != m_waitMessageListMaxSize) && (m_commandNowSize < m_commandMaxSize));
 		m_messageList.unlock();
 
-		m_waitMessageListNowSize = waitBegin - m_waitMessageList.get();
+		m_waitMessageListNowSize = std::distance(m_waitMessageList.get(), waitBegin);
+	
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////
-		//Èç¹ûÖÁÉÙÓĞÒ»¸öÔò³¢ÊÔ·ÖÅä¿Õ¼ä£¬·´Ö®¿ªÊ¼ĞÂµÄ¼ì²é
+		//å¦‚æœè‡³å°‘æœ‰ä¸€ä¸ªåˆ™å°è¯•åˆ†é…ç©ºé—´ï¼Œåä¹‹å¼€å§‹æ–°çš„æ£€æŸ¥
 		
 		
-		//Èç¹ûÖÁÉÙÓĞÒ»¸öÏûÏ¢½ÚµãÓĞÄÚÈİ
+		//å¦‚æœè‡³å°‘æœ‰ä¸€ä¸ªæ¶ˆæ¯èŠ‚ç‚¹æœ‰å†…å®¹
 		if (m_waitMessageListNowSize)
 		{
-			//·ÖÅäÊ§°ÜÊ±±éÀúÒÑ¾­´æ´¢µÄ½Úµã·µ»Ø´íÎóÌáĞÑ
+			//åˆ†é…å¤±è´¥æ—¶éå†å·²ç»å­˜å‚¨çš„èŠ‚ç‚¹è¿”å›é”™è¯¯æé†’
 			if (m_messageBufferMaxSize < totalLen)
 			{
 				try
@@ -589,7 +598,7 @@ void MULTISQLREADSW::makeMessage()
 					m_messageBuffer.reset(new char[totalLen]);
 					m_messageBufferMaxSize = totalLen;
 				}
-				catch (const std::exception &e)
+				catch (const std::bad_alloc &e)
 				{
 					m_messageBufferMaxSize = 0;
 					waitIter = m_waitMessageList.get();
@@ -603,16 +612,15 @@ void MULTISQLREADSW::makeMessage()
 			}
 
 			
-		    //×é×°ÏûÏ¢µ½bufferÀïÃæ
+		    //ç»„è£…æ¶ˆæ¯åˆ°bufferé‡Œé¢
 			waitBegin = m_waitMessageList.get(), waitEnd = m_waitMessageList.get() + m_waitMessageListNowSize;
 
 			index = -1;
 			bufferIter = m_messageBuffer.get();
 			do
 			{
-				result = *waitBegin;
 
-				for (auto const sw : std::get<0>(*result).get())
+				for (auto const sw : std::get<0>(**waitBegin).get())
 				{
 					if (++index)
 					{
@@ -636,9 +644,12 @@ void MULTISQLREADSW::makeMessage()
 		}
 		else
 		{
-			continue;
-		}		
+			m_queryStatus.store(false);
+			break;
+		}
+
 	}
+
 }
 
 
@@ -660,13 +671,22 @@ void MULTISQLREADSW::readyMakeMessage()
 
 	m_currentCommandSize = 0;
 
-	m_waitMessageListNowSize = 0;
+	
+	if (m_waitMessageListNowSize)
+	{
+		m_waitMessageListBegin = m_waitMessageList.get();
+		m_waitMessageListEnd = m_waitMessageList.get() + m_waitMessageListNowSize;
+		do
+		{
+			m_waitMessageListBegin->reset();
+		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
+		m_waitMessageListNowSize = 0;
 
-	m_waitMessageListBegin = nullptr;
+		m_waitMessageListBegin = nullptr;
 
-	m_waitMessageListEnd = nullptr;
+		m_waitMessageListEnd = nullptr;
+	}
 
-	m_sqlRequest = nullptr;
 }
 
 
@@ -686,20 +706,20 @@ void MULTISQLREADSW::fetch_row()
 	m_timer->expires_after(std::chrono::microseconds(10));
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
-		if (err)   //»Øµ÷º¯Êı´¦Àí
+		if (err)   //å›è°ƒå‡½æ•°å¤„ç†
 		{
 			//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
 		}
 		else
 		{
-			m_sqlRequest = *m_waitMessageListBegin;
-			std::vector<std::string_view> &vec{ std::get<4>(*m_sqlRequest).get() };
+			
+			std::vector<std::string_view> &vec{ std::get<4>(**m_waitMessageListBegin).get() };
 			switch (m_status)
 			{
 			case NET_ASYNC_NOT_READY:
 				fetch_row();
 				break;
-			case NET_ASYNC_ERROR:        // »Øµ÷º¯Êı´¦Àí
+			case NET_ASYNC_ERROR:        // å›è°ƒå‡½æ•°å¤„ç†
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
 
 				handleAsyncError();
@@ -725,7 +745,7 @@ void MULTISQLREADSW::fetch_row()
 							}
 							else
 							{
-								vec.emplace_back(std::string_view(m_row[m_fieldCount], 0));
+								vec.emplace_back(std::string_view(nullptr, 0));
 							}
 						}
 					}
@@ -734,7 +754,7 @@ void MULTISQLREADSW::fetch_row()
 
 					}
 				}
-				catch (const std::exception &e)
+				catch (const std::bad_alloc &e)
 				{
 					handleSqlMemoryError();
 					return;
@@ -747,27 +767,30 @@ void MULTISQLREADSW::fetch_row()
 				else
 				{
 
+					
 					try
 					{
-						std::get<2>(*m_sqlRequest).get().emplace_back(m_result);
+						
+						std::get<2>(**m_waitMessageListBegin).get().emplace_back(m_result);
 					}
-					catch (const std::exception &e)
+					catch (const std::bad_alloc &e)
 					{
 						handleSqlMemoryError();
 						return;
 					}
+					
 
 
 					if (++m_currentCommandSize == m_thisCommandToalSize)
 					{
-						std::get<5>(*m_sqlRequest)(true, ERRORMESSAGE::OK);
+						std::get<5>(**m_waitMessageListBegin)(true, ERRORMESSAGE::OK);
 						if (readyNextQuery())
 						{
 							next_result();
 						}
 						else
 						{
-							//¼ì²é´ıÇëÇó¶ÓÁĞÖĞÊÇ·ñÓĞÏûÏ¢´æÔÚ
+							//æ£€æŸ¥å¾…è¯·æ±‚é˜Ÿåˆ—ä¸­æ˜¯å¦æœ‰æ¶ˆæ¯å­˜åœ¨
 							checkMakeMessage();
 						}
 					}
@@ -790,36 +813,21 @@ void MULTISQLREADSW::fetch_row()
 
 void MULTISQLREADSW::freeResult(std::shared_ptr<resultTypeSW>* m_waitMessageListBegin, std::shared_ptr<resultTypeSW>* m_waitMessageListEnd)
 {
-	if (m_waitMessageListBegin && m_waitMessageListEnd && m_waitMessageListBegin != m_waitMessageListEnd && m_waitMessageListEnd > m_waitMessageListBegin)
-	{
-		do
-		{
-			m_sqlRequest = *m_waitMessageListBegin;
-			std::vector<MYSQL_RES*> &vec = std::get<2>(*m_sqlRequest).get();
-
-			if (!vec.empty())
-			{
-				for (auto res : vec)
-				{
-					mysql_free_result(res);
-				}
-				vec.clear();
-			}
-		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
-	}
+	
+	
 
 }
 
 
 
 
-//»ñÈ¡Ã¿¸öresultµÄ½á¹û·¢Éú´íÎóÊ±£¬Ê×ÏÈ·µ»Ø´íÎóĞÅÏ¢½øĞĞ´¦Àí£¬È»ºó¼ì²é±¾ÌõÖ¸ÁîÊÇ·ñ»¹ÓĞÃüÁî½á¹ûĞèÒªÈ¡»Ø£¬
-//Èç¹ûÓĞ£¬Ôò»ñÈ¡ÁËÈ»ºóÊÍ·Å£¬Ã»ÓĞµÄ»°³¢ÊÔ»ñÈ¡ÏÂÒ»¸öÇëÇó½ÚµãµÄresult
+//è·å–æ¯ä¸ªresultçš„ç»“æœå‘ç”Ÿé”™è¯¯æ—¶ï¼Œé¦–å…ˆè¿”å›é”™è¯¯ä¿¡æ¯è¿›è¡Œå¤„ç†ï¼Œç„¶åæ£€æŸ¥æœ¬æ¡æŒ‡ä»¤æ˜¯å¦è¿˜æœ‰å‘½ä»¤ç»“æœéœ€è¦å–å›ï¼Œ
+//å¦‚æœæœ‰ï¼Œåˆ™è·å–äº†ç„¶åé‡Šæ”¾ï¼Œæ²¡æœ‰çš„è¯å°è¯•è·å–ä¸‹ä¸€ä¸ªè¯·æ±‚èŠ‚ç‚¹çš„result
 void MULTISQLREADSW::handleSqlMemoryError()
 {
-	m_sqlRequest = *m_waitMessageListBegin;
+
 	mysql_free_result(m_result);
-	std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
+	std::get<5>(**m_waitMessageListBegin)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
 	if (++m_currentCommandSize == m_thisCommandToalSize)
 	{
 		if (readyNextQuery())
@@ -828,7 +836,7 @@ void MULTISQLREADSW::handleSqlMemoryError()
 		}
 		else
 		{
-			//¼ì²é´ıÇëÇó¶ÓÁĞÖĞÊÇ·ñÓĞÏûÏ¢´æÔÚ
+			//æ£€æŸ¥å¾…è¯·æ±‚é˜Ÿåˆ—ä¸­æ˜¯å¦æœ‰æ¶ˆæ¯å­˜åœ¨
 			checkMakeMessage();
 		}
 	}

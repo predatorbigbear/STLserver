@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include "openssl/aes.h"
 
@@ -13,9 +13,9 @@
 #include <type_traits>
 
 
-//jsonÆ´×°º¯ÊıÖĞ
-// putString  putBoolean  putNull  putNumber  putObject  putArrayÏÖÒÑ¿ÉÓÃ
-//  void HTTPSERVICE::testMakeJson()  Õ¹Ê¾ÈçºÎÊ¹ÓÃSTLtreeFastÆ´´Õjson
+//jsonæ‹¼è£…å‡½æ•°ä¸­
+// putString  putBoolean  putNull  putNumber  putObject  putArrayç°å·²å¯ç”¨
+//  void HTTPSERVICE::testMakeJson()  å±•ç¤ºå¦‚ä½•ä½¿ç”¨STLtreeFastæ‹¼å‡‘json
 
 namespace MAKEJSON
 {
@@ -178,15 +178,11 @@ struct CUSTOMTAG
 
 struct STLtreeFast
 {
-	//ĞèÒªÍêÉÆ£¬ÒòÎª·ÖÅä¿ÉÄÜ²»³É¹¦
+	//éœ€è¦å®Œå–„ï¼Œå› ä¸ºåˆ†é…å¯èƒ½ä¸æˆåŠŸ
 	STLtreeFast(MEMORYPOOL<> *memoryPool):m_memoryPool(memoryPool)
 	{
 		if (!resize())
-		{
-			std::cout << "bad alloc\n";
-			int num;
-			std::cin >> num;
-		}
+			std::cout << "init fail\n";
 	}
 
 
@@ -216,7 +212,7 @@ struct STLtreeFast
 
 
 	//
-	//Çå¿ÕÄÚ²¿Ö¸Ïò×´Ì¬
+	//æ¸…ç©ºå†…éƒ¨æŒ‡å‘çŠ¶æ€
 	bool clear()
 	{
 		if (!m_ptr)
@@ -224,6 +220,7 @@ struct STLtreeFast
 			m_ptr = m_memoryPool->getMemory<const char**>(m_resize);
 			if (!m_ptr)
 				return false;
+			m_maxSize = m_resize;
 		}
 		
 		if (!m_transformPtr)
@@ -231,9 +228,8 @@ struct STLtreeFast
 			m_transformPtr = m_memoryPool->getMemory<const char**>(m_resize);
 			if (!m_transformPtr)
 				return false;
+			m_maxTransformSize = m_resize;
 		}
-
-		m_maxSize = m_maxTransformSize = m_resize;
 
 		m_strSize = 0;
 		m_pos = m_transformPos = 0;
@@ -246,17 +242,21 @@ struct STLtreeFast
 
 	bool resize()
 	{
-		m_ptr = m_memoryPool->getMemory<const char**>(m_resize);
-
 		if (!m_ptr)
-			return false;
-
-		m_transformPtr = m_memoryPool->getMemory<const char**>(m_resize);
+		{
+			m_ptr = m_memoryPool->getMemory<const char**>(m_resize);
+			if (!m_ptr)
+				return false;
+			m_maxSize = m_resize;
+		}
 
 		if (!m_transformPtr)
-			return false;
-
-		m_maxSize = m_maxTransformSize = m_resize;
+		{
+			m_transformPtr = m_memoryPool->getMemory<const char**>(m_resize);
+			if (!m_transformPtr)
+				return false;
+			m_maxTransformSize = m_resize;
+		}
 
 		m_strSize = 0;
 		m_pos = 0;
@@ -500,11 +500,11 @@ struct STLtreeFast
 
 
 
-	//È·¶¨²»´æÔÚ×ª»»×Ö·ûµÄÇé¿öÏÂ²»ĞèÒª¹ÜÄ¬ÈÏ²ÎÊıT£¬·ñÔòÌîÈëTRANSFORMTYPE
-	//Ä¬ÈÏSTRTYPEÓÃÓÚvalueÎª×Ö·ûµÄÇé¿ö£¬¶ÔÓÚÊı×Ö£¬²¼¶û£¬null¿ÉÒÔÉèÖÃSTRTYPEÎª·Çvoid
+	//ç¡®å®šä¸å­˜åœ¨è½¬æ¢å­—ç¬¦çš„æƒ…å†µä¸‹ä¸éœ€è¦ç®¡é»˜è®¤å‚æ•°Tï¼Œå¦åˆ™å¡«å…¥TRANSFORMTYPE
+	//é»˜è®¤STRTYPEç”¨äºvalueä¸ºå­—ç¬¦çš„æƒ…å†µï¼Œå¯¹äºæ•°å­—ï¼Œå¸ƒå°”ï¼Œnullå¯ä»¥è®¾ç½®STRTYPEä¸ºévoid
 	//"left":"right"
-	//putº¯Êı²ğ¿ª´¦Àí¼¸ÖÖÊı¾İÀàĞÍ±È½ÏºÃ
-	//µ±²åÈëÖµÀàĞÍµÄÊ±ºò£¬½öµ±len1 »òlen2 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+	//putå‡½æ•°æ‹†å¼€å¤„ç†å‡ ç§æ•°æ®ç±»å‹æ¯”è¾ƒå¥½
+	//å½“æ’å…¥å€¼ç±»å‹çš„æ—¶å€™ï¼Œä»…å½“len1 æˆ–len2 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 	template<typename T = void,typename STRTYPE =void>
 	bool put(const char * str1Begin, const char * str1End, const char * str2Begin, const char * str2End)
 	{
@@ -540,7 +540,7 @@ struct STLtreeFast
 
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value && std::is_same<STRTYPE, void>::value)
 		{
-			//½öµ±len1 »òlen2 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+			//ä»…å½“len1 æˆ–len2 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 			if (len1 || len2)
 			{
 				m_transformEmpty = false;
@@ -642,23 +642,23 @@ struct STLtreeFast
 
 
 
-	//²åÈë×Ö·û´®
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
-	//µ±²åÈëÖµÀàĞÍµÄÊ±ºò£¬½öµ±len1 »òlen2 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+	//æ’å…¥å­—ç¬¦ä¸²
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
+	//å½“æ’å…¥å€¼ç±»å‹çš„æ—¶å€™ï¼Œä»…å½“len1 æˆ–len2 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 	template<typename T = void>
 	bool putString(const char* str1Begin, const char* str1End, const char* str2Begin, const char* str2End)
 	{
 		int len1{ ((str1End && str1Begin) ? str1End - str1Begin : 0) }, len2{ ((str2End && str2Begin) ? str2End - str2Begin : 0) };
-		// 6µÄÒâË¼ÊÇÓÒ²àvalueµÄ\" \" ,Èı´¦µÄÖ¸Õë´æ´¢¿Õ¼ä
+		// 6çš„æ„æ€æ˜¯å³ä¾§valueçš„\" \" ,ä¸‰å¤„çš„æŒ‡é’ˆå­˜å‚¨ç©ºé—´
 		int thisSize{ 6 };   //  12 " 1 ":" 2 ",
-		// Èôlen1·Ç¿Õ£¬ÔòĞè´æ´¢ \"  ×ó²àkeyÖµ \":\"  Èı´¦µÄÖ¸Õë´æ´¢¿Õ¼ä
+		// è‹¥len1éç©ºï¼Œåˆ™éœ€å­˜å‚¨ \"  å·¦ä¾§keyå€¼ \":\"  ä¸‰å¤„çš„æŒ‡é’ˆå­˜å‚¨ç©ºé—´
 		if (len1)
 			thisSize += 4;
-		// Èôlen2·Ç¿Õ,ÔòĞè´æ´¢ÓÒ²àvalueÖµµÄÖ¸Õë´æ´¢¿Õ¼ä
+		// è‹¥len2éç©º,åˆ™éœ€å­˜å‚¨å³ä¾§valueå€¼çš„æŒ‡é’ˆå­˜å‚¨ç©ºé—´
 		if (len2)
 			thisSize += 2;
 
-		//Èç¹û´æ´¢Ö¸Õë´®×î´ó³¤¶È ¼õÈ¥ Ä¿Ç°ÒÑ´æ´¢³¤¶ÈĞ¡ÓÚ±¾´ÎËùĞèÒª´æ´¢Ö¸ÕëµÄ³¤¶ÈÔò½øĞĞÀ©Èİ´¦Àí
+		//å¦‚æœå­˜å‚¨æŒ‡é’ˆä¸²æœ€å¤§é•¿åº¦ å‡å» ç›®å‰å·²å­˜å‚¨é•¿åº¦å°äºæœ¬æ¬¡æ‰€éœ€è¦å­˜å‚¨æŒ‡é’ˆçš„é•¿åº¦åˆ™è¿›è¡Œæ‰©å®¹å¤„ç†
 		if (m_maxSize - m_pos < thisSize)
 		{
 			const char** ch{};
@@ -681,15 +681,15 @@ struct STLtreeFast
 			m_ptr = ch;
 		}
 
-		//Èç¹ûĞèÒª×ª»»£¬Ôò¼ì²âlen1»òlen2ÊÇ·ñÎª·Ç¿Õ½øĞĞ´¦Àí
+		//å¦‚æœéœ€è¦è½¬æ¢ï¼Œåˆ™æ£€æµ‹len1æˆ–len2æ˜¯å¦ä¸ºéç©ºè¿›è¡Œå¤„ç†
 		if constexpr (std::is_same<T, TRANSFORMTYPE>::value)
 		{
 			if (len1 || len2)
 			{
-				//ÉèÖÃ×ª»»±êÖ¾
+				//è®¾ç½®è½¬æ¢æ ‡å¿—
 				m_transformEmpty = false;
 
-				//2Îªlen1 ºÍlen2Ê××Ö·ûµØÖ·
+				//2ä¸ºlen1 å’Œlen2é¦–å­—ç¬¦åœ°å€
 				if (m_maxTransformSize < (m_transformPos + 2))
 				{
 					const char** ch{};
@@ -702,7 +702,7 @@ struct STLtreeFast
 					m_transformPtr = ch;
 				}
 
-				//json×î³¤µÄ×ª»»´¦Àíµ¥×Ö·û×ª»»ºó»á±ä³É6±¶£¬¹Ê´Ë´¦Ö±½Ó*6£¬ÓÃ¿Õ¼ä»»Ê±¼ä¿ìËÙ´¦Àí
+				//jsonæœ€é•¿çš„è½¬æ¢å¤„ç†å•å­—ç¬¦è½¬æ¢åä¼šå˜æˆ6å€ï¼Œæ•…æ­¤å¤„ç›´æ¥*6ï¼Œç”¨ç©ºé—´æ¢æ—¶é—´å¿«é€Ÿå¤„ç†
 				if (len1)
 				{
 					*(m_transformPtr + m_transformPos++) = str1Begin;
@@ -716,7 +716,7 @@ struct STLtreeFast
 			}
 		}
 
-		//´¢´æjsonÖ¸Õë²Ù×÷
+		//å‚¨å­˜jsonæŒ‡é’ˆæ“ä½œ
 		const char** ptr{ m_ptr + m_pos };
 		const char** ptrBegin{ ptr };
 		if (++index)
@@ -757,13 +757,13 @@ struct STLtreeFast
 		*ptr++ = MAKEJSON::doubleQuotation;
 		*ptr++ = MAKEJSON::doubleQuotation + MAKEJSON::doubleQuotationLen;
 
-		//ÓÒ²à\" \"³¤¶ÈÎª2  
+		//å³ä¾§\" \"é•¿åº¦ä¸º2  
 		m_strSize += 2 + len1 + len2;
-		//Èç¹ûlen1·Ç¿Õ£¬ÔòĞèÒª¼ÓÉÏ×ó²àkeyÖµµÄ \"  \":Èı¸ö×Ö·û³¤¶È
+		//å¦‚æœlen1éç©ºï¼Œåˆ™éœ€è¦åŠ ä¸Šå·¦ä¾§keyå€¼çš„ \"  \":ä¸‰ä¸ªå­—ç¬¦é•¿åº¦
 		if (len1)
 			m_strSize += 3;
 
-		//ÀÛ¼ÓÖ¸Õë´æ´¢³¤¶È
+		//ç´¯åŠ æŒ‡é’ˆå­˜å‚¨é•¿åº¦
 		m_pos += std::distance(ptrBegin, ptr);
 		m_empty = false;
 		return true;
@@ -772,9 +772,9 @@ struct STLtreeFast
 
 
 
-	//²åÈë²¼¶ûÀàĞÍ
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
-	//µ±²åÈëÖµÀàĞÍµÄÊ±ºò£¬½öµ±len1 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+	//æ’å…¥å¸ƒå°”ç±»å‹
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
+	//å½“æ’å…¥å€¼ç±»å‹çš„æ—¶å€™ï¼Œä»…å½“len1 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 	template<typename T = void>
 	bool putBoolean(const char* str1Begin, const char* str1End, const bool booleanValue)
 	{
@@ -874,9 +874,9 @@ struct STLtreeFast
 
 
 
-	//²åÈëNULL
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
-	//µ±²åÈëÖµÀàĞÍµÄÊ±ºò£¬½öµ±len1 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+	//æ’å…¥NULL
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
+	//å½“æ’å…¥å€¼ç±»å‹çš„æ—¶å€™ï¼Œä»…å½“len1 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 	template<typename T = void>
 	bool putNull(const char* str1Begin, const char* str1End)
 	{
@@ -967,9 +967,9 @@ struct STLtreeFast
 	}
 
 
-	//²åÈëÊı×ÖÀàĞÍ£¬²ÎÊıÎªÕûĞÎ»ò¸¡µãĞÍÔòÊµÊ±×ª»»
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
-	//µ±²åÈëÖµÀàĞÍµÄÊ±ºò£¬½öµ±len1 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+	//æ’å…¥æ•°å­—ç±»å‹ï¼Œå‚æ•°ä¸ºæ•´å½¢æˆ–æµ®ç‚¹å‹åˆ™å®æ—¶è½¬æ¢
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
+	//å½“æ’å…¥å€¼ç±»å‹çš„æ—¶å€™ï¼Œä»…å½“len1 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 	template<typename T = void,typename NUMBERTYPE ,
 		typename = std::enable_if_t<std::is_integral<NUMBERTYPE>::value || std::is_floating_point<NUMBERTYPE>::value>>
 		bool putNumber(const char* str1Begin, const char* str1End, NUMBERTYPE&& number)
@@ -1071,9 +1071,9 @@ struct STLtreeFast
 
 
 
-	//²åÈëÊı×ÖÀàĞÍ£¬²ÎÊıÎª×Ö·û´®ÀàĞÍ£¨ÓÃ»§Ğè×Ô¼º±£Ö¤ÎªÊı×Ö×Ö·û´®£©
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
-	//µ±²åÈëÖµÀàĞÍµÄÊ±ºò£¬½öµ±len1 ²»Îª¿ÕÊ±²ÅÓĞ±ØÒª¼ì²éÊÇ·ñĞèÒª×ª»»
+	//æ’å…¥æ•°å­—ç±»å‹ï¼Œå‚æ•°ä¸ºå­—ç¬¦ä¸²ç±»å‹ï¼ˆç”¨æˆ·éœ€è‡ªå·±ä¿è¯ä¸ºæ•°å­—å­—ç¬¦ä¸²ï¼‰
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
+	//å½“æ’å…¥å€¼ç±»å‹çš„æ—¶å€™ï¼Œä»…å½“len1 ä¸ä¸ºç©ºæ—¶æ‰æœ‰å¿…è¦æ£€æŸ¥æ˜¯å¦éœ€è¦è½¬æ¢
 	template<typename T = void>
 		bool putNumber(const char* str1Begin, const char* str1End, const char* str2Begin, const char* str2End)
 	{
@@ -1164,8 +1164,8 @@ struct STLtreeFast
 
 
 
-	//²åÈë¶ÔÏó
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
+	//æ’å…¥å¯¹è±¡
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
 	template<typename T = void>
 	bool putObject(const char * begin, const char * end, const STLtreeFast &other)
 	{
@@ -1294,8 +1294,8 @@ struct STLtreeFast
 
 
 
-	//²åÈëÊı×é
-	//TÎªTRANSFORMTYPEËµÃ÷ĞèÒª½øĞĞ×ªÂë´¦Àí
+	//æ’å…¥æ•°ç»„
+	//Tä¸ºTRANSFORMTYPEè¯´æ˜éœ€è¦è¿›è¡Œè½¬ç å¤„ç†
 	template<typename T = void>
 	bool putArray(const char * begin, const char * end, const STLtreeFast &other)
 	{
@@ -1639,23 +1639,23 @@ struct STLtreeFast
 
 
 
-	// Ä£°å²ÎÊı½âÊÍ
-	// ÊÇ·ñĞèÒª¿¼ÂÇjson×ª»»
-	// ÊÇ·ñ´æÔÚ×Ô¶¨Òåhttp headerÍ·²¿
-	// ×Ô¶¨Òåhttp headerÍ·²¿²Ù×÷º¯ÊıÀàĞÍ
+	// æ¨¡æ¿å‚æ•°è§£é‡Š
+	// æ˜¯å¦éœ€è¦è€ƒè™‘jsonè½¬æ¢
+	// æ˜¯å¦å­˜åœ¨è‡ªå®šä¹‰http headerå¤´éƒ¨
+	// è‡ªå®šä¹‰http headerå¤´éƒ¨æ“ä½œå‡½æ•°ç±»å‹
 
-	//Ò»ÌõhttpÏûÏ¢»Ø¸´ ±ÈÈç  HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:³¤¶È\r\n\r\njson½á¹¹×Ö·û´®
-	//²ğ³ÉÈı¿é¿´£¬µÚÒ»¿éÎªHTTPµ½Content-Length:    µÚ¶ş²¿·ÖÎª³¤¶ÈºÍ\r\n\r\n   µÚÈı²¿·ÖÎªjson½á¹¹×Ö·û´®
-	//STLTreeFastÔÚ²åÈë×Ö·û´®Ê±½ö±£´æjsonÖ¸Õë´®£¬²¢ÇÒ½«Ö¸¶¨×ªÂëµÄÖ¸Õë´æÈëm_transformPtrÖĞ£¬²¢´æÈëÔ¤ÅĞËùĞèµÄ¿Õ¼äm_strSize
-	//Éú³ÉÊ±£¬ÀûÓÃm_strSize¼ÆËã³ö³¤¶ÈËùĞè¿Õ¼ä´óĞ¡
-	//ÄÇÃ´ÕûÌõHTTP»Ø¸´ËùĞèÔ¤ÅĞ¿Õ¼äÎªHTTPµ½Content-Length:ËùĞè¿Õ¼ä  ³¤¶ÈËùĞè¿Õ¼ä+\r\n\r\nËùĞè¿Õ¼ä  +jsonËùĞè¿Õ¼ä
-	//Ò»´ÎĞÔ»ñÈ¡¸Ã´óĞ¡µÄ¿Õ¼ä£¬Ìøµ½json¿Õ¼äÆğÊ¼Î»ÖÃ¸ù¾İÖ¸Õë´®Éú³Éjson£¬¸ù¾İÄ£°å²ÎÊıTµÄ±êÖ¾ÅĞ¶ÏÊÇ·ñĞèÒª´¦Àíjson×ªÒå
-	//Éú³Éjson×Ö·û´®ºó£¬¸ù¾İÊµ¼ÊÉú²újson´®Ê×Î²Î»ÖÃ»ñÈ¡ÕæÕıËùĞèµÄ³¤¶È£¬¼ÆËã³¤¶ÈËùĞè¿Õ¼ä´óĞ¡
-	//¼ÆËãÕûÌõHTTP»Ø¸´ËùĞèÔ¤ÅĞ¿Õ¼äÎªHTTPµ½Content-Length:ËùĞè¿Õ¼ä  ³¤¶ÈËùĞè¿Õ¼ä+\r\n\r\nËùĞè¿Õ¼ä£¬´ÓjsonÆğÊ¼Î»ÖÃÍùÇ°ÌøÉú³ÉÕûÌõhttpÏûÏ¢
-	//·µ»ØhttpÏûÏ¢ÆğÊ¼Î»ÖÃºÍ³¤¶ÈÓÃÓÚ·¢ËÍ
-	//Èç¹ûÄ³Ğ©http headerĞèÒª×Ô¶¨Òå°ì·¨Ğ´Èë£¬ÔòÉèÖÃHTTPFLAG£¬ÔÚhttpWrite´«ÈëĞ´Èëlambda £¬ÀàĞÍÎª(char*&)   httpLenÎª×Ô¶¨Òåhttp header¼ÓÄÚÈİ³¤¶È
-	//Ôò»áÔÚ¼ì²âHTTPFLAGÀàĞÍºóÔÙĞ´Èë³¤¶ÈÖ®ºó£¬·µ»ØÖ¸ÕëÎ»ÖÃ½øĞĞ×Ô¶¨ÒåĞ´Èë
-	//ÀûÓÃ´ËËã·¨Ò»´ÎĞÔÉú³Éhttp json»Ø¸´£¬¶ÔÓÚ³£¹æµÄÉú³ÉËã·¨¾ßÓĞ¾ø¶ÔĞÔÄÜÓÅÊÆ
+	//ä¸€æ¡httpæ¶ˆæ¯å›å¤ æ¯”å¦‚  HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:é•¿åº¦\r\n\r\njsonç»“æ„å­—ç¬¦ä¸²
+	//æ‹†æˆä¸‰å—çœ‹ï¼Œç¬¬ä¸€å—ä¸ºHTTPåˆ°Content-Length:    ç¬¬äºŒéƒ¨åˆ†ä¸ºé•¿åº¦å’Œ\r\n\r\n   ç¬¬ä¸‰éƒ¨åˆ†ä¸ºjsonç»“æ„å­—ç¬¦ä¸²
+	//STLTreeFaståœ¨æ’å…¥å­—ç¬¦ä¸²æ—¶ä»…ä¿å­˜jsonæŒ‡é’ˆä¸²ï¼Œå¹¶ä¸”å°†æŒ‡å®šè½¬ç çš„æŒ‡é’ˆå­˜å…¥m_transformPträ¸­ï¼Œå¹¶å­˜å…¥é¢„åˆ¤æ‰€éœ€çš„ç©ºé—´m_strSize
+	//ç”Ÿæˆæ—¶ï¼Œåˆ©ç”¨m_strSizeè®¡ç®—å‡ºé•¿åº¦æ‰€éœ€ç©ºé—´å¤§å°
+	//é‚£ä¹ˆæ•´æ¡HTTPå›å¤æ‰€éœ€é¢„åˆ¤ç©ºé—´ä¸ºHTTPåˆ°Content-Length:æ‰€éœ€ç©ºé—´  é•¿åº¦æ‰€éœ€ç©ºé—´+\r\n\r\næ‰€éœ€ç©ºé—´  +jsonæ‰€éœ€ç©ºé—´
+	//ä¸€æ¬¡æ€§è·å–è¯¥å¤§å°çš„ç©ºé—´ï¼Œè·³åˆ°jsonç©ºé—´èµ·å§‹ä½ç½®æ ¹æ®æŒ‡é’ˆä¸²ç”Ÿæˆjsonï¼Œæ ¹æ®æ¨¡æ¿å‚æ•°Tçš„æ ‡å¿—åˆ¤æ–­æ˜¯å¦éœ€è¦å¤„ç†jsonè½¬ä¹‰
+	//ç”Ÿæˆjsonå­—ç¬¦ä¸²åï¼Œæ ¹æ®å®é™…ç”Ÿäº§jsonä¸²é¦–å°¾ä½ç½®è·å–çœŸæ­£æ‰€éœ€çš„é•¿åº¦ï¼Œè®¡ç®—é•¿åº¦æ‰€éœ€ç©ºé—´å¤§å°
+	//è®¡ç®—æ•´æ¡HTTPå›å¤æ‰€éœ€é¢„åˆ¤ç©ºé—´ä¸ºHTTPåˆ°Content-Length:æ‰€éœ€ç©ºé—´  é•¿åº¦æ‰€éœ€ç©ºé—´+\r\n\r\næ‰€éœ€ç©ºé—´ï¼Œä»jsonèµ·å§‹ä½ç½®å¾€å‰è·³ç”Ÿæˆæ•´æ¡httpæ¶ˆæ¯
+	//è¿”å›httpæ¶ˆæ¯èµ·å§‹ä½ç½®å’Œé•¿åº¦ç”¨äºå‘é€
+	//å¦‚æœæŸäº›http headeréœ€è¦è‡ªå®šä¹‰åŠæ³•å†™å…¥ï¼Œåˆ™è®¾ç½®HTTPFLAGï¼Œåœ¨httpWriteä¼ å…¥å†™å…¥lambda ï¼Œç±»å‹ä¸º(char*&)   httpLenä¸ºè‡ªå®šä¹‰http headeråŠ å†…å®¹é•¿åº¦
+	//åˆ™ä¼šåœ¨æ£€æµ‹HTTPFLAGç±»å‹åå†å†™å…¥é•¿åº¦ä¹‹åï¼Œè¿”å›æŒ‡é’ˆä½ç½®è¿›è¡Œè‡ªå®šä¹‰å†™å…¥
+	//åˆ©ç”¨æ­¤ç®—æ³•ä¸€æ¬¡æ€§ç”Ÿæˆhttp jsonå›å¤ï¼Œå¯¹äºå¸¸è§„çš„ç”Ÿæˆç®—æ³•å…·æœ‰ç»å¯¹æ€§èƒ½ä¼˜åŠ¿
 template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = void*,  typename ...ARG>
 	bool make_json(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen , const char *httpVersionBegin, const char *httpVersionEnd,
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args)
@@ -1716,7 +1716,6 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 
 			*iterEnd++ = '}';
 
-
 			unsigned int jsonResultLen = std::distance(iterBegin, iterEnd), finalStringLen = stringLen(jsonResultLen);
 
 
@@ -1725,7 +1724,6 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 			resultLen = std::distance(newResultPtr, iterEnd);
 
 			////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 			std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, newResultPtr);
 			newResultPtr += MAKEJSON::httpFrontLen;
@@ -2000,7 +1998,7 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 
 
 
-	//Ò»´ÎĞÔÉú³ÉÆÕÍ¨body http»Ø¸´µÄº¯Êı
+	//ä¸€æ¬¡æ€§ç”Ÿæˆæ™®é€šbody httpå›å¤çš„å‡½æ•°
 	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
 	bool make_pingPongResppnse(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, const char *httpBodyBegin, const char *httpBodyEnd, ARG&&...args)
@@ -2230,29 +2228,29 @@ private:
 
 
 private:
-	//m_ptrÓëm_transformPtr´æ´¢ÄÚÈİ½ÔÎªÖ¸Õë£¬ÆäÖĞm_transformPtrÎª´æ´¢ĞèÒªjson×ªÒå´¦ÀíµÄÖ¸ÕëÊ×µØÖ·
+	//m_pträ¸m_transformPtrå­˜å‚¨å†…å®¹çš†ä¸ºæŒ‡é’ˆï¼Œå…¶ä¸­m_transformPträ¸ºå­˜å‚¨éœ€è¦jsonè½¬ä¹‰å¤„ç†çš„æŒ‡é’ˆé¦–åœ°å€
 
 
-	const char **m_ptr{};    //´æ´¢ÈÎÒâ×éºÏµÄÖ¸Õë´®
-	unsigned int m_pos{};    //ÉÏÃæµÄÖ¸Õë´®µÄ¾ßÌå³¤¶È
-	unsigned int m_maxSize{ };   //ÉÏÃæµÄÖ¸Õë´®µÄ×î´ó¿ÉÈİÄÉ¿Õ¼ä
-	bool m_empty{ true };        //ÊÇ·ñÎª¿Õ
+	const char **m_ptr{};    //å­˜å‚¨ä»»æ„ç»„åˆçš„æŒ‡é’ˆä¸²
+	unsigned int m_pos{};    //ä¸Šé¢çš„æŒ‡é’ˆä¸²çš„å…·ä½“é•¿åº¦
+	unsigned int m_maxSize{ };   //ä¸Šé¢çš„æŒ‡é’ˆä¸²çš„æœ€å¤§å¯å®¹çº³ç©ºé—´
+	bool m_empty{ true };        //æ˜¯å¦ä¸ºç©º
 
 
-	const char **m_transformPtr{};     //´æ´¢ĞèÒª½øĞĞjson×ªÒå×ª»»µÄÖ¸Õë´®
-	unsigned int m_transformPos{};     //ÉÏÃæµÄÖ¸Õë´®µÄ¾ßÌå³¤¶È
-	unsigned int m_maxTransformSize{ };  //ÉÏÃæµÄÖ¸Õë´®µÄ×î´ó¿ÉÈİÄÉ¿Õ¼ä
-	bool m_transformEmpty{ true };       //ÊÇ·ñÎª¿Õ
+	const char **m_transformPtr{};     //å­˜å‚¨éœ€è¦è¿›è¡Œjsonè½¬ä¹‰è½¬æ¢çš„æŒ‡é’ˆä¸²
+	unsigned int m_transformPos{};     //ä¸Šé¢çš„æŒ‡é’ˆä¸²çš„å…·ä½“é•¿åº¦
+	unsigned int m_maxTransformSize{ };  //ä¸Šé¢çš„æŒ‡é’ˆä¸²çš„æœ€å¤§å¯å®¹çº³ç©ºé—´
+	bool m_transformEmpty{ true };       //æ˜¯å¦ä¸ºç©º
 
 
 
 
-	unsigned int m_resize{ 1024 };   //Ö¸Õë´®ÖØÖÃµÄ¿Õ¼ä´óĞ¡
-	unsigned int m_strSize{};        //Ô¤ÅĞ×ª»»ºóµÄÄ¿±ê×Ö·û´®´óĞ¡
+	unsigned int m_resize{ 256 };   //æŒ‡é’ˆä¸²é‡ç½®çš„ç©ºé—´å¤§å°
+	unsigned int m_strSize{};        //é¢„åˆ¤è½¬æ¢åçš„ç›®æ ‡å­—ç¬¦ä¸²å¤§å°
 
-	int index{ -1 };        //¼ÇÂ¼ÒÑ²åÈëÔªËØÊıÁ¿
+	int index{ -1 };        //è®°å½•å·²æ’å…¥å…ƒç´ æ•°é‡
 
-	MEMORYPOOL<> *m_memoryPool{ nullptr };                    //ÄÚ´æ³ØÖ¸Õë
+	MEMORYPOOL<> *m_memoryPool{ nullptr };                    //å†…å­˜æ± æŒ‡é’ˆ
 
 
 };

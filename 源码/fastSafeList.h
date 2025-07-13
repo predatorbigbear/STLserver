@@ -1,9 +1,9 @@
-#pragma once
+ï»¿#pragma once
 
 #include<type_traits>
 #include<memory>
 #include "spinLock.h"
-
+#include<iostream>
 
 
 template<typename T>
@@ -22,14 +22,14 @@ template<typename T>
 inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
 
 
-// safeListÆäÊµ²¢²»safe£¬Ö»ÊÇÒ»¸öÃû×Ö
-// ÒòÎªÔÚºóÆÚ¿ª·¢¹ı³ÌÖĞ·¢ÏÖ£¬ÒªÔÚ²Ù×÷ÖĞ±£Ö¤ĞÔÄÜ£¬»¹ÊÇĞèÒªÊÖ¶¯²Ù×÷mutex±È½ÏºÏÊÊ
+// safeListå…¶å®å¹¶ä¸safeï¼Œåªæ˜¯ä¸€ä¸ªåå­—
+// å› ä¸ºåœ¨åæœŸå¼€å‘è¿‡ç¨‹ä¸­å‘ç°ï¼Œè¦åœ¨æ“ä½œä¸­ä¿è¯æ€§èƒ½ï¼Œè¿˜æ˜¯éœ€è¦æ‰‹åŠ¨æ“ä½œmutexæ¯”è¾ƒåˆé€‚
 
-//Ê¹ÓÃ³ÉÔ±º¯ÊıÇ°ÏÈ½øĞĞ¼ÓËø£¬ÔÙ½øĞĞ²Ù×÷£¬×îºóµ÷ÓÃ½âËø
+//ä½¿ç”¨æˆå‘˜å‡½æ•°å‰å…ˆè¿›è¡ŒåŠ é”ï¼Œå†è¿›è¡Œæ“ä½œï¼Œæœ€åè°ƒç”¨è§£é”
 
-//¸ù¾İSAFELIST½øĞĞ¸Ä½ø£¬ÓÃÓÚredis²éÑ¯µÄ¸ßËÙlist,½øÒ»²½Ëõ¶Ì¼ÓËøÊ±³¤
-//unsafeInsertÓëunsafePop¾ù²»»áÔöÉ¾½Úµã£¬±ÈSAFELIST¸ü¸ßĞ§
-//½öÊ¹ÓÃÖ¸ÕëÒÆ¶¯ÊµÏÖÄ£ÄâSAFELISTµÄ²åÈë É¾³ı²Ù×÷
+//æ ¹æ®SAFELISTè¿›è¡Œæ”¹è¿›ï¼Œç”¨äºredisæŸ¥è¯¢çš„é«˜é€Ÿlist,è¿›ä¸€æ­¥ç¼©çŸ­åŠ é”æ—¶é•¿
+//unsafeInsertä¸unsafePopå‡ä¸ä¼šå¢åˆ èŠ‚ç‚¹ï¼Œæ¯”SAFELISTæ›´é«˜æ•ˆ
+//ä»…ä½¿ç”¨æŒ‡é’ˆç§»åŠ¨å®ç°æ¨¡æ‹ŸSAFELISTçš„æ’å…¥ åˆ é™¤æ“ä½œ
 template<typename T, unsigned int listSize = 256>
 struct FASTSAFELIST
 {
@@ -37,7 +37,8 @@ struct FASTSAFELIST
 	{
 		m_list.reset(new T[listSize]);
 		m_begin = m_list.get();
-		m_maxSize = m_list.get() + listSize;
+		//ä¸èƒ½æŒ‡å‘m_list.get() + listSizeï¼Œå› ä¸ºä¼šå¯¹m_maxSizeä½ç½®å–å€¼å’Œèµ‹å€¼
+		m_maxSize = m_list.get() + listSize - 1;
 		m_end = m_begin;
 	}
 
@@ -48,7 +49,8 @@ struct FASTSAFELIST
 		{
 			m_list.reset(new T[bufNum]);
 			m_begin = m_list.get();
-			m_maxSize = m_list.get() + bufNum;
+			//ä¸èƒ½æŒ‡å‘m_list.get() + bufNumï¼Œå› ä¸ºä¼šå¯¹m_maxSizeä½ç½®å–å€¼å’Œèµ‹å€¼
+			m_maxSize = m_list.get() + bufNum - 1;
 			m_end = m_begin;
 		}
 	}
@@ -57,8 +59,8 @@ struct FASTSAFELIST
 	bool unsafeInsert(T &buffer)
 	{	
 		if (empty)
-		{
-			*m_end++ = buffer;
+		{		
+			*m_end++ = buffer;	
 			empty = false;
 			return true;
 		}
@@ -68,7 +70,7 @@ struct FASTSAFELIST
 				return false;
 			if (std::distance(m_begin, m_end) > 0)
 			{
-				if (m_end != m_maxSize)
+				if (m_end < m_maxSize)
 				{
 					*m_end++ = buffer;
 					return true;
@@ -101,7 +103,7 @@ struct FASTSAFELIST
 			{
 				if constexpr (is_shared_ptr_v<T>)
 				{
-					//¶ÔÓÚ¹²ÏíÖ¸Õë£¬Ê¹ÓÃÓÒÖµ´«µİ±ÜÃâÄÚ²¿ÒıÓÃ¼ÆÊı¸Ä±ä£¬Í¬Ê±½«m_beginÄÚµÄÖµÖÃÎªnullptr
+					//å¯¹äºå…±äº«æŒ‡é’ˆï¼Œä½¿ç”¨å³å€¼ä¼ é€’é¿å…å†…éƒ¨å¼•ç”¨è®¡æ•°æ”¹å˜ï¼ŒåŒæ—¶å°†m_beginå†…çš„å€¼ç½®ä¸ºnullptr
 					temp = std::move(*m_begin++);
 				}
 				else
@@ -119,7 +121,7 @@ struct FASTSAFELIST
 			{		
 				if constexpr (is_shared_ptr_v<T>)
 				{
-					//¶ÔÓÚ¹²ÏíÖ¸Õë£¬Ê¹ÓÃÓÒÖµ´«µİ±ÜÃâÄÚ²¿ÒıÓÃ¼ÆÊı¸Ä±ä£¬Í¬Ê±½«m_beginÄÚµÄÖµÖÃÎªnullptr
+					//å¯¹äºå…±äº«æŒ‡é’ˆï¼Œä½¿ç”¨å³å€¼ä¼ é€’é¿å…å†…éƒ¨å¼•ç”¨è®¡æ•°æ”¹å˜ï¼ŒåŒæ—¶å°†m_beginå†…çš„å€¼ç½®ä¸ºnullptr
 					temp = std::move(*m_begin);
 				}
 				else
@@ -160,10 +162,10 @@ struct FASTSAFELIST
 
 private:
 	std::unique_ptr<T[]> m_list{};
-	T* m_begin{};                      //±¾´Î²Ù×÷Ê×Î»ÖÃ
-	T* m_maxSize{};                    //»º³åÇøµÄÄ©Î²Î»ÖÃ
-	T* m_end{};                        //´æ´¢Êı¾İµÄÄ©Î²Î»ÖÃ
-	bool empty{ true };                //ÊÇ·ñÎª¿Õ
+	T* m_begin{};                      //æœ¬æ¬¡æ“ä½œé¦–ä½ç½®
+	T* m_maxSize{};                    //ç¼“å†²åŒºçš„æœ«å°¾ä½ç½®
+	T* m_end{};                        //å­˜å‚¨æ•°æ®çš„æœ«å°¾ä½ç½®
+	bool empty{ true };                //æ˜¯å¦ä¸ºç©º
 	SpinLock m_listMutex;
 };
 

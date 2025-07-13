@@ -1,13 +1,14 @@
-#include "IOcontextPool.h"
+ï»¿#include "IOcontextPool.h"
 #include "MiddleCenter.h"
 #include "MyReqView.h"
 
 
 
-//ĞèÒª·Öredis¶ÁÈ¡     Ö÷redis¶ÁÈ¡     Ö÷redisĞ´Èë        ·Ösql¶ÁÈ¡      Ö÷sql¶ÁÈ¡     Ö÷sqlĞ´Èë
+//éœ€è¦åˆ†redisè¯»å–     ä¸»redisè¯»å–     ä¸»rediså†™å…¥        åˆ†sqlè¯»å–      ä¸»sqlè¯»å–     ä¸»sqlå†™å…¥
 
 
 // https://zhuanlan.zhihu.com/p/104213185
+
 
 int main()
 {
@@ -17,29 +18,32 @@ int main()
 		std::shared_ptr<IOcontextPool> ioPool{new IOcontextPool() };
 
 		bool success;
-		//ÉèÖÃio serviceÊıÁ¿ cpuºËÊı*2
+
+		
+		//è®¾ç½®io serviceæ•°é‡   ä¸€èˆ¬æ¥è¯´ç›´æ¥è®¾ç½®æ ¸æ•°å³å¯
 		ioPool->setThreadNum(success, 1);
 		if (!success)
 			return -1;
 
 		MiddleCenter m1;
 
-		//ÉèÖÃÊ±¼äÂÖ  Ã¿´Î¼ä¸ô1s¼ì²é   120¸öÂÖÅÌ
+		//è®¾ç½®æ—¶é—´è½®  æ¯æ¬¡é—´éš”1sæ£€æŸ¥   120ä¸ªè½®ç›˜
 		m1.setTimeWheel(ioPool, success, 1, 120);
 		if (!success)
 			return -2;
 
-		//ÉèÖÃÈÕÖ¾  60s¼ì²éÒ»´Î  buffer¿Õ¼ä40960   16¸öÈÕÖ¾ÎÄ¼ş
+		//è®¾ç½®æ—¥å¿—  60sæ£€æŸ¥ä¸€æ¬¡  bufferç©ºé—´40960   16ä¸ªæ—¥å¿—æ–‡ä»¶
 		m1.setLog("/home/deng/log", ioPool, success, 60);
 		if (!success)
 			return -3;
 
 		
-		m1.setMultiRedisWrite(ioPool, success, "127.0.0.1", 6379, 1);          //Ö÷redisĞ´Èë
+		m1.setMultiRedisWrite(ioPool, success, "127.0.0.1", 6379, 1);          //ä¸»rediså†™å…¥
 		if (!success)
 			return -4;
 
-		m1.setMultiRedisRead(ioPool, success, "127.0.0.1", 6379, 1);            //Ö÷redis¶ÁÈ¡
+		//redisæ“ä½œæ¨¡å—  å¯è¿›è¡Œè¯»å†™æ“ä½œ    ä¸€èˆ¬æ¥è¯´ç›´æ¥è®¾ç½®æ ¸æ•°å³å¯
+		m1.setMultiRedisRead(ioPool, success, "127.0.0.1", 6379, 1);            //ä¸»redisè¯»å–
 		if (!success)
 			return -5;
 
@@ -47,21 +51,21 @@ int main()
 		if (!success)
 			return -6;
 
-		m1.setMultiSqlWriteSW(ioPool, success,  "127.0.0.1", "root", "884378abc", "serversql", "3306", true , 1);     //Ö÷sqlĞ´Èë
+		m1.setMultiSqlWriteSW(ioPool, success,  "127.0.0.1", "root", "884378abc", "serversql", "3306", true , 1);     //ä¸»sqlå†™å…¥
 		if (!success)
 		{
 			m1.freeMysql();
 			return -7;
 		}
 
-		m1.setMultiSqlReadSW(ioPool, success, "127.0.0.1", "root", "884378abc", "serversql", "3306", true, 1);       //Ö÷sql¶ÁÈ¡
+		m1.setMultiSqlReadSW(ioPool, success, "127.0.0.1", "root", "884378abc", "serversql", "3306");       //ä¸»sqlè¯»å–
 		if (!success)
 		{
 			m1.freeMysql();
 			return -8;
 		}
 
-		//°ó¶¨8085¶Ë¿Ú  httpÄ¬ÈÏÍøÒ³ÎÄ¼ş¼Ğ   1024´¦Àí¶ÔÏó   60sÄÚ³¬Ê±
+		//ç»‘å®š8085ç«¯å£  httpé»˜è®¤ç½‘é¡µæ–‡ä»¶å¤¹   1024å¤„ç†å¯¹è±¡   60så†…è¶…æ—¶
 		m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {}, 1024, 30);
 		if (!success)
 		{

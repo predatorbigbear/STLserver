@@ -1,13 +1,15 @@
-#pragma once
+ï»¿#pragma once
 
 #include<forward_list>
+#include<stdexcept>
+#include<exception>
 #include "spinLock.h"
 
 
-// safeListÆäÊµ²¢²»safe£¬Ö»ÊÇÒ»¸öÃû×Ö
-// ÒòÎªÔÚºóÆÚ¿ª·¢¹ı³ÌÖĞ·¢ÏÖ£¬ÒªÔÚ²Ù×÷ÖĞ±£Ö¤ĞÔÄÜ£¬»¹ÊÇĞèÒªÊÖ¶¯²Ù×÷mutex±È½ÏºÏÊÊ
+// safeListå…¶å®å¹¶ä¸safeï¼Œåªæ˜¯ä¸€ä¸ªåå­—
+// å› ä¸ºåœ¨åæœŸå¼€å‘è¿‡ç¨‹ä¸­å‘ç°ï¼Œè¦åœ¨æ“ä½œä¸­ä¿è¯æ€§èƒ½ï¼Œè¿˜æ˜¯éœ€è¦æ‰‹åŠ¨æ“ä½œmutexæ¯”è¾ƒåˆé€‚
 
-//Ê¹ÓÃ³ÉÔ±º¯ÊıÇ°ÏÈ½øĞĞ¼ÓËø£¬ÔÙ½øĞĞ²Ù×÷£¬×îºóµ÷ÓÃ½âËø
+//ä½¿ç”¨æˆå‘˜å‡½æ•°å‰å…ˆè¿›è¡ŒåŠ é”ï¼Œå†è¿›è¡Œæ“ä½œï¼Œæœ€åè°ƒç”¨è§£é”
 template<typename T>
 struct SAFELIST
 {
@@ -24,7 +26,7 @@ struct SAFELIST
 				m_iter = m_list.emplace_after(m_iter, buffer);
 			return true;
 		}
-		catch (const std::exception &e)
+		catch (const std::bad_alloc &e)
 		{
 			return false;
 		}

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 #include "LOG.h"
@@ -16,10 +16,10 @@
 struct MULTIREDISWRITE
 {
 	/*
-	Ö´ĞĞÃüÁîstring_view¼¯
-	Ö´ĞĞÃüÁî¸öÊı
-	Ã¿ÌõÃüÁîµÄ´ÊÓï¸öÊı£¨·½±ã¸ù¾İredis RESP½øĞĞÆ´½Ó£©
-	¼ÓËøÖ±½ÓÆ´½Ó×Ö·û´®µ½×ÜstringÖĞ£¬·¢ËÍÇ°¼ÓËøÈ¡³öÊı¾İ½øĞĞ·¢ËÍ
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	æ‰§è¡Œå‘½ä»¤ä¸ªæ•°
+	æ¯æ¡å‘½ä»¤çš„è¯è¯­ä¸ªæ•°ï¼ˆæ–¹ä¾¿æ ¹æ®redis RESPè¿›è¡Œæ‹¼æ¥ï¼‰
+	åŠ é”ç›´æ¥æ‹¼æ¥å­—ç¬¦ä¸²åˆ°æ€»stringä¸­ï¼Œå‘é€å‰åŠ é”å–å‡ºæ•°æ®è¿›è¡Œå‘é€
 
 	*/
 	// 
@@ -31,9 +31,9 @@ struct MULTIREDISWRITE
 
 
 	/*
-	//²åÈëÇëÇó£¬Ê×ÏÈÅĞ¶ÏÊÇ·ñÁ¬½Óredis·şÎñÆ÷³É¹¦£¬
-	//Èç¹ûÃ»ÓĞÁ¬½Ó£¬²åÈëÖ±½Ó·µ»Ø´íÎó
-	//Á¬½Ó³É¹¦µÄÇé¿öÏÂ£¬¼ì²éÇëÇóÊÇ·ñ·ûºÏÒªÇó
+	//æ’å…¥è¯·æ±‚ï¼Œé¦–å…ˆåˆ¤æ–­æ˜¯å¦è¿æ¥redisæœåŠ¡å™¨æˆåŠŸï¼Œ
+	//å¦‚æœæ²¡æœ‰è¿æ¥ï¼Œæ’å…¥ç›´æ¥è¿”å›é”™è¯¯
+	//è¿æ¥æˆåŠŸçš„æƒ…å†µä¸‹ï¼Œæ£€æŸ¥è¯·æ±‚æ˜¯å¦ç¬¦åˆè¦æ±‚
 	*/
 	bool insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redisRequest);
 
@@ -59,21 +59,21 @@ private:
 
 
 
-	std::unique_ptr<char[]>m_receiveBuffer{};               //½ÓÊÕÏûÏ¢µÄ»º´æ
-	unsigned int m_receiveBufferMaxSize{};                //½ÓÊÕÏûÏ¢ÄÚ´æ¿é×Ü´óĞ¡
-	unsigned int m_receiveBufferNowSize{};                //Ã¿´Î¼ì²éµÄ¿é´óĞ¡
+	std::unique_ptr<char[]>m_receiveBuffer{};               //æ¥æ”¶æ¶ˆæ¯çš„ç¼“å­˜
+	unsigned int m_receiveBufferMaxSize{};                //æ¥æ”¶æ¶ˆæ¯å†…å­˜å—æ€»å¤§å°
+	unsigned int m_receiveBufferNowSize{};                //æ¯æ¬¡æ£€æŸ¥çš„å—å¤§å°
 
 
-	unsigned int m_thisReceivePos{};              //¼ÆËãÃ¿´Îreceive pos¿ªÊ¼´¦
-	unsigned int m_thisReceiveLen{};              //¼ÆËãÃ¿´Îreceive³¤¶È
+	unsigned int m_thisReceivePos{};              //è®¡ç®—æ¯æ¬¡receive poså¼€å§‹å¤„
+	unsigned int m_thisReceiveLen{};              //è®¡ç®—æ¯æ¬¡receiveé•¿åº¦
 
 
-	unsigned int m_commandTotalSize{};                //±¾´Î½Úµã½á¹ûÊı×Ü¼Æ
-	unsigned int m_commandCurrentSize{};              //±¾´Î½Úµã½á¹ûÊıµ±Ç°¼ÆÊı
+	unsigned int m_commandTotalSize{};                //æœ¬æ¬¡èŠ‚ç‚¹ç»“æœæ•°æ€»è®¡
+	unsigned int m_commandCurrentSize{};              //æœ¬æ¬¡èŠ‚ç‚¹ç»“æœæ•°å½“å‰è®¡æ•°
 
 	bool m_jumpNode{ false };
-	unsigned int m_lastPrasePos{  };     //  m_lastReceivePosÔÚÃ¿´Î½âÎöºó²ÅÈ¥±ä¸ü£¬¼ÇÂ¼µ±Ç°½âÎöµ½µÄÎ»ÖÃ
-	//Ã¿´Î½âÎö¿ªÊ¼Ê±¼ì²âµ±Ç°½ÚµãÎ»ÖÃ£¬µ±Ç°½Úµã×î´óÃüÁî£¬ÒÑ¾­»ñÈ¡µ½µÄÃüÁîÊı£¨ÒÔ¼°¸ÃÃüÁîÊÇ·ñÒÑ¾­·µ»Ø±¨´í´¦Àí£¬¶ø¼¤»îÁËÌø¹ı±êÖ¾£©
+	unsigned int m_lastPrasePos{  };     //  m_lastReceivePosåœ¨æ¯æ¬¡è§£æåæ‰å»å˜æ›´ï¼Œè®°å½•å½“å‰è§£æåˆ°çš„ä½ç½®
+	//æ¯æ¬¡è§£æå¼€å§‹æ—¶æ£€æµ‹å½“å‰èŠ‚ç‚¹ä½ç½®ï¼Œå½“å‰èŠ‚ç‚¹æœ€å¤§å‘½ä»¤ï¼Œå·²ç»è·å–åˆ°çš„å‘½ä»¤æ•°ï¼ˆä»¥åŠè¯¥å‘½ä»¤æ˜¯å¦å·²ç»è¿”å›æŠ¥é”™å¤„ç†ï¼Œè€Œæ¿€æ´»äº†è·³è¿‡æ ‡å¿—ï¼‰
 	// $-1\r\n$11\r\nhello_world\r\n               REDISPARSETYPE::LOT_SIZE_STRING
 	// :11\r\n:0\r\n                               REDISPARSETYPE::INTERGER
 	// -ERR unknown command `getx`, with args beginning with: `foo`, \r\n-ERR unknown command `getg`, with args beginning with: `dan`, \r\n                REDISPARSETYPE::ERROR
@@ -81,7 +81,7 @@ private:
 	// *2\r\n$3\r\nfoo\r\n$3\r\nfoo\r\n*2\r\n$3\r\nfoo\r\n$-1\r\n         REDISPARSETYPE::ARRAY
 
 
-	std::unique_ptr<char[]>m_outRangeBuffer{};              //±£´æ±ß½çÎ»ÖÃµÄ×Ö·û´®£¬Èç¹ûÔ½½çµÄ×Ö·û´®³¤¶È³¬¹ım_outRangeMaxSize£¬Ö±½Ó·µ»Ø0¸ö£¬±ÜÃâºóÃæÊ¹ÓÃÊ±³öÏÖ¿ÕÖ¸ÕëÎÊÌâ£¬Êı¾İ´íÂÒÎÊÌâ¿ÉÒÔÍ¨¹ıÀ©´óbuffer´óĞ¡½â¾ö
+	std::unique_ptr<char[]>m_outRangeBuffer{};              //ä¿å­˜è¾¹ç•Œä½ç½®çš„å­—ç¬¦ä¸²ï¼Œå¦‚æœè¶Šç•Œçš„å­—ç¬¦ä¸²é•¿åº¦è¶…è¿‡m_outRangeMaxSizeï¼Œç›´æ¥è¿”å›0ä¸ªï¼Œé¿å…åé¢ä½¿ç”¨æ—¶å‡ºç°ç©ºæŒ‡é’ˆé—®é¢˜ï¼Œæ•°æ®é”™ä¹±é—®é¢˜å¯ä»¥é€šè¿‡æ‰©å¤§bufferå¤§å°è§£å†³
 	unsigned int m_outRangeMaxSize{};                     //
 	unsigned int m_outRangeNowSize{};
 
@@ -91,11 +91,11 @@ private:
 
 
 	std::mutex m_mutex;
-	bool m_connect{ false };                  //ÅĞ¶ÏÊÇ·ñÒÑ¾­½¨Á¢Óëredis¶ËµÄÁ¬½Ó
-	bool m_queryStatus{ false };                         //ÅĞ¶ÏÊÇ·ñÒÑ¾­Æô¶¯´¦ÀíÁ÷³Ì£¬ÕâÀïµÄqueryStatus²»½ö½öÊÇÇëÇóÄÇÃ´¼òµ¥£¬¶øÊÇ°üÀ¨ÇëÇó£¬½ÓÊÕÏûÏ¢£¬½«Ä¿Ç°ÇëÇóÈ«²¿Ïû»¯Íê±ÏµÄ±êÖ¾
+	bool m_connect{ false };                  //åˆ¤æ–­æ˜¯å¦å·²ç»å»ºç«‹ä¸redisç«¯çš„è¿æ¥
+	bool m_queryStatus{ false };                         //åˆ¤æ–­æ˜¯å¦å·²ç»å¯åŠ¨å¤„ç†æµç¨‹ï¼Œè¿™é‡Œçš„queryStatusä¸ä»…ä»…æ˜¯è¯·æ±‚é‚£ä¹ˆç®€å•ï¼Œè€Œæ˜¯åŒ…æ‹¬è¯·æ±‚ï¼Œæ¥æ”¶æ¶ˆæ¯ï¼Œå°†ç›®å‰è¯·æ±‚å…¨éƒ¨æ¶ˆåŒ–å®Œæ¯•çš„æ ‡å¿—
 
 
-	//´ıÍ¶µİ¶ÓÁĞ£¬Î´/µÈ´ıÆ´´ÕÏûÏ¢µÄ¶ÓÁĞ
+	//å¾…æŠ•é€’é˜Ÿåˆ—ï¼Œæœª/ç­‰å¾…æ‹¼å‡‘æ¶ˆæ¯çš„é˜Ÿåˆ—
 	SAFELIST<std::shared_ptr<redisWriteTypeSW>>m_messageList;
 
 
@@ -111,19 +111,19 @@ private:
 
 	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListEnd{};
 
-	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListBeforeParse{};      //ÓÃÀ´ÅĞ¶Ï½âÎöºóÎ»ÖÃÓĞÃ»ÓĞ·¢Éú±ä»¯
+	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListBeforeParse{};      //ç”¨æ¥åˆ¤æ–­è§£æåä½ç½®æœ‰æ²¡æœ‰å‘ç”Ÿå˜åŒ–
 
-	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListAfterParse{};       //ÓÃÀ´ÅĞ¶Ï½âÎöºóÎ»ÖÃÓĞÃ»ÓĞ·¢Éú±ä»¯
+	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListAfterParse{};       //ç”¨æ¥åˆ¤æ–­è§£æåä½ç½®æœ‰æ²¡æœ‰å‘ç”Ÿå˜åŒ–
 
 
 
-	//Ê×ÏÈ»ñÈ¡ÅĞ¶ÏËùĞèÒªµÄ¿Õ¼ä£¬³¢ÊÔ½øĞĞÒ»´ÎĞÔ·ÖÅä¿Õ¼ä£¬¿´ÊÇ·ñ³É¹¦
-	//³É¹¦µÄ»°Éú³É£¬È»ºó½øĞĞ·¢ËÍĞ´ÈëÇëÇó
+	//é¦–å…ˆè·å–åˆ¤æ–­æ‰€éœ€è¦çš„ç©ºé—´ï¼Œå°è¯•è¿›è¡Œä¸€æ¬¡æ€§åˆ†é…ç©ºé—´ï¼Œçœ‹æ˜¯å¦æˆåŠŸ
+	//æˆåŠŸçš„è¯ç”Ÿæˆï¼Œç„¶åè¿›è¡Œå‘é€å†™å…¥è¯·æ±‚
 
-	//ÔÚ×î³õµÄÊ±ºò£¬Ôø¾­Ïë¹ı£¬ÓÃstring_viewÖ¸ÒıÒµÎñ²ãµÄÊı¾İ½øÀ´²åÈë£¬ÔÚÆ´×°Ç°½øĞĞÒ»´Îcopy¼´¿É¡£
-	//µ«×îºó¿¼ÂÇ¹ıÖ®ºó£¬»¹ÊÇÑ¡ÔñÁËÔÚwrite´¦½øĞĞÒ»´Îcopy£¬ÀíÓÉÊÇ£º
-	//Ê¹ÓÃredis³¡¾°ÏÂ£¬¶Á¶àĞ´ÉÙ£¬Èç¹ûÔ´Êı¾İÔÚÒµÎñ²ã£¬ÔòÒµÎñ²ãÃ¿´ÎÊ¹ÓÃ¸Ãbuffer¶¼ĞèÒª½øĞĞ¼ÓËø´¦Àí£¨µ«Ğ´¿ÉÄÜºÜÉÙºÜÉÙ·¢Éú£¬³¤Ô¶À´¿´´ú¼Û²»ÖµµÃ£©
-	//Æä´ÎÊÇ£¬Ô´Êı¾İ¿ÉÄÜ´æÔÚÓÚ¶à¸öµØ·½µÄbufferÖĞ£¬Õâ¾ÍÊ¹µÃ×îºóËùÓĞbuffer¶¼¿ÉÄÜÒª¼ÓËøÊ¹ÓÃ
+	//åœ¨æœ€åˆçš„æ—¶å€™ï¼Œæ›¾ç»æƒ³è¿‡ï¼Œç”¨string_viewæŒ‡å¼•ä¸šåŠ¡å±‚çš„æ•°æ®è¿›æ¥æ’å…¥ï¼Œåœ¨æ‹¼è£…å‰è¿›è¡Œä¸€æ¬¡copyå³å¯ã€‚
+	//ä½†æœ€åè€ƒè™‘è¿‡ä¹‹åï¼Œè¿˜æ˜¯é€‰æ‹©äº†åœ¨writeå¤„è¿›è¡Œä¸€æ¬¡copyï¼Œç†ç”±æ˜¯ï¼š
+	//ä½¿ç”¨redisåœºæ™¯ä¸‹ï¼Œè¯»å¤šå†™å°‘ï¼Œå¦‚æœæºæ•°æ®åœ¨ä¸šåŠ¡å±‚ï¼Œåˆ™ä¸šåŠ¡å±‚æ¯æ¬¡ä½¿ç”¨è¯¥bufferéƒ½éœ€è¦è¿›è¡ŒåŠ é”å¤„ç†ï¼ˆä½†å†™å¯èƒ½å¾ˆå°‘å¾ˆå°‘å‘ç”Ÿï¼Œé•¿è¿œæ¥çœ‹ä»£ä»·ä¸å€¼å¾—ï¼‰
+	//å…¶æ¬¡æ˜¯ï¼Œæºæ•°æ®å¯èƒ½å­˜åœ¨äºå¤šä¸ªåœ°æ–¹çš„bufferä¸­ï¼Œè¿™å°±ä½¿å¾—æœ€åæ‰€æœ‰bufferéƒ½å¯èƒ½è¦åŠ é”ä½¿ç”¨
 	MEMORYPOOL<> m_charMemoryPool;
 
 	//
@@ -133,15 +133,15 @@ private:
 
 
 
-	//Ò»´ÎĞÔ·¢ËÍ×î´óµÄÃüÁî¸öÊı
+	//ä¸€æ¬¡æ€§å‘é€æœ€å¤§çš„å‘½ä»¤ä¸ªæ•°
 	unsigned int m_commandMaxSize{};
 
-	//±¾´Î·¢ËÍµÄÃüÁî¸öÊı
+	//æœ¬æ¬¡å‘é€çš„å‘½ä»¤ä¸ªæ•°
 	unsigned int m_commandNowSize{};
 
 
 	////////////////////////////////////////////////////////
-	//std::string m_message;                     //ÁªºÏ·¢ËÍÃüÁî×Ö·û´®
+	//std::string m_message;                     //è”åˆå‘é€å‘½ä»¤å­—ç¬¦ä¸²
 
 	std::unique_ptr<char[]>m_messageBuffer{};
 
@@ -154,7 +154,7 @@ private:
 
 	unsigned int m_sendLen{};
 
-	std::vector<std::string_view>m_arrayResult;             //ÁÙÊ±´æ´¢Êı×é½á¹ûµÄvector
+	std::vector<std::string_view>m_arrayResult;             //ä¸´æ—¶å­˜å‚¨æ•°ç»„ç»“æœçš„vector
 	//////////////////////////////////////////////////////////////////////////////
 
 

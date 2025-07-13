@@ -1,4 +1,4 @@
-#include "multiRedisRead.h"
+﻿#include "multiRedisRead.h"
 
 MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<LOG> log,
 	std::shared_ptr<std::function<void()>> unlockFun,
@@ -47,30 +47,30 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 
 
 /*
-	ִ������string_view��
-	ִ���������
-	ÿ������Ĵ���������������redis RESP����ƴ�ӣ�
-	��ȡ�������  ����Ϊ����һЩ����������ܲ�һ���н�����أ�
+	执行命令string_view集
+	执行命令个数
+	每条命令的词语个数（方便根据redis RESP进行拼接）
+	获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
 
-	���ؽ��string_view
-	ÿ������Ĵ������
+	返回结果string_view
+	每个结果的词语个数
 
-	�ص�����
+	回调函数
 	*/
 
-	//�������������ж��Ƿ�����redis�������ɹ���
-	//���û�����ӣ�����ֱ�ӷ��ش���
-	//���ӳɹ�������£���������Ƿ����Ҫ��
+	//插入请求，首先判断是否连接redis服务器成功，
+	//如果没有连接，插入直接返回错误
+	//连接成功的情况下，检查请求是否符合要求
 
-	//�Ƚ��в��뵽m_waitMessageList��
-	//���û�����ڽ��е�������ֱ�ӷ������󣬷�����뵽�����������У��Ժ������ˮ�������װ����
+	//先进行插入到m_waitMessageList中
+	//如果没有正在进行的请求则直接发起请求，否则插入到待处理队列中，稍后进行流水线命令封装发射
 
 
 	//   using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 	//     std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 	//     std::function<void(bool, enum ERRORMESSAGE) >> ;
 
-bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redisRequest)
+bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW> &redisRequest)
 {
 	if (!redisRequest)
 		return false;
@@ -99,7 +99,7 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redi
 		std::vector<unsigned int>::const_iterator lenBegin{ lenVec.cbegin() }, lenEnd{ lenVec.cend() };
 		char* messageIter{};
 
-		//���㱾������Ҫ�Ŀռ��С
+		//计算本次所需要的空间大小
 		static const int divisor{ 10 };
 		int totalLen{}, everyLen{}, index{}, temp{}, thisStrLen{};
 		do
@@ -146,7 +146,7 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redi
 		m_messageBufferNowSize = totalLen;
 
 
-		//copy���ɵ������ַ���buffer��
+		//copy生成到发送字符串buffer中
 
 		souceBegin = sourceVec.cbegin(), lenBegin = lenVec.cbegin();
 
@@ -242,7 +242,7 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redi
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
-		//���뷢�ͺ���
+		//进入发送函数
 
 		query();
 
@@ -371,7 +371,7 @@ void MULTIREDISREAD::query()
 	{
 		if (err)  //log
 		{
-			m_log->writeLog(__FILE__, __LINE__, err.what());
+			m_log->writeLog(__FUNCTION__, __LINE__, err.what());
 			m_connectStatus = 2;
 
 			ec = {};
@@ -389,7 +389,7 @@ void MULTIREDISREAD::query()
 
 
 
-//���ճɹ��Ļ����봦������
+//接收成功的话进入处理函数
 void MULTIREDISREAD::receive()
 {
 	if (m_receiveBufferNowSize == m_receiveBufferMaxSize)
@@ -420,29 +420,29 @@ void MULTIREDISREAD::resetReceiveBuffer()
 
 
 
-//��󷵻ؽ��������ʱ���жϵ�ǰ�ڵ���������������ǵ�������Ļ�����ô����ϸ�����ַ��ؾ�����Ϣ
-//��֮Ӧ�÷���һ�����ϲ�ѯ�ɹ���־
+//最后返回结果处理的时候，判断当前节点请求总数，如果是单个请求的话，那么可以细致区分返回具体信息
+//反之应该返回一个联合查询成功标志
 
-//�����ж�m_jumpNode״̬���������m_jumpNode״̬����ô��ȡ��Ҫ�����Ľ��������ʼ�ۻ�����
-//���m_jumpNode״̬Ϊ�����Ļ�����ô��ȡ���ڵ�������������ռ���������������Ϊ�ڵ�ڶ�λ���ռ����������֮�󷵻�
-//�������飬���ȴ洢����ʱbuffer�У���ȡ��Ϻ�һ���Դ洢���ڵ�vector������У�
-//����֮���ж��Ƿ��ߵ�end�ڵ㣬�ǵĻ���ȡ��ϣ�����true
+//首先判断m_jumpNode状态，如果处于m_jumpNode状态，那么获取需要跳过的结果数，开始累积跳过
+//如果m_jumpNode状态为正常的话，那么获取本节点的命令数，已收集命令数，命令数为节点第二位，收集到满足次数之后返回
+//对于数组，首先存储到临时buffer中，获取完毕后，一次性存储到节点vector结果集中，
+//结束之后判断是否走到end节点，是的话获取完毕，返回true
 
-//��������
-//PS������return�ĵط�����֮ǰ��Ҫ����ʱ������ֵ����ص����Ա����
-// ��ʱ���������ٶȿ죬����Ҫ����ʹ������һ��ʼ������ʱ�����������Ա������ʼ����������˳�ʱ��ֵ�����ȥ
+//解析函数
+//PS：所有return的地方调用之前需要将临时变量赋值给相关的类成员变量
+// 临时变量操作速度快，当需要大量使用是在一开始设置临时变量，用类成员变量初始化，在最后退出时将值保存回去
 bool MULTIREDISREAD::parse(const int size)
 {
 	const char* iterBegin{ }, * iterEnd{ m_receiveBuffer.get() + m_receiveBufferNowSize }, * iterHalfBegin{ m_receiveBuffer.get() },
-		* iterHalfEnd{ m_receiveBuffer.get() + m_receiveBufferMaxSize }, * iterFind{},        // ��ʼ ����  Ѱ�ҽڵ�
-		* iterLenBegin{}, * iterLenEnd{},               //���Ƚڵ�
-		* iterStrBegin{}, * iterStrEnd{},               //����SIMPLE_STRING��βλ��
+		* iterHalfEnd{ m_receiveBuffer.get() + m_receiveBufferMaxSize }, * iterFind{},        // 开始 结束  寻找节点
+		* iterLenBegin{}, * iterLenEnd{},               //长度节点
+		* iterStrBegin{}, * iterStrEnd{},               //本次SIMPLE_STRING首尾位置
 		* errorBegin{}, * errorEnd{},
 		* arrayNumBegin{}, * arrayNumEnd{};
 
-	// m_lastPrasePos    m_jumpNode  m_waitMessageListBegin   m_commandTotalSize    m_commandCurrentSize����ʱ��Ҫͬ������
+	// m_lastPrasePos    m_jumpNode  m_waitMessageListBegin   m_commandTotalSize    m_commandCurrentSize返回时需要同步处理
 
-	bool jumpNode{ m_jumpNode }, jump{ false };  //�Ƿ��Ѿ������ػ����
+	bool jumpNode{ m_jumpNode }, jump{ false };  //是否已经经过回环情况
 	std::shared_ptr<redisResultTypeSW>* waitMessageListBegin = m_waitMessageListBegin;
 	std::shared_ptr<redisResultTypeSW>* waitMessageListEnd = m_waitMessageListEnd;
 	unsigned int commandTotalSize{ m_commandTotalSize }, commandCurrentSize{ m_commandCurrentSize };
@@ -452,7 +452,7 @@ bool MULTIREDISREAD::parse(const int size)
 	/////////////////////////////
 
 
-	unsigned int len{};     //�����ַ�������ʹ��
+	unsigned int len{};     //计算字符串长度使用
 	int index{}, num{}, arrayNum{}, arrayIndex{};
 
 
@@ -462,7 +462,7 @@ bool MULTIREDISREAD::parse(const int size)
 		iterBegin = m_receiveBuffer.get() + m_lastPrasePos;
 
 
-	//��������û�лػ����
+	//接收数据没有回环情况
 	if (iterBegin < iterEnd)
 	{
 		////////////////////////////////
@@ -491,7 +491,7 @@ bool MULTIREDISREAD::parse(const int size)
 						iterFind += 4;
 						iterBegin = iterFind;
 						////////////////////////////////////////////////////////////////////////////////////////////////////////////
-						//���ν��������  -1�����������
+						//本次结果返回无  -1，看情况处理
 
 						if (!jumpNode)
 						{
@@ -507,10 +507,10 @@ bool MULTIREDISREAD::parse(const int size)
 						}
 
 
-						//ֻ���𷵻سɹ����
+						//只负责返回成功与否
 						if (++commandCurrentSize == commandTotalSize)
 						{
-							//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+							//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 							if (jumpNode)
 							{
 
@@ -583,7 +583,7 @@ bool MULTIREDISREAD::parse(const int size)
 						iterStrBegin = iterLenEnd + 2;
 						iterStrEnd = iterStrBegin + len;
 
-						//���ν����ȡ�ɹ�����������д���
+						//本次结果获取成功，看情况进行处理
 
 						//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 						if (!jumpNode)
@@ -602,7 +602,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 						if (++commandCurrentSize == commandTotalSize)
 						{
-							//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+							//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 							if (jumpNode)
 							{
 
@@ -662,7 +662,7 @@ bool MULTIREDISREAD::parse(const int size)
 				iterFind = iterLenEnd + 2;
 				iterBegin = iterFind;
 
-				//���iterLenBegin    iterLenEnd
+				//结果iterLenBegin    iterLenEnd
 				////////////////////////////////////////////////////////////////////////
 				if (!jumpNode)
 				{
@@ -680,7 +680,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -720,7 +720,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				iterFind = errorEnd + 2;
 				iterBegin = iterFind;
-				//���ش�����Ϣ���
+				//返回错误信息结果
 				////////////////////////////////////////////////////////////////////////////////////////////
 
 				if (!jumpNode)
@@ -739,7 +739,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -779,7 +779,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				iterFind = iterStrEnd + 2;
 				iterBegin = iterFind;
-				//���ش�����Ϣ���
+				//返回错误信息结果
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 				if (!jumpNode)
@@ -798,7 +798,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -898,7 +898,7 @@ bool MULTIREDISREAD::parse(const int size)
 						}
 
 						iterFind += 4;
-						///////////////////////   ����û�н����������ô���رȽϷ���  -1////////////////////
+						///////////////////////   本次没有结果，考虑怎么返回比较方便  -1////////////////////
 
 						if (!jumpNode)
 						{
@@ -962,7 +962,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 					iterFind = iterStrEnd + 2;
 
-					//////////////////////////////////////////////  ÿ�ε���Ч���
+					//////////////////////////////////////////////  每次的有效结果
 
 					if (!jumpNode)
 					{
@@ -982,7 +982,7 @@ bool MULTIREDISREAD::parse(const int size)
 				}
 				iterBegin = iterFind;
 
-				///////////////////////////////////////////////////////////////////////// ������в�������
+				///////////////////////////////////////////////////////////////////////// 这里进行参数传递
 
 
 				if (!jumpNode)
@@ -1003,7 +1003,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -1033,7 +1033,7 @@ bool MULTIREDISREAD::parse(const int size)
 			}
 		}
 	}
-	else      //�������ݻػ����
+	else      //接收数据回环情况
 	{
 
 
@@ -1081,7 +1081,7 @@ bool MULTIREDISREAD::parse(const int size)
 								iterBegin = iterFind;
 								jump = true;
 							}
-							//���ν��������  -1�����������
+							//本次结果返回无  -1，看情况处理
 
 							///////////////////////////////////////////////////////
 
@@ -1101,7 +1101,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 							if (++commandCurrentSize == commandTotalSize)
 							{
-								//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+								//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 								if (jumpNode)
 								{
 
@@ -1143,7 +1143,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							iterFind += 4;
 							iterBegin = iterFind;
-							//���ν��������  -1�����������
+							//本次结果返回无  -1，看情况处理
 							//////////////////////////////////////////
 
 							if (!jumpNode)
@@ -1161,7 +1161,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 							if (++commandCurrentSize == commandTotalSize)
 							{
-								//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+								//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 								if (jumpNode)
 								{
 
@@ -1312,7 +1312,7 @@ bool MULTIREDISREAD::parse(const int size)
 								iterStrEnd = iterStrBegin + len;
 							}
 
-							//���ν����ȡ�ɹ�����������д�����ע���жϻػ����    iterStrBegin      iterStrEnd
+							//本次结果获取成功，看情况进行处理，注意判断回环情况    iterStrBegin      iterStrEnd
 
 							/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1320,12 +1320,12 @@ bool MULTIREDISREAD::parse(const int size)
 
 							if (!jumpNode)
 							{
-								//��Ҫ�ػ���������
+								//需要回环处理拷贝
 								if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
 								{
-									//��Ϊ��һ�׻��Ʊ��ʽ�����Σ�յ�ָ��֮�ϣ��������Ϊ�˰�ȫ�����������ݻػ������Ҫ���������ʱ���жϳ����Ƿ���m_outRangeMaxSize֮�ڣ������������Ը�ж�Ϊû�С�
-								//���ʹ���߾��ÿ��Գ��ܺ������ô���������ﻻ�ɶ�̬�����ڴ���п���������Ҫ��סһ�㣺һ�����Ʋ��ã���ʹ����ζ�̬�����ڴ�ʱ�ڶ��ν�����Ϣ����ʱһ���������·��䣬
-								//���ܻᴥ����ָ���쳣 ����ֱ�ӱ���
+									//因为这一套机制本质建立在危险的指针之上，因此这里为了安全，当发生数据回环情况需要拷贝保存的时候，判断长度是否在m_outRangeMaxSize之内，如果超过，宁愿判断为没有。
+								//如果使用者觉得可以承受后果，那么可以在这里换成动态分配内存进行拷贝，但是要记住一点：一旦控制不好，在使用这段动态分配内存时第二次接收信息来到时一旦进行重新分配，
+								//可能会触发空指针异常 程序直接崩溃
 									if (len <= m_outRangeMaxSize)
 									{
 										std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
@@ -1370,7 +1370,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 							if (++commandCurrentSize == commandTotalSize)
 							{
-								//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+								//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 								if (jumpNode)
 								{
 
@@ -1431,19 +1431,19 @@ bool MULTIREDISREAD::parse(const int size)
 							iterStrBegin = iterLenEnd + 2;
 							iterStrEnd = iterStrBegin + len;
 
-							//���ν����ȡ�ɹ�����������д�����ע���жϻػ����
+							//本次结果获取成功，看情况进行处理，注意判断回环情况
 
 							/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 							if (!jumpNode)
 							{
-								//��Ҫ�ػ���������
+								//需要回环处理拷贝
 								if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
 								{
-									//��Ϊ��һ�׻��Ʊ��ʽ�����Σ�յ�ָ��֮�ϣ��������Ϊ�˰�ȫ�����������ݻػ������Ҫ���������ʱ���жϳ����Ƿ���m_outRangeMaxSize֮�ڣ������������Ը�ж�Ϊû�С�
-								//���ʹ���߾��ÿ��Գ��ܺ������ô���������ﻻ�ɶ�̬�����ڴ���п���������Ҫ��סһ�㣺һ�����Ʋ��ã���ʹ����ζ�̬�����ڴ�ʱ�ڶ��ν�����Ϣ����ʱһ���������·��䣬
-								//���ܻᴥ����ָ���쳣 ����ֱ�ӱ���
+									//因为这一套机制本质建立在危险的指针之上，因此这里为了安全，当发生数据回环情况需要拷贝保存的时候，判断长度是否在m_outRangeMaxSize之内，如果超过，宁愿判断为没有。
+								//如果使用者觉得可以承受后果，那么可以在这里换成动态分配内存进行拷贝，但是要记住一点：一旦控制不好，在使用这段动态分配内存时第二次接收信息来到时一旦进行重新分配，
+								//可能会触发空指针异常 程序直接崩溃
 									if (len <= m_outRangeMaxSize)
 									{
 										std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
@@ -1488,7 +1488,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 							if (++commandCurrentSize == commandTotalSize)
 							{
-								//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+								//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 								if (jumpNode)
 								{
 
@@ -1610,19 +1610,19 @@ bool MULTIREDISREAD::parse(const int size)
 				iterBegin = iterFind;
 
 
-				//���iterLenBegin    iterLenEnd    ע��ػ��������
+				//结果iterLenBegin    iterLenEnd    注意回环情况处理
 
 				/////////////////////////////////////////////////////////////////////////////////////////
 
 
 				if (!jumpNode)
 				{
-					//��Ҫ�ػ���������
+					//需要回环处理拷贝
 					if (iterLenBegin < iterHalfEnd && iterLenEnd>iterHalfBegin)
 					{
-						//��Ϊ��һ�׻��Ʊ��ʽ�����Σ�յ�ָ��֮�ϣ��������Ϊ�˰�ȫ�����������ݻػ������Ҫ���������ʱ���жϳ����Ƿ���m_outRangeMaxSize֮�ڣ������������Ը�ж�Ϊû�С�
-					//���ʹ���߾��ÿ��Գ��ܺ������ô���������ﻻ�ɶ�̬�����ڴ���п���������Ҫ��סһ�㣺һ�����Ʋ��ã���ʹ����ζ�̬�����ڴ�ʱ�ڶ��ν�����Ϣ����ʱһ���������·��䣬
-					//���ܻᴥ����ָ���쳣 ����ֱ�ӱ���
+						//因为这一套机制本质建立在危险的指针之上，因此这里为了安全，当发生数据回环情况需要拷贝保存的时候，判断长度是否在m_outRangeMaxSize之内，如果超过，宁愿判断为没有。
+					//如果使用者觉得可以承受后果，那么可以在这里换成动态分配内存进行拷贝，但是要记住一点：一旦控制不好，在使用这段动态分配内存时第二次接收信息来到时一旦进行重新分配，
+					//可能会触发空指针异常 程序直接崩溃
 						if (len <= m_outRangeMaxSize)
 						{
 							std::copy(iterLenBegin, iterHalfEnd, m_outRangeBuffer.get());
@@ -1667,7 +1667,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -1768,18 +1768,18 @@ bool MULTIREDISREAD::parse(const int size)
 				}
 				iterBegin = iterFind;
 
-				//���ش�����Ϣ���   errorBegin      errorEnd ע��ػ��������
+				//返回错误信息结果   errorBegin      errorEnd 注意回环情况处理
 				///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 				if (!jumpNode)
 				{
-					//��Ҫ�ػ���������
+					//需要回环处理拷贝
 					if (errorBegin < iterHalfEnd && errorEnd>iterHalfBegin)
 					{
 						len = iterHalfEnd - errorBegin + errorEnd - iterHalfBegin;
-						//��Ϊ��һ�׻��Ʊ��ʽ�����Σ�յ�ָ��֮�ϣ��������Ϊ�˰�ȫ�����������ݻػ������Ҫ���������ʱ���жϳ����Ƿ���m_outRangeMaxSize֮�ڣ������������Ը�ж�Ϊû�С�
-					//���ʹ���߾��ÿ��Գ��ܺ������ô���������ﻻ�ɶ�̬�����ڴ���п���������Ҫ��סһ�㣺һ�����Ʋ��ã���ʹ����ζ�̬�����ڴ�ʱ�ڶ��ν�����Ϣ����ʱһ���������·��䣬
-					//���ܻᴥ����ָ���쳣 ����ֱ�ӱ���
+						//因为这一套机制本质建立在危险的指针之上，因此这里为了安全，当发生数据回环情况需要拷贝保存的时候，判断长度是否在m_outRangeMaxSize之内，如果超过，宁愿判断为没有。
+					//如果使用者觉得可以承受后果，那么可以在这里换成动态分配内存进行拷贝，但是要记住一点：一旦控制不好，在使用这段动态分配内存时第二次接收信息来到时一旦进行重新分配，
+					//可能会触发空指针异常 程序直接崩溃
 						if (len <= m_outRangeMaxSize)
 						{
 							std::copy(errorBegin, iterHalfEnd, m_outRangeBuffer.get());
@@ -1826,7 +1826,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -1926,18 +1926,18 @@ bool MULTIREDISREAD::parse(const int size)
 				}
 				iterBegin = iterFind;
 
-				//������Ϣ���   iterStrBegin      iterStrEnd ע��ػ��������   ��Ҫ����len
+				//返回信息结果   iterStrBegin      iterStrEnd 注意回环情况处理   需要计算len
 				////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 				if (!jumpNode)
 				{
-					//��Ҫ�ػ���������
+					//需要回环处理拷贝
 					if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
 					{
 						len = iterHalfEnd - iterStrBegin + iterStrEnd - iterHalfBegin;
-						//��Ϊ��һ�׻��Ʊ��ʽ�����Σ�յ�ָ��֮�ϣ��������Ϊ�˰�ȫ�����������ݻػ������Ҫ���������ʱ���жϳ����Ƿ���m_outRangeMaxSize֮�ڣ������������Ը�ж�Ϊû�С�
-					//���ʹ���߾��ÿ��Գ��ܺ������ô���������ﻻ�ɶ�̬�����ڴ���п���������Ҫ��סһ�㣺һ�����Ʋ��ã���ʹ����ζ�̬�����ڴ�ʱ�ڶ��ν�����Ϣ����ʱһ���������·��䣬
-					//���ܻᴥ����ָ���쳣 ����ֱ�ӱ���
+						//因为这一套机制本质建立在危险的指针之上，因此这里为了安全，当发生数据回环情况需要拷贝保存的时候，判断长度是否在m_outRangeMaxSize之内，如果超过，宁愿判断为没有。
+					//如果使用者觉得可以承受后果，那么可以在这里换成动态分配内存进行拷贝，但是要记住一点：一旦控制不好，在使用这段动态分配内存时第二次接收信息来到时一旦进行重新分配，
+					//可能会触发空指针异常 程序直接崩溃
 						if (len <= m_outRangeMaxSize)
 						{
 							std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
@@ -1984,7 +1984,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -2209,7 +2209,7 @@ bool MULTIREDISREAD::parse(const int size)
 							iterFind += 4;
 						}
 
-						///////////////////////   ����û�н����������ô���رȽϷ���  -1  //////////////////////////////////////////////////////
+						///////////////////////   本次没有结果，考虑怎么返回比较方便  -1  //////////////////////////////////////////////////////
 
 						if (!jumpNode)
 						{
@@ -2396,17 +2396,17 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 
 
-					//////////////////////////////////////////////  ÿ�ε���Ч�����ע��ػ�����    iterStrBegin      iterStrEnd   len////////////////////
+					//////////////////////////////////////////////  每次的有效结果，注意回环处理    iterStrBegin      iterStrEnd   len////////////////////
 
 
 					if (!jumpNode)
 					{
-						//��Ҫ�ػ���������
+						//需要回环处理拷贝
 						if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
 						{
-							//��Ϊ��һ�׻��Ʊ��ʽ�����Σ�յ�ָ��֮�ϣ��������Ϊ�˰�ȫ�����������ݻػ������Ҫ���������ʱ���жϳ����Ƿ���m_outRangeMaxSize֮�ڣ������������Ը�ж�Ϊû�С�
-						//���ʹ���߾��ÿ��Գ��ܺ������ô���������ﻻ�ɶ�̬�����ڴ���п���������Ҫ��סһ�㣺һ�����Ʋ��ã���ʹ����ζ�̬�����ڴ�ʱ�ڶ��ν�����Ϣ����ʱһ���������·��䣬
-						//���ܻᴥ����ָ���쳣 ����ֱ�ӱ���
+							//因为这一套机制本质建立在危险的指针之上，因此这里为了安全，当发生数据回环情况需要拷贝保存的时候，判断长度是否在m_outRangeMaxSize之内，如果超过，宁愿判断为没有。
+						//如果使用者觉得可以承受后果，那么可以在这里换成动态分配内存进行拷贝，但是要记住一点：一旦控制不好，在使用这段动态分配内存时第二次接收信息来到时一旦进行重新分配，
+						//可能会触发空指针异常 程序直接崩溃
 							if (len <= m_outRangeMaxSize)
 							{
 								std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
@@ -2473,7 +2473,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -2534,7 +2534,7 @@ bool MULTIREDISREAD::parse(const int size)
 						iterFind += 4;
 						iterBegin = iterFind;
 						////////////////////////////////////////////////////////////////////////////////////////////////////////////
-						//���ν��������  -1�����������
+						//本次结果返回无  -1，看情况处理
 
 						if (!jumpNode)
 						{
@@ -2551,7 +2551,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 						if (++commandCurrentSize == commandTotalSize)
 						{
-							//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+							//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 							if (jumpNode)
 							{
 
@@ -2621,7 +2621,7 @@ bool MULTIREDISREAD::parse(const int size)
 						iterStrBegin = iterLenEnd + 2;
 						iterStrEnd = iterStrBegin + len;
 
-						//���ν����ȡ�ɹ�����������д���
+						//本次结果获取成功，看情况进行处理
 
 						//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 						if (!jumpNode)
@@ -2640,7 +2640,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 						if (++commandCurrentSize == commandTotalSize)
 						{
-							//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+							//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 							if (jumpNode)
 							{
 
@@ -2697,7 +2697,7 @@ bool MULTIREDISREAD::parse(const int size)
 				iterFind = iterLenEnd + 2;
 				iterBegin = iterFind;
 
-				//���iterLenBegin    iterLenEnd
+				//结果iterLenBegin    iterLenEnd
 				////////////////////////////////////////////////////////////////////////
 				if (!jumpNode)
 				{
@@ -2715,7 +2715,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -2755,7 +2755,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				iterFind = errorEnd + 2;
 				iterBegin = iterFind;
-				//���ش�����Ϣ���
+				//返回错误信息结果
 				////////////////////////////////////////////////////////////////////////////////////////////
 
 				if (!jumpNode)
@@ -2774,7 +2774,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -2814,7 +2814,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				iterFind = iterStrEnd + 2;
 				iterBegin = iterFind;
-				//���ش�����Ϣ���
+				//返回错误信息结果
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 				if (!jumpNode)
@@ -2833,7 +2833,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -2933,7 +2933,7 @@ bool MULTIREDISREAD::parse(const int size)
 						}
 
 						iterFind += 4;
-						///////////////////////   ����û�н����������ô���رȽϷ���  -1////////////////////
+						///////////////////////   本次没有结果，考虑怎么返回比较方便  -1////////////////////
 
 						if (!jumpNode)
 						{
@@ -2997,7 +2997,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 					iterFind = iterStrEnd + 2;
 
-					//////////////////////////////////////////////  ÿ�ε���Ч���
+					//////////////////////////////////////////////  每次的有效结果
 
 					if (!jumpNode)
 					{
@@ -3017,7 +3017,7 @@ bool MULTIREDISREAD::parse(const int size)
 				}
 				iterBegin = iterFind;
 
-				///////////////////////////////////////////////////////////////////////// ������в�������
+				///////////////////////////////////////////////////////////////////////// 这里进行参数传递
 
 
 				if (!jumpNode)
@@ -3038,7 +3038,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (++commandCurrentSize == commandTotalSize)
 				{
-					//����jumpNode״̬ ���ûص��������ر��γɹ���ʧ�ܽ��
+					//根据jumpNode状态 调用回调函数返回本次成功与失败结果
 					if (jumpNode)
 					{
 
@@ -3070,7 +3070,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 	}
 
-	//  ����Ѿ��������������У��򷵻�true,	
+	//  如果已经处理完整个队列，则返回true,	
 	m_lastPrasePos = iterBegin - m_receiveBuffer.get();
 	m_jumpNode = jumpNode;
 	m_waitMessageListBegin = waitMessageListBegin;
@@ -3089,7 +3089,7 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 {
 	if (err)
 	{
-		m_log->writeLog(__FILE__, __LINE__, err.what());
+		m_log->writeLog(__FUNCTION__, __LINE__, err.what());
 		m_connectStatus = 2;
 
 		ec = {};
@@ -3105,8 +3105,8 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 		{
 			m_receiveBufferNowSize += size;
 
-			//ÿ�ν��н���֮ǰ��Ҫ���浱ǰ�����ڵ�λ�ã�ʧ��ʱ���бȶԣ��������buffer������������Ȼ����û�б仯���򽫵�ǰ�������еĽڵ�ȫ�����ش���Ȼ����������У������µ�������Ϣ��
-			//��Ϊ����㷨���ٵĹؼ����ڼ�������ԭbuffer����
+			//每次进行解析之前需要保存当前解析节点位置，失败时进行比对，如果整个buffer都被塞满了依然还是没有变化，则将当前处理队列的节点全部返回错误，然后检查请求队列，生成新的请求消息，
+			//因为这个算法快速的关键在于极致利用原buffer数据
 
 			m_waitMessageListBeforeParse = m_waitMessageListBegin;
 
@@ -3119,7 +3119,7 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 				{
 					if (m_receiveBufferNowSize == m_lastPrasePos)
 					{
-						// ��m_waitMessageListBegin �� m_waitMessageListEnd ͳͳ���ؽ�������״̬
+						// 对m_waitMessageListBegin 到 m_waitMessageListEnd 统统返回解析错误状态
 
 						do
 						{
@@ -3142,12 +3142,12 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 			}
 			else
 			{
-				// ȫ��������ȫ�ˣ��ж�m_waitMessageListBegin == m_waitMessageListEnd
-				//����һ��whileѭ�����ж�
-				//��������ֱ�ӳ���ȡcommandSize��Ԫ�أ��������Ϊ�գ����˳������ô���״̬Ϊ��
-				//�����ȡ��Ԫ�أ������������Ҫ�Ŀռ�Ϊ����
-				//���Է���ռ䣬����ʧ����continue����
-				//�ɹ���copy��ϣ����뷢������׶�ѭ��
+				// 全部解析完全了，判断m_waitMessageListBegin == m_waitMessageListEnd
+				//设置一个while循环来判断
+				//加锁首先直接尝试取commandSize个元素，如果队列为空，则退出，设置处理状态为否
+				//如果获取到元素，则遍历计算需要的空间为多少
+				//尝试分配空间，分配失败则continue处理
+				//成功则copy组合，进入发送命令阶段循环
 
 
 				readyMessage();
@@ -3161,21 +3161,21 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 }
 
 
-//pipline��ˮ�������װ����
-//����һ��whileѭ�����ж�
-//��������ֱ�ӳ���ȡcommandSize��Ԫ�أ��������Ϊ�գ����˳������ô���״̬Ϊ��
-//�����ȡ��Ԫ�أ������������Ҫ�Ŀռ�Ϊ����
-//���Է���ռ䣬����ʧ����continue����
-//�ɹ���copy��ϣ����뷢������׶�ѭ��
+//pipline流水线命令封装函数
+//设置一个while循环来判断
+//加锁首先直接尝试取commandSize个元素，如果队列为空，则退出，设置处理状态为否
+//如果获取到元素，则遍历计算需要的空间为多少
+//尝试分配空间，分配失败则continue处理
+//成功则copy组合，进入发送命令阶段循环
 void MULTIREDISREAD::readyMessage()
 {
 
-	//�Ƚ���Ҫ�õ��Ĺؼ�������λ���ٳ��������µ�������Ϣ
+	//先将需要用到的关键变量复位，再尝试生成新的请求消息
 	std::vector<std::string_view>::const_iterator souceBegin, souceEnd;
 	std::vector<unsigned int>::const_iterator lenBegin, lenEnd;
 	char* messageIter{};
 
-	//���㱾������Ҫ�Ŀռ��С
+	//计算本次所需要的空间大小
 	static const int divisor{ 10 };
 	int totalLen{}, everyLen{}, index{}, temp{}, thisStrLen{};
 
@@ -3185,7 +3185,7 @@ void MULTIREDISREAD::readyMessage()
 		m_waitMessageListEnd = m_waitMessageList.get() + m_commandMaxSize;
 
 
-		//��m_messageList�л�ȡԪ�ص�m_waitMessageList��
+		//从m_messageList中获取元素到m_waitMessageList中
 
 
 		do
@@ -3201,9 +3201,10 @@ void MULTIREDISREAD::readyMessage()
 		}
 
 
-		//���Լ������������  �����ַ�������Ҫ�ܳ���,���ü��ǿ�����
+		//尝试计算总命令个数  命令字符串所需要总长度,不用检查非空问题
 		m_waitMessageListEnd = m_waitMessageListBegin;
 		m_waitMessageListBegin = m_waitMessageList.get();
+
 		totalLen = 0;
 
 		do
@@ -3244,8 +3245,8 @@ void MULTIREDISREAD::readyMessage()
 
 
 
-		//�����ܳ�����ϣ����Խ��з���ռ�
-		//����ʧ��ʱ��ǵñ������������ش���
+		//计算总长度完毕，尝试进行分配空间
+		//分配失败时候记得遍历处理，返回错误
 		if (totalLen > m_messageBufferMaxSize)
 		{
 			try
@@ -3272,7 +3273,7 @@ void MULTIREDISREAD::readyMessage()
 
 
 
-		/////////�������������ַ���
+		/////////生成请求命令字符串
 
 		m_waitMessageListBegin = m_waitMessageList.get();
 		messageIter = m_messageBuffer.get();
@@ -3361,7 +3362,7 @@ void MULTIREDISREAD::readyMessage()
 
 
 
-		////   ׼������
+		////   准备发送
 
 		m_sendMessage = m_messageBuffer.get(), m_sendLen = m_messageBufferNowSize;
 
@@ -3378,7 +3379,7 @@ void MULTIREDISREAD::readyMessage()
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
-		//���뷢�ͺ���
+		//进入发送函数
 
 		query();
 
@@ -3399,7 +3400,7 @@ void MULTIREDISREAD::shutdownLoop()
 	else
 	{
 		m_sock->cancel(ec);
-		//�ȴ��첽cancel���
+		//等待异步cancel完成
 		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
 	}
 }
@@ -3416,7 +3417,7 @@ void MULTIREDISREAD::cancelLoop()
 	else
 	{
 		m_sock->close(ec);
-		//�ȴ��첽cancel���
+		//等待异步cancel完成
 		m_timeWheel->insert([this]() {closeLoop(); }, 5);
 	}
 }

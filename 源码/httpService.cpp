@@ -253,17 +253,17 @@ void HTTPSERVICE::testBody()
 {
 	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-	
-	if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-
-	m_buffer->setBodyLen(m_len);
 
 
 	const char *source{ &*m_buffer->getView().body().cbegin() };
-	if (!praseBody(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	std::string_view testView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
+	std::string_view parameterView{ *(BodyBuffer+2),*(BodyBuffer + 3) - *(BodyBuffer+2) };
+	std::string_view numberView{ *(BodyBuffer + 4),*(BodyBuffer + 5) - *(BodyBuffer + 4) };
 	
 	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
@@ -482,16 +482,20 @@ void HTTPSERVICE::testPingPongJson()
 
 
 
-
+//测试前提条件，在database名称为serversql下创建一张表为table1,内部含有变量name,age,book即可，
+//自行插入一些数据
 void HTTPSERVICE::testmultiSqlReadSW()
 {
+
 	std::shared_ptr<resultTypeSW> &sqlRequest{ m_multiSqlRequestSWVec[0] };
 
-	std::vector<std::string_view> &command{ std::get<0>(*sqlRequest).get() };
+	resultTypeSW& thisRequest{ *sqlRequest };
 
-	std::vector<unsigned int> &rowField{ std::get<3>(*sqlRequest).get() };
+	std::vector<std::string_view> &command{ std::get<0>(thisRequest).get() };
 
-	std::vector<std::string_view> &result{ std::get<4>(*sqlRequest).get() };
+	std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
 	
 	command.clear(); 
 	rowField.clear();
@@ -500,10 +504,11 @@ void HTTPSERVICE::testmultiSqlReadSW()
 
 	try
 	{
+
 		command.emplace_back(std::string_view(SQLCOMMAND::testSqlReadMemory, SQLCOMMAND::testSqlReadMemoryLen));
 
-		std::get<1>(*sqlRequest) = 2;
-		std::get<5>(*sqlRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<1>(thisRequest) = 1;     
+		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
@@ -522,113 +527,138 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 {
 	if (result)
 	{
+
 		std::shared_ptr<resultTypeSW> &sqlRequest{ m_multiSqlRequestSWVec[0] };
 
-		unsigned int commandSize{ std::get<1>(*sqlRequest) };
+		resultTypeSW& thisRequest{ *sqlRequest };
 
-		std::vector<unsigned int> &rowField{ std::get<3>(*sqlRequest).get() };
+		std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
 
-		std::vector<std::string_view> &result{ std::get<4>(*sqlRequest).get() };
+		std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
 
-		if (rowField.empty() || result.empty() || (rowField.size() % 2))
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		std::vector<unsigned int>::const_iterator rowFieldIter;
+		int sum{};
 
-		
-		std::vector<std::string_view>::const_iterator resultBegin{ result.cbegin() };
-		std::vector<unsigned int>::const_iterator begin{ rowField.cbegin() }, end{ rowField.cend() }, iter{ begin };
-		int rowNum{}, fieldNum{}, rowCount{}, fieldCount{}, index{ -1 };
+		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
 
-		STLtreeFast &st1{ m_STLtreeFastVec[0] }, &st2{ m_STLtreeFastVec[1] },&st3{ m_STLtreeFastVec[2] }, &st4{ m_STLtreeFastVec[3] };
-
-		if (!st1.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-		if (!st2.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-		if (!st3.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-		if (!st4.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-
-		
-		do
+		st1.reset();
+		st2.reset();
+		st3.reset();
+		st4.reset();
+		//没有任何返回结果或者返回结果错误，自己处理
+		if (result.empty() || rowField.empty() || (rowField.size() % 2))
 		{
-			iter = begin;
-			rowNum = *begin, fieldNum = *(begin + 1);
 
-			rowCount = -1;
-			while (++rowCount != rowNum)
+			if (!st1.clear())
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			makeSendJson(st1);
+		}
+		else
+		{
+			//比对rowField的每两项数据的总乘积是否等于result的个数
+			for (rowFieldIter = rowField.cbegin(); rowFieldIter != rowField.cend(); rowFieldIter+=2)
+			{
+				sum += (*rowFieldIter) * (*(rowFieldIter + 1));
+			}
+			
+			//结果数量不匹配，自己处理
+			if (sum != result.size())
 			{
 			
-				if (!st1.put(STATICSTRING::id, STATICSTRING::id + STATICSTRING::idLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
+				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
+				if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-				++resultBegin;
+				makeSendJson(st1);
 
-				if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
+			else
+			{
+				std::vector<std::string_view>::const_iterator resultBegin{ result.cbegin() };
+				std::vector<unsigned int>::const_iterator begin{ rowField.cbegin() }, end{ rowField.cend() }, iter{ begin };
+				int rowNum{}, fieldNum{}, rowCount{}, fieldCount{}, index{ -1 };
 
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::province, STATICSTRING::province + STATICSTRING::provinceLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::city, STATICSTRING::city + STATICSTRING::cityLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::country, STATICSTRING::country + STATICSTRING::countryLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::phone, STATICSTRING::phone + STATICSTRING::phoneLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st2.push_back(st1))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
+
+				if (!st2.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				if (!st3.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				if (!st4.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		
+
+				do
+				{
+					iter = begin;
+					rowNum = *begin, fieldNum = *(begin + 1);
+
+					rowCount = -1;
+					while (++rowCount != rowNum)
+					{
+						//插入查询结果第一个字段
+						if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, resultBegin->data(), resultBegin->data()+ resultBegin->size()))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						++resultBegin;
+
+						//插入查询结果第二个字段
+						if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, resultBegin->data(), resultBegin->data() + resultBegin->size()))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						++resultBegin;
+
+						//插入查询结果第三个字段
+						if (!st1.put(STATICSTRING::book, STATICSTRING::book + STATICSTRING::bookLen, resultBegin->data(), resultBegin->data() + resultBegin->size()))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						++resultBegin;
+
+						if (!st2.push_back(st1))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						if (!st1.clear())
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+					}
 
 
+
+					if (!st3.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st2))
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					if (!st2.clear())
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					if (!st4.push_back(st3))
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					if (!st3.clear())
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					begin += 2;
+					
+				} while (begin != end);
+
+				if (!st1.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st4))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				makeSendJson(st1);
 			
-			if (!st3.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st2))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-			if (!st4.push_back(st3))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st3.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
+			
+		}
 		
-
-			begin += 2;
-			//std::cout << "result " << ++index << " finished\n";
-		}while(begin != end);
-
-		if (!st1.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st4))
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-		
-
-		makeSendJson(st1);
 	}
 	else
 	{
@@ -1861,7 +1891,7 @@ void HTTPSERVICE::prepare()
 
 
 
-
+	m_MemoryPool.reset();
 
 
 	int i = -1, j{}, z{};
@@ -1870,10 +1900,12 @@ void HTTPSERVICE::prepare()
 	m_mysqlResVec.resize(3, std::vector<MYSQL_RES*>{});
 	m_unsignedIntVec.resize(12, std::vector<unsigned int>{});
 
-	while (++i != 5)
+	while (++i != 4)
 	{
 		m_STLtreeFastVec.emplace_back(STLtreeFast(&m_MemoryPool));
 	}
+	
+
 	
 
 	i = -1, j = -1, z = -1;
@@ -1884,7 +1916,6 @@ void HTTPSERVICE::prepare()
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
-	m_MemoryPool.prepare();
 }
 
 

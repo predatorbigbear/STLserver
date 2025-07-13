@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include<cstdio>
 
@@ -76,6 +76,10 @@ namespace STATICSTRING
 	static const char *sessionID{ "sessionID" };
 
 	static const char *httpSetCookieExpireValue{ "DAY, DD MMM YYYY HH:MM:SS GMT" };
+	
+	static const char *book{ "book" };
+
+	static const char* noResult{ "noResult" };
 	/*
 	https://blog.csdn.net/cosmoslife/article/details/8703696?utm_medium=distribute.pc_relevant.none-task-blog-baidujs_title-8&spm=1001.2101.3001.4242
 
@@ -101,11 +105,11 @@ namespace STATICSTRING
 	//tm_mon   0-11
 	static const char* tm_mon[12]{ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
-	//tm_year  tm_year+1900 ��ת�ַ���
-	//tm_mday  1-31   ֱ��ȡtm_msec[value]
-	//tm_hour  0-23   ֱ��ȡtm_msec[value]
-	//tm_min   0-59   ֱ��ȡtm_msec[value]
-	//tm_sec   0-60   ֱ��ȡtm_msec[value]
+	//tm_year  tm_year+1900 后转字符串
+	//tm_mday  1-31   直接取tm_msec[value]
+	//tm_hour  0-23   直接取tm_msec[value]
+	//tm_min   0-59   直接取tm_msec[value]
+	//tm_sec   0-60   直接取tm_msec[value]
 	static const char* tm_sec[61]{ "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41","42","43","44","45","46","47","48","49","50","51","52","53","54","55","56","57","58","59","60" };
 
 	static const char *GMT{ "GMT" };
@@ -196,6 +200,8 @@ namespace STATICSTRING
 
 	static size_t serverHashLen{ 32 };
 
+	static size_t noResultLen{ strlen(noResult) };
+
 	static size_t testLen{ strlen(test) };
 	
 	static size_t parameterLen{ strlen(parameter) };
@@ -239,6 +245,8 @@ namespace STATICSTRING
 	static size_t provinceLen{ strlen(province) };
 
 	static size_t cityLen{ strlen(city) };
+
+	static size_t bookLen{ strlen(book) };
 
 	static size_t countryLen{ strlen(country) };
 

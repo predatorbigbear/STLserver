@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 #include "listener.h"
@@ -19,43 +19,44 @@ struct MiddleCenter
 
 
 
-	// ¼ì²âĞ´ÈëÎÄ¼şµÄ¶¨Ê±Ê±¼ä
-	// ÁÙÊ±´æ´¢ÈÕÖ¾Êı¾İµÄbuffer¿Õ¼ä´óĞ¡
-	// log³ØÄÚÔªËØ´óĞ¡
-	void setLog(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &success , const int overTime = 60 ,const int bufferSize = 80960, const int bufferNum = 1);
+	// æ£€æµ‹å†™å…¥æ–‡ä»¶çš„å®šæ—¶æ—¶é—´
+	// ä¸´æ—¶å­˜å‚¨æ—¥å¿—æ•°æ®çš„bufferç©ºé—´å¤§å°
+	// logæ± å†…å…ƒç´ å¤§å°
+	void setLog(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &success , const int overTime = 60 ,const int bufferSize = 81920, const int bufferNum = 1);
 
-	// Ä¬ÈÏÍøÒ³ÎÄ¼şÄ¿Â¼
-	// http´¦Àí³ØÄÚÔªËØ¸öÊı
-	// ³¬Ê±Ê±¼ä
+	// é»˜è®¤ç½‘é¡µæ–‡ä»¶ç›®å½•
+	// httpå¤„ç†æ± å†…å…ƒç´ ä¸ªæ•°
+	// è¶…æ—¶æ—¶é—´
 	void setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress, const std::string &doc_root ,
 		std::vector<std::string> &&fileVec,
 		const int socketNum , const int timeOut);
 
-	// ÊÇ·ñÊÇÖ÷redis£¬
-	// Á¬½ÓredisµÄÁ¬½ÓÊı
-	// ´æ·ÅredisÊı¾İµÄbuffer´óĞ¡
-	// ´æ·Å»Ø»·Çé¿öÏÂ¿çÔ½ÄÚ´æÊ×Î²Êı¾İbufferµÄ´óĞ¡
-	// ×î´óÒ»´ÎĞÔ´¦ÀíµÄÃüÁî´óĞ¡
+	// æ˜¯å¦æ˜¯ä¸»redisï¼Œ
+	// è¿æ¥redisçš„è¿æ¥æ•°
+	// å­˜æ”¾redisæ•°æ®çš„bufferå¤§å°
+	// å­˜æ”¾å›ç¯æƒ…å†µä¸‹è·¨è¶Šå†…å­˜é¦–å°¾æ•°æ®bufferçš„å¤§å°
+	// æœ€å¤§ä¸€æ¬¡æ€§å¤„ç†çš„å‘½ä»¤å¤§å°
 	void setMultiRedisRead(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &redisIP, const unsigned int redisPort, const unsigned int bufferNum = 1,
-		const unsigned int memorySize = 65535000, const unsigned int outRangeMaxSize = 65535, const unsigned int commandSize = 50
+		const unsigned int memorySize = 819200, const unsigned int outRangeMaxSize = 65535, const unsigned int commandSize = 50
 	);
 
 
 	// 
 	void setMultiRedisWrite(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &redisIP, const unsigned int redisPort, const unsigned int bufferNum = 1,
-		const unsigned int memorySize = 65535000, const unsigned int outRangeMaxSize = 65535, const unsigned int commandSize = 50
+		const unsigned int memorySize = 4096, const unsigned int outRangeMaxSize = 65535, const unsigned int commandSize = 50
 	);
 
 
 	// 
 	// 
-	// SQLÃÜÂë
+	// SQLå¯†ç 
 	// SQL  DB
-	// ÊÇ·ñÊÇÖ÷sql
-	// ×î´óÒ»´ÎĞÔ´¦ÀíµÄÃüÁî´óĞ¡
-	// Á¬½ÓsqlµÄÁ¬½ÓÊı
+	// æ˜¯å¦æ˜¯ä¸»sql
+	// æœ€å¤§ä¸€æ¬¡æ€§å¤„ç†çš„å‘½ä»¤å¤§å°
+	// è¿æ¥sqlçš„è¿æ¥æ•°
 	void setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize = 50, const int bufferNum = 1);
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, 
+		const int bufferNum = 1, const unsigned int commandMaxSize = 50,  const unsigned int bufferSize = 819200);
 
 
 
@@ -69,8 +70,8 @@ struct MiddleCenter
 
 	void unlock();
 
-	//²ÎÊıÉèÖÃÏêÏ¸¿´STLTimeWheel.hÄÚËµÃ÷
-	void setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool &success , const unsigned int checkSecond = 1, const unsigned int wheelNum = 180, const unsigned int everySecondFunctionNumber = 100);
+	//å‚æ•°è®¾ç½®è¯¦ç»†çœ‹STLTimeWheel.hå†…è¯´æ˜
+	void setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool &success , const unsigned int checkSecond = 1, const unsigned int wheelNum = 120, const unsigned int everySecondFunctionNumber = 100);
 
 
 private:
@@ -81,31 +82,31 @@ private:
 	bool m_initSql{ false };
 
 	
-	std::shared_ptr<LOGPOOL>m_logPool{};                                        //ÈÕÖ¾³Ø
+	std::shared_ptr<LOGPOOL>m_logPool{};                                        //æ—¥å¿—æ± 
 	std::shared_ptr<function<void()>>m_unlockFun{};
-	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};       //ÎÄ¼ş»º´æmap£¬ÓÃÓÚGET·½·¨Ê±»ñÈ¡ÎÄ¼şÊ¹ÓÃ
-	std::vector<std::string>m_fileVec{};               //ÎÄ¼şÃûvector£¬Ö»ĞèÒª´«Èëdoc_rootÄ¿Â¼ÏÂµÄÎÄ¼şÃû¼´¿É£¬²»¿ÉÒÔÇå¿Õ
+	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};       //æ–‡ä»¶ç¼“å­˜mapï¼Œç”¨äºGETæ–¹æ³•æ—¶è·å–æ–‡ä»¶ä½¿ç”¨
+	std::vector<std::string>m_fileVec{};               //æ–‡ä»¶åvectorï¼Œåªéœ€è¦ä¼ å…¥doc_rootç›®å½•ä¸‹çš„æ–‡ä»¶åå³å¯ï¼Œä¸å¯ä»¥æ¸…ç©º
 
 	std::ifstream file;
 
 
-	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   Ö÷Êı¾İ¿âĞ´ÈëÁ¬½Ó³Ø
-	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   Ö÷Êı¾İ¿â¶ÁÈ¡Á¬½Ó³Ø
+	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   ä¸»æ•°æ®åº“å†™å…¥è¿æ¥æ± 
+	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   ä¸»æ•°æ®åº“è¯»å–è¿æ¥æ± 
 
-	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   Ö÷redisĞ´ÈëÁ¬½Ó³Ø
-	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   Ö÷redis¶ÁÈ¡Á¬½Ó³Ø
+	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   ä¸»rediså†™å…¥è¿æ¥æ± 
+	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   ä¸»redisè¯»å–è¿æ¥æ± 
 
-	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //Ê±¼äÂÖ¶¨Ê±Æ÷
+	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //æ—¶é—´è½®å®šæ—¶å™¨
 
 
 	std::mutex m_mutex;
 
 
-	//±£´æÊ±¼äÂÖÄÚÉèÖÃµÄcheckSecond£¬
-	//ÔòËùÓĞsocketµÄ¼ì²éÊ±¼äÎª
-	//if(!(³¬Ê±¼ì²éÊ±¼ä%checkSecond))
-	//      turnNum= ³¬Ê±¼ì²éÊ±¼ä / checkSecond
-	//·ñÔòturnNum= ³¬Ê±¼ì²éÊ±¼ä / checkSecond + 1
+	//ä¿å­˜æ—¶é—´è½®å†…è®¾ç½®çš„checkSecondï¼Œ
+	//åˆ™æ‰€æœ‰socketçš„æ£€æŸ¥æ—¶é—´ä¸º
+	//if(!(è¶…æ—¶æ£€æŸ¥æ—¶é—´%checkSecond))
+	//      turnNum= è¶…æ—¶æ£€æŸ¥æ—¶é—´ / checkSecond
+	//å¦åˆ™turnNum= è¶…æ—¶æ£€æŸ¥æ—¶é—´ / checkSecond + 1
 	unsigned int m_checkSecond{};
 
 
@@ -115,7 +116,7 @@ private:
 	char* outbuffer{ new char[outbufferLen] };
 
 private:
-	//ÒòÎªÖ÷Á÷ä¯ÀÀÆ÷£¬ÊÖ»ú¶¼Ä¬ÈÏÖ§³Ögzip£¬ËùÒÔÊ×ÏÈÔÚÒ»¿ªÊ¼¶ÔÎÄ¼ş×ÊÔ´È«²¿½øĞĞgzip×î¸ßµÈ¼¶Ñ¹Ëõ
+	//å› ä¸ºä¸»æµæµè§ˆå™¨ï¼Œæ‰‹æœºéƒ½é»˜è®¤æ”¯æŒgzipï¼Œæ‰€ä»¥é¦–å…ˆåœ¨ä¸€å¼€å§‹å¯¹æ–‡ä»¶èµ„æºå…¨éƒ¨è¿›è¡Œgzipæœ€é«˜ç­‰çº§å‹ç¼©
 	bool gzip(const char* source, const int sourLen, std::string& outPut);
 
 };

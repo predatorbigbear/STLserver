@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 
@@ -6,7 +6,7 @@
 #include "mysql/mysql.h"
 #include "mysql/mysqld_error.h"
 #include "LOG.h"
-#include "safeList.h"
+#include "fastSafeList.h"
 #include "errorMessage.h"
 
 #include <boost/asio.hpp>
@@ -14,22 +14,25 @@
 
 
 #include<numeric>
+#include<stdexcept>
+#include<exception>
+#include<atomic>
+#include<memory>
 
 
+//æŸ¥æ‰¾å¤šä¸ªæ—¶çš„è¿”å›ç»“æœ
+//ä¸šåŠ¡å±‚ä½¿ç”¨vector<const char**>æ¥è£…è½½å­˜å‚¨æŒ‡é’ˆï¼Œçœå´è‡ªåŠ¨ç®¡ç†çƒ¦æ¼
 
-//²éÕÒ¶à¸öÊ±µÄ·µ»Ø½á¹û
-//ÒµÎñ²ãÊ¹ÓÃvector<const char**>À´×°ÔØ´æ´¢Ö¸Õë£¬Ê¡È´×Ô¶¯¹ÜÀí·³ÄÕ
-
-//¿ò¼Ü²ã¼ÌĞø´«²Î£¬µ«Ê¹ÓÃstringÀ´¹ÜÀíÊı¾İ£¬¹Ø¼üµã²ÉÓÃÖ¸Õë·µ»Ø²Ù×÷
-
-
-//  ÉèÖÃ±êÖ¾Î»£¬¼ÇÂ¼sqlÖ´ĞĞ×´Ì¬
+//æ¡†æ¶å±‚ç»§ç»­ä¼ å‚ï¼Œä½†ä½¿ç”¨stringæ¥ç®¡ç†æ•°æ®ï¼Œå…³é”®ç‚¹é‡‡ç”¨æŒ‡é’ˆè¿”å›æ“ä½œ
 
 
-//  ²åÈë´ıÍ¶µİÏûÏ¢¶ÓÁĞÊ±£¬ÅĞ¶ÏsqlÖ´ĞĞ×´Ì¬£¬Èç¹ûsqlÃ»ÓĞÖ´ĞĞ£¬ÔòÖÃÎ»Ö´ĞĞ£¨Èç¹û±¾´ÎÖ´ĞĞµÄÌõÊı³¬¹ıÏŞ¶¨ÌõÊı£¬ÔòÖ±½Ó±¨´í·µ»Ø£©£¬·ñÔò²åÈë´ıÍ¶µİ×Ö·û´®ÖĞ£¬ÀÛ¼ÓÌõÊı£¨¼ÇµÃ¼ì²éÀÛ¼ÓÌõÊı²»ÄÜ³¬¹ıÏŞ¶¨µÄÌõÊı£©
+//  è®¾ç½®æ ‡å¿—ä½ï¼Œè®°å½•sqlæ‰§è¡ŒçŠ¶æ€
 
 
-//  Èç¹ûÀÛ¼ÓºóµÄÌõÊı³¬¹ıÏŞ¶¨ÌõÊıÔò²»½øĞĞÀÛ¼Ó²Ù×÷
+//  æ’å…¥å¾…æŠ•é€’æ¶ˆæ¯é˜Ÿåˆ—æ—¶ï¼Œåˆ¤æ–­sqlæ‰§è¡ŒçŠ¶æ€ï¼Œå¦‚æœsqlæ²¡æœ‰æ‰§è¡Œï¼Œåˆ™ç½®ä½æ‰§è¡Œï¼ˆå¦‚æœæœ¬æ¬¡æ‰§è¡Œçš„æ¡æ•°è¶…è¿‡é™å®šæ¡æ•°ï¼Œåˆ™ç›´æ¥æŠ¥é”™è¿”å›ï¼‰ï¼Œå¦åˆ™æ’å…¥å¾…æŠ•é€’å­—ç¬¦ä¸²ä¸­ï¼Œç´¯åŠ æ¡æ•°ï¼ˆè®°å¾—æ£€æŸ¥ç´¯åŠ æ¡æ•°ä¸èƒ½è¶…è¿‡é™å®šçš„æ¡æ•°ï¼‰
+
+
+//  å¦‚æœç´¯åŠ åçš„æ¡æ•°è¶…è¿‡é™å®šæ¡æ•°åˆ™ä¸è¿›è¡Œç´¯åŠ æ“ä½œ
 
 
 //  
@@ -43,13 +46,13 @@
 struct MULTISQLREADSW
 {
 	/*
-	Ö´ĞĞÓï¾ä
-	Ö´ĞĞÓï¾äÊıÁ¿
-	½á¹û¼¯
-	½á¹ûĞĞÊı ÁĞÊıint
-	½á¹ûÊı¾İ
-	»Øµ÷º¯Êı
-	±¾ÒâÊÇÎªÁË±ÜÃâÔÚ²åÈësql²éÑ¯Ç°ÃüÁî½øĞĞÒ»´ÎÎŞÎ½µÄ¿½±´£¬ÔÚsql·¢ËÍ×îÖÕÅúÁ¿ÃüÁîÇ°²Å½øĞĞÕæÕıµÄcopy£¬Ö®Ç°Í¨¹ıstring_view´«Èë£¬¸´ÓÃÔ¤¶¨Òå×Ö·û´® + bodyÀïÃæµÄÒÑÓĞ×Ö·û´®£¬Èç¹ûÓĞ¶à¸öÃüÁî£¬ÄÇÃ´ÖĞ¼äĞèÒª¼Ó;
+	æ‰§è¡Œè¯­å¥
+	æ‰§è¡Œè¯­å¥æ•°é‡
+	ç»“æœé›†
+	ç»“æœè¡Œæ•° åˆ—æ•°int
+	ç»“æœæ•°æ®
+	å›è°ƒå‡½æ•°
+	æœ¬æ„æ˜¯ä¸ºäº†é¿å…åœ¨æ’å…¥sqlæŸ¥è¯¢å‰å‘½ä»¤è¿›è¡Œä¸€æ¬¡æ— è°“çš„æ‹·è´ï¼Œåœ¨sqlå‘é€æœ€ç»ˆæ‰¹é‡å‘½ä»¤å‰æ‰è¿›è¡ŒçœŸæ­£çš„copyï¼Œä¹‹å‰é€šè¿‡string_viewä¼ å…¥ï¼Œå¤ç”¨é¢„å®šä¹‰å­—ç¬¦ä¸² + bodyé‡Œé¢çš„å·²æœ‰å­—ç¬¦ä¸²ï¼Œå¦‚æœæœ‰å¤šä¸ªå‘½ä»¤ï¼Œé‚£ä¹ˆä¸­é—´éœ€è¦åŠ ;
 	*/
 
 	// 
@@ -59,19 +62,15 @@ struct MULTISQLREADSW
 
 
 	MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>>unlockFun, const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize, std::shared_ptr<LOG> log);
-
-
-	std::shared_ptr<std::function<void(std::reference_wrapper<std::vector<MYSQL_RES*>>)>> sqlRelease();
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize, std::shared_ptr<LOG> log,const unsigned int bufferSize);
 
 
 
-	bool insertSqlRequest(std::shared_ptr<resultTypeSW> sqlRequest);
+	bool insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest);
 
 
-	// ÊÍ·ÅÊı¾İ¿âÊı¾İ
-	void FreeResult(std::reference_wrapper<std::vector<MYSQL_RES*>> vecwrapper);
 
+	
 
 	~MULTISQLREADSW();
 
@@ -95,7 +94,7 @@ private:
 
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	 //ÁªºÏ·¢ËÍÃüÁî×Ö·û´®
+	 //è”åˆå‘é€å‘½ä»¤å­—ç¬¦ä¸²
 
 	std::unique_ptr<char[]>m_messageBuffer{};
 
@@ -105,27 +104,25 @@ private:
 
 
 
+
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	const char *m_sendMessage{};
 
 	unsigned int m_sendLen{};
 
+	
 
 	bool resetConnect{ false };
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	std::mutex m_cleanMutex;
-	bool m_cleanStatus{ false };         //ÊÇ·ñÕıÔÚ½øĞĞÇå³ıMYSQL_RES*¹¤×÷
+
+	std::atomic<bool> m_hasConnect{ false };         //æ˜¯å¦å·²ç»å¤„äºè¿æ¥çŠ¶æ€
+	std::atomic<bool> m_queryStatus{ false };
 
 
-	std::mutex m_mutex;
-	bool m_hasConnect{ false };         //ÊÇ·ñÒÑ¾­´¦ÓÚÁ¬½Ó×´Ì¬
-	bool m_queryStatus{ false };
-
-
-	bool m_jumpThisRes{ false };                     //ÊÇ·ñÌø¹ı±¾´ÎÇëÇóµÄ±êÖ¾
+	bool m_jumpThisRes{ false };                     //æ˜¯å¦è·³è¿‡æœ¬æ¬¡è¯·æ±‚çš„æ ‡å¿—
 
 
 	net_async_status m_status;
@@ -135,28 +132,28 @@ private:
 	std::shared_ptr<std::function<void()>>m_unlockFun{};
 
 
-	//µÈ´ıÊÍ·Å½á¹û¼¯µÄÖ¸Õë£¬½á¹û¼¯¸öÊı
+	//ç­‰å¾…é‡Šæ”¾ç»“æœé›†çš„æŒ‡é’ˆï¼Œç»“æœé›†ä¸ªæ•°
 	std::shared_ptr<std::function<void(std::reference_wrapper<std::vector<MYSQL_RES*>>)>>m_freeSqlResultFun{};
 
 
 
 
-	unsigned int m_commandMaxSize{};        // ÃüÁî¸öÊı×î´ó´óĞ¡£¨³¤¶È£©
+	unsigned int m_commandMaxSize{};        // å‘½ä»¤ä¸ªæ•°æœ€å¤§å¤§å°ï¼ˆé•¿åº¦ï¼‰
 
-	unsigned int m_commandNowSize{};        // ÃüÁî¸öÊıÊµ¼Ê´óĞ¡£¨³¤¶È£©
+	unsigned int m_commandNowSize{};        // å‘½ä»¤ä¸ªæ•°å®é™…å¤§å°ï¼ˆé•¿åº¦ï¼‰
 
-	unsigned int m_thisCommandToalSize{};       // ±¾Ìõ½ÚµãµÄ×ÜÇëÇó¸öÊı
+	unsigned int m_thisCommandToalSize{};       // æœ¬æ¡èŠ‚ç‚¹çš„æ€»è¯·æ±‚ä¸ªæ•°
 
-	unsigned int m_currentCommandSize{};        // µ±Ç°ÃüÁîµÄÒÑ´¦Àí¸öÊı
+	unsigned int m_currentCommandSize{};        // å½“å‰å‘½ä»¤çš„å·²å¤„ç†ä¸ªæ•°
 
 
 	///////////////////////////////////////////////////////////////////
-	//´ıÍ¶µİ¶ÓÁĞ£¬Î´/µÈ´ıÆ´´ÕÏûÏ¢µÄ¶ÓÁĞ
-	SAFELIST<std::shared_ptr<resultTypeSW>>m_messageList;
+	//å¾…æŠ•é€’é˜Ÿåˆ—ï¼Œæœª/ç­‰å¾…æ‹¼å‡‘æ¶ˆæ¯çš„é˜Ÿåˆ—
+	FASTSAFELIST<std::shared_ptr<resultTypeSW>>m_messageList;
 
 
 
-	//´ı»ñÈ¡½á¹û¶ÓÁĞ£¬ÒÑ¾­·¢ËÍÇëÇóµÄ¶ÓÁĞ£¬´¦ÀíÊ±Ê¹ÓÃm_waitMessageList½øĞĞ´¦Àí£¬¼õÉÙÊ¹ÓÃm_messageListµÄËøµÄ»ú»á
+	//å¾…è·å–ç»“æœé˜Ÿåˆ—ï¼Œå·²ç»å‘é€è¯·æ±‚çš„é˜Ÿåˆ—ï¼Œå¤„ç†æ—¶ä½¿ç”¨m_waitMessageListè¿›è¡Œå¤„ç†ï¼Œå‡å°‘ä½¿ç”¨m_messageListçš„é”çš„æœºä¼š
 	std::unique_ptr<std::shared_ptr<resultTypeSW>[]>m_waitMessageList{};
 
 	unsigned int m_waitMessageListMaxSize{};
@@ -164,7 +161,7 @@ private:
 	unsigned int m_waitMessageListNowSize{};
 
 
-	//  ¸ù¾İm_waitMessageListBegin»ñÈ¡Ã¿´ÎµÄRES
+	//  æ ¹æ®m_waitMessageListBeginè·å–æ¯æ¬¡çš„RES
 	std::shared_ptr<resultTypeSW> *m_waitMessageListBegin{};
 
 	std::shared_ptr<resultTypeSW> *m_waitMessageListEnd{};
@@ -174,25 +171,24 @@ private:
 
 	////////////////////////////////////////////////////////////////
 	/*
-	Ö´ĞĞÓï¾äÖ¸Õë
-	Ö¸Õë¸öÊı £¨Êµ¼Ê¸öÊı=Ö¸Õë¸öÊı/2  ÒòÎª°üº¬Ê×Î²Î»ÖÃ£¬Èç¹ûÊÇ¶à¾äÖĞ¼äĞèÒª°üº¬;£©
-	Ö´ĞĞÓï¾äÊıÁ¿
-	½á¹û¼¯Ö¸Õë
-	½á¹ûĞĞÊı ÁĞÊıint*    Ã¿2¸ö´æ´¢Ò»¸ö½á¹û¼¯µÄĞĞÊıÁĞÊı
-	½á¹ûĞĞÊı ÁĞÊıbuffer´óĞ¡
-	½á¹ûÖ¸Õë£¬´æ´¢Ã¿Ò»¸öµÄ½á¹ûÖ¸Õë
-	½á¹ûÖ¸Õëbuffer´óĞ¡
-	»Øµ÷º¯Êı
+	æ‰§è¡Œè¯­å¥æŒ‡é’ˆ
+	æŒ‡é’ˆä¸ªæ•° ï¼ˆå®é™…ä¸ªæ•°=æŒ‡é’ˆä¸ªæ•°/2  å› ä¸ºåŒ…å«é¦–å°¾ä½ç½®ï¼Œå¦‚æœæ˜¯å¤šå¥ä¸­é—´éœ€è¦åŒ…å«;ï¼‰
+	æ‰§è¡Œè¯­å¥æ•°é‡
+	ç»“æœé›†æŒ‡é’ˆ
+	ç»“æœè¡Œæ•° åˆ—æ•°int*    æ¯2ä¸ªå­˜å‚¨ä¸€ä¸ªç»“æœé›†çš„è¡Œæ•°åˆ—æ•°
+	ç»“æœè¡Œæ•° åˆ—æ•°bufferå¤§å°
+	ç»“æœæŒ‡é’ˆï¼Œå­˜å‚¨æ¯ä¸€ä¸ªçš„ç»“æœæŒ‡é’ˆ
+	ç»“æœæŒ‡é’ˆbufferå¤§å°
+	å›è°ƒå‡½æ•°
 	*/
 
-	std::shared_ptr<resultTypeSW> m_sqlRequest{};
 
 	std::shared_ptr<LOG> m_log{};
 	/////////////////////////////////////////////////////////
 
-	MYSQL_FIELD *fd;    //×Ö¶ÎÁĞÊı×é
-	MYSQL_RES *m_result{ nullptr };    //ĞĞµÄÒ»¸ö²éÑ¯½á¹û¼¯
-	MYSQL_ROW m_row;   //Êı¾İĞĞµÄÁĞ
+	MYSQL_FIELD *fd;    //å­—æ®µåˆ—æ•°ç»„
+	MYSQL_RES *m_result{ };    //è¡Œçš„ä¸€ä¸ªæŸ¥è¯¢ç»“æœé›†
+	MYSQL_ROW m_row;   //æ•°æ®è¡Œçš„åˆ—
 
 	unsigned int m_rowNum{};
 	int m_rowCount{};
@@ -204,8 +200,13 @@ private:
 
 	unsigned int m_temp{};
 
-
 private:
+	void FreeResult(std::reference_wrapper<std::vector<MYSQL_RES*>> vecwrapper);
+
+
+	std::shared_ptr<std::function<void(std::reference_wrapper<std::vector<MYSQL_RES*>>)>> sqlRelease();
+
+
 	void FreeConnect();
 
 
@@ -232,25 +233,25 @@ private:
 
 	void next_result();
 
-	//¼ì²ém_messageListÊÇ·ñÓĞĞèÒªÆ´×°´¦ÀíµÄÏûÏ¢
+	//æ£€æŸ¥m_messageListæ˜¯å¦æœ‰éœ€è¦æ‹¼è£…å¤„ç†çš„æ¶ˆæ¯
 	void makeMessage();
 
 
-	//  Ã¿´ÎÖØĞÂ×é×°ÏûÏ¢Ê±ºò£¬ÖØÖÃ¸´ÓÃµÄ±äÁ¿  
+	//  æ¯æ¬¡é‡æ–°ç»„è£…æ¶ˆæ¯æ—¶å€™ï¼Œé‡ç½®å¤ç”¨çš„å˜é‡  
 	void readyMakeMessage();
 
 
-	//¼ì²é´ıÇëÇó¶ÓÁĞÖĞÊÇ·ñÓĞÏûÏ¢´æÔÚ
+	//æ£€æŸ¥å¾…è¯·æ±‚é˜Ÿåˆ—ä¸­æ˜¯å¦æœ‰æ¶ˆæ¯å­˜åœ¨
 	void checkMakeMessage();
 
 
 	void fetch_row();
 
 
-	//Í¬²½ÇåÀíMYSQL_RES*
+	//åŒæ­¥æ¸…ç†MYSQL_RES*
 	void freeResult(std::shared_ptr<resultTypeSW> *m_waitMessageListBegin, std::shared_ptr<resultTypeSW> *m_waitMessageListEnd);
 
 
-	//´¦ÀísqlÖ´ĞĞ¹ı³ÌÖĞ²åÈë´íÎóÎÊÌâ
+	//å¤„ç†sqlæ‰§è¡Œè¿‡ç¨‹ä¸­æ’å…¥é”™è¯¯é—®é¢˜
 	void handleSqlMemoryError();
 };

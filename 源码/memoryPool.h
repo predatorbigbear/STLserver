@@ -1,28 +1,28 @@
-#pragma once
+ï»¿#pragma once
 #include<memory>
-#include<forward_list>
 #include<functional>
 #include<type_traits>
+#include<new>
 
-//ÓëÒÔÍùµÄÄÚ´æ³Ø²»Í¬µÄÉè¼Æ£º
-//Ã¿´Îhttp½Ó¿ÚÇëÇó¶ÁÈ¡Ê±¼ÇÂ¼ÏÂÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡£¬
-//ÓÅÏÈ´Óm_ptrÉêÇëÄÚ´æ¿é£¬²»×ãµÄ´Óºó±¸ÄÚ´æÇøm_shadow»ñÈ¡£¨ÊµÊ±·ÖÅä£¬ÊµÊ±·ÖÅäµÄĞÔÄÜ¿ÉÍ¨¹ıtmalloc»òjmallocµÈµÚÈı·½ÄÚ´æ³Ø½øÒ»²½ÌáËÙ£©
-//ÔÚ½Ó¿Ú½á¹û·¢ËÍÖ®ºó£¬µ÷ÓÃprepare´¦Àí
-// prepare´¦ÀíÊÇ¼ì²éÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡ÊÇ·ñ´óÓÚm_ptrÄÚ´æ¿éµÄ´óĞ¡£¬´óÓÚÔò½«m_shadowÊÍ·Å
-// Èç¹û´óÓÚÔò½øĞĞÒ»´ÎÖØĞÂ·ÖÅä£¬·ñÔòÖ»ĞèÒª½«¼ÆÊı¹é0
-//ÕâÑùÔÚÈô¸É´Î²»Í¬µÄ½Ó¿ÚÇëÇóºó£¬È·±£m_ptrÄÚµÄÄÚ´æ¿ÉÒÔÂú×ã¾ø´ó²¿·ÖÉõÖÁÈ«²¿µÄÄÚ´æĞèÇó£¬´ó·ù¶ÈÌáÉıÉêÇëÄÚ´æ¿éµÄĞ§ÂÊºÍĞÔÄÜ
-//Èç¹ûÓÃ¹²ÏíÄÚ´æ³Ø£¬Ê×ÏÈÓĞ¼ÓËø½âËøÏûºÄ£¬Æä´ÎÉêÇëÄÚ´æ¿éĞ§ÂÊÃ»ÓĞÕâÑùÊµÏÖ¼òµ¥¸ßĞ§£¬¶øÇÒprepareµÄ¹ı³Ì¼¸ºõÎŞ·¨ÊµÏÖ
-//ÒòÎª¹²ÏíÄÚ´æ³ØÍ¬Ò»Ê±¼äÓĞN¸ösocketÁ¬½ÓÔÚÊ¹ÓÃ£¬ËùÒÔÒªÕÒµ½Ê±»ú½øĞĞÖØ·ÖÅäÒÔÂú×ãÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡ÒÔ¼°ÊÍ·Å¶àÓàÄÚ´æ¿éÊÇ·Ç³£À§ÄÑµÄ
+//ä¸ä»¥å¾€çš„å†…å­˜æ± ä¸åŒçš„è®¾è®¡ï¼š
+//æ¯æ¬¡httpæ¥å£è¯·æ±‚è¯»å–æ—¶è®°å½•ä¸‹ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°ï¼Œ
+//ä¼˜å…ˆä»m_ptrç”³è¯·å†…å­˜å—ï¼Œä¸è¶³çš„ä»åå¤‡å†…å­˜åŒºm_shadowè·å–ï¼ˆå®æ—¶åˆ†é…ï¼Œå®æ—¶åˆ†é…çš„æ€§èƒ½å¯é€šè¿‡tmallocæˆ–jmallocç­‰ç¬¬ä¸‰æ–¹å†…å­˜æ± è¿›ä¸€æ­¥æé€Ÿï¼‰
+//åœ¨æ¥å£ç»“æœå‘é€ä¹‹åï¼Œè°ƒç”¨prepareå¤„ç†
+// prepareå¤„ç†æ˜¯æ£€æŸ¥ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°æ˜¯å¦å¤§äºm_ptrå†…å­˜å—çš„å¤§å°ï¼Œå¤§äºåˆ™å°†m_shadowé‡Šæ”¾
+// å¦‚æœå¤§äºåˆ™è¿›è¡Œä¸€æ¬¡é‡æ–°åˆ†é…ï¼Œå¦åˆ™åªéœ€è¦å°†è®¡æ•°å½’0
+//è¿™æ ·åœ¨è‹¥å¹²æ¬¡ä¸åŒçš„æ¥å£è¯·æ±‚åï¼Œç¡®ä¿m_ptrå†…çš„å†…å­˜å¯ä»¥æ»¡è¶³ç»å¤§éƒ¨åˆ†ç”šè‡³å…¨éƒ¨çš„å†…å­˜éœ€æ±‚ï¼Œå¤§å¹…åº¦æå‡ç”³è¯·å†…å­˜å—çš„æ•ˆç‡å’Œæ€§èƒ½
+//å¦‚æœç”¨å…±äº«å†…å­˜æ± ï¼Œé¦–å…ˆæœ‰åŠ é”è§£é”æ¶ˆè€—ï¼Œå…¶æ¬¡ç”³è¯·å†…å­˜å—æ•ˆç‡æ²¡æœ‰è¿™æ ·å®ç°ç®€å•é«˜æ•ˆï¼Œè€Œä¸”prepareçš„è¿‡ç¨‹å‡ ä¹æ— æ³•å®ç°
+//å› ä¸ºå…±äº«å†…å­˜æ± åŒä¸€æ—¶é—´æœ‰Nä¸ªsocketè¿æ¥åœ¨ä½¿ç”¨ï¼Œæ‰€ä»¥è¦æ‰¾åˆ°æ—¶æœºè¿›è¡Œé‡åˆ†é…ä»¥æ»¡è¶³ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°ä»¥åŠé‡Šæ”¾å¤šä½™å†…å­˜å—æ˜¯éå¸¸å›°éš¾çš„
 
 
-// »ù´¡Ä£°å£º·ÇÖ¸ÕëÀàĞÍÖ±½Ó·µ»Ø
+// åŸºç¡€æ¨¡æ¿ï¼šéæŒ‡é’ˆç±»å‹ç›´æ¥è¿”å›
 template<typename T>
 struct remove_all_pointers
 {
 	using type = T;
 };
 
-// Æ«ÌØ»¯£º´¦ÀíÖ¸ÕëÀàĞÍ£¨µİ¹é²ğ½â£©
+// åç‰¹åŒ–ï¼šå¤„ç†æŒ‡é’ˆç±»å‹ï¼ˆé€’å½’æ‹†è§£ï¼‰
 template<typename T>
 struct remove_all_pointers<T*> 
 {
@@ -44,24 +44,24 @@ struct MEMORYPOOL
 	template<typename T>
 	T getMemory(unsigned int getLen)
 	{
-		//ÅĞ¶ÏÊÇ·ñÊÇÖ¸Õë£¬²¢ÇÒÊÇ·ñ²»Îªvoid*ÀàĞÍ
+		//åˆ¤æ–­æ˜¯å¦æ˜¯æŒ‡é’ˆï¼Œå¹¶ä¸”æ˜¯å¦ä¸ä¸ºvoid*ç±»å‹
 		static_assert(std::is_pointer_v<T>,
 			"T must be a  pointer type");
 
-		//»ñÈ¡Ô­Ê¼Ö¸ÕëÖĞµÄÔ­Ê¼ÀàĞÍ
+		//è·å–åŸå§‹æŒ‡é’ˆä¸­çš„åŸå§‹ç±»å‹
 		using RawType = std::remove_pointer_t<T>;
 
 		if (!getLen)
 			return nullptr;
 
-		//ÉèÖÃ×î´óÄÚ´æÉêÇëÖµ£¬Ã¿´Î»ñÈ¡Ê±½øĞĞ¶Ô±È
-		//ÓÅÏÈ´Óm_ptr»ñÈ¡ÊÊµ±ÄÚ´æ£¬·´Ö®´Óºó±¸¿Õ¼äm_shadow»ñÈ¡
-		static constexpr unsigned int maxMemorySize{ 100 * 1024 };
+		//è®¾ç½®æœ€å¤§å†…å­˜ç”³è¯·å€¼ï¼Œæ¯æ¬¡è·å–æ—¶è¿›è¡Œå¯¹æ¯”
+		//ä¼˜å…ˆä»m_ptrè·å–é€‚å½“å†…å­˜ï¼Œåä¹‹ä»åå¤‡ç©ºé—´m_shadowè·å–
+		static constexpr unsigned int maxMemorySize{ 2048 * 2048 };
 
-		//¼ÆËã±¾´ÎĞèÒª·ÖÅäµÄÄÚ´æÈİÁ¿´óĞ¡
+		//è®¡ç®—æœ¬æ¬¡éœ€è¦åˆ†é…çš„å†…å­˜å®¹é‡å¤§å°
 		unsigned int thisGetLen{};
 
-		//µİ¹é²ğ½âTÀàĞÍ£¬ÅĞ¶Ï×îÖÕÀàĞÍÊÇ²»ÊÇvoid
+		//é€’å½’æ‹†è§£Tç±»å‹ï¼Œåˆ¤æ–­æœ€ç»ˆç±»å‹æ˜¯ä¸æ˜¯void
 		if constexpr (!std::is_same_v<remove_all_pointers_t<T>, void>)
 		{
 			thisGetLen = getLen * sizeof(RawType);
@@ -71,7 +71,7 @@ struct MEMORYPOOL
 			thisGetLen = getLen * sizeof(char*);
 		}
 
-		//Èç¹û×î´ó¿É·ÖÅäÈİÁ¿¼õÈ¥µ±Ç°ÒÑ·ÖÅä´óĞ¡
+		//å¦‚æœæœ€å¤§å¯åˆ†é…å®¹é‡å‡å»å½“å‰å·²åˆ†é…å¤§å°
 		if (maxMemorySize - m_needSize < thisGetLen)
 			return nullptr;
 
@@ -80,12 +80,13 @@ struct MEMORYPOOL
 			try
 			{
 				m_ptr.reset(new char[thisGetLen]);
-				//ÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡
+				//ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°
 				m_ptrMaxSize = m_ptrNowSize = m_needSize = thisGetLen;
 				return reinterpret_cast<T>(m_ptr.get());
 			}
-			catch (const std::exception& e)
+			catch (const std::bad_alloc& e)
 			{
+				m_ptrMaxSize = m_ptrNowSize = m_needSize = 0;
 				return nullptr;
 			}
 		}
@@ -93,9 +94,9 @@ struct MEMORYPOOL
 		{
 			if (m_ptrNowSize + thisGetLen < m_ptrMaxSize)
 			{
-				T returnPtr{ reinterpret_cast<T>(m_ptr.get()) + m_ptrNowSize };
+				T returnPtr{ reinterpret_cast<T>(m_ptr.get() + m_ptrNowSize) };
 				m_ptrNowSize += thisGetLen;
-				//ÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡
+				//ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°
 				m_needSize += thisGetLen;
 				return returnPtr;
 			}
@@ -103,15 +104,18 @@ struct MEMORYPOOL
 			{
 				try
 				{
-					//ÅĞ¶ÏÊÇ·ñ³¬Ô½ÁËunsigned int×î´óÖµ
-					if (m_needSize + thisGetLen < m_needSize || (m_needSize + thisGetLen) < thisGetLen)
+					//åˆ¤æ–­æ˜¯å¦è¶…è¶Šäº†unsigned intæœ€å¤§å€¼
+					if (m_needSize + thisGetLen < m_needSize || (m_needSize + thisGetLen) < thisGetLen 
+						|| !m_shadow || m_shadowEnd == m_shadow.get() + prepareSize)
 						return nullptr;
-					m_iter = m_shadow.emplace_after(m_iter, std::unique_ptr<char[]>(new char[thisGetLen]));
-					//ÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡
+					
+					*m_shadowEnd++ = new char[thisGetLen];
+					
+					//ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°
 					m_needSize += thisGetLen;
-					return reinterpret_cast<T>(m_iter->get());
+					return reinterpret_cast<T>(*(m_shadowEnd-1));
 				}
-				catch (const std::exception& e)
+				catch (const std::bad_alloc& e)
 				{
 					return nullptr;
 				}
@@ -120,60 +124,82 @@ struct MEMORYPOOL
 	}
 
 
-	//ÔÚ½Ó¿Ú½á¹û·¢ËÍÖ®ºóÊ¹ÓÃ
-	//Èç¹ûºó±¸ÄÚ´æ¿é·Ç¿Õ£¬Ôò³¢ÊÔ½«Ê×Ñ¡ÄÚ´æ¿éÀ©´óµ½ÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡
+	//åœ¨æ¥å£ç»“æœå‘é€ä¹‹åä½¿ç”¨
+	//å¦‚æœåå¤‡å†…å­˜å—éç©ºï¼Œåˆ™å°è¯•å°†é¦–é€‰å†…å­˜å—æ‰©å¤§åˆ°ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°
 	void prepare()
-	{
-		if (!m_shadow.empty())
+	{	
+		if (m_needSize > m_ptrMaxSize)
 		{
+			do
+			{
+				delete[] * m_shadowBegin;
+			} while (++m_shadowBegin != m_shadowEnd);
+			m_shadowBegin = m_shadowEnd = m_shadow.get();
+
 			try
 			{
-				m_shadow.clear();
 				m_ptr.reset(new char[m_needSize]);
 				m_ptrMaxSize = m_needSize;
-				m_iter = m_shadow.before_begin();
 			}
-			catch (const std::exception& e)
+			catch (const std::bad_alloc& e)
 			{
 				m_ptrMaxSize = 0;
 			}
 		}
+		
 		m_needSize = m_ptrNowSize = 0;
 	}
 
 
 
-	//ÖØÖÃËùÓĞ×ÊÔ´Îª³õÊ¼×´Ì¬£¬ÔÚsocket»ØÊÕÊ±µ÷ÓÃ
+	//é‡ç½®æ‰€æœ‰èµ„æºä¸ºåˆå§‹çŠ¶æ€ï¼Œåœ¨socketå›æ”¶æ—¶è°ƒç”¨
 	void reset()
 	{
-		if (m_ptrMaxSize > prepareSize)
+		if (!m_ptr)
 		{
-			m_ptr.reset(new char[prepareSize]);
-			m_ptrMaxSize = prepareSize;
+			try
+			{
+				m_ptr.reset(new char[prepareSize]);
+				m_ptrMaxSize = prepareSize;
+			}
+			catch (std::bad_alloc& e)
+			{
+				m_ptrMaxSize = 0;
+			}
 		}
+		if (!m_shadow)
+		{
+			try
+			{
+				m_shadow.reset(new char*[prepareSize]);
+				m_shadowBegin = m_shadowEnd = m_shadow.get();
+			}
+			catch (std::bad_alloc& e)
+			{
+
+			}
+		}
+		
 		m_ptrNowSize = m_needSize = 0;
-		if (!m_shadow.empty())
-		{
-			m_shadow.clear();
-			m_iter = m_shadow.before_begin();
-		}
+		
 	}
 
 
 
 private:
-	//ÒòÎªC++¹æ¶¨ charÀàĞÍÔÚÈÎÒâÆ½Ì¨´óĞ¡¶¼ÊÇ1×Ö½Ú£¬ËùÒÔ¸ÄÓÃcharÀàĞÍ¾ÍĞĞ£¬²»ÓÃvoidÁË
-	std::unique_ptr<char[]> m_ptr{};    //Ê×Ñ¡ÄÚ´æ¿é¿Õ¼ä
+	//å› ä¸ºC++è§„å®š charç±»å‹åœ¨ä»»æ„å¹³å°å¤§å°éƒ½æ˜¯1å­—èŠ‚ï¼Œæ‰€ä»¥æ”¹ç”¨charç±»å‹å°±è¡Œï¼Œä¸ç”¨voidäº†
+	std::unique_ptr<char[]> m_ptr{};    //é¦–é€‰å†…å­˜å—ç©ºé—´
 
-	unsigned int m_ptrMaxSize{ };              //µ±Ç°ÄÚ´æ¿éÉêÇëµ½µÄ¿Õ¼ä´óĞ¡
+	unsigned int m_ptrMaxSize{ };              //å½“å‰å†…å­˜å—ç”³è¯·åˆ°çš„ç©ºé—´å¤§å°
 
-	unsigned int m_ptrNowSize{};              //µ±Ç°ÄÚ´æ¿éÒÑ¾­·ÖÅä³öÈ¥µÄÄÚ´æ¿Õ¼ä´óĞ¡
+	unsigned int m_ptrNowSize{};              //å½“å‰å†…å­˜å—å·²ç»åˆ†é…å‡ºå»çš„å†…å­˜ç©ºé—´å¤§å°
 
-	std::forward_list < std::unique_ptr<char[]>> m_shadow{};                                  //ºó±¸ÄÚ´æ¿é¿Õ¼ä
+	std::unique_ptr<char*[]> m_shadow{};             //åå¤‡å†…å­˜åˆ†é…åŒº
 
-	typedef typename std::forward_list < std::unique_ptr<char[]>> ::iterator ITERATOR;
+	char** m_shadowBegin{};                          //åå¤‡å†…å­˜åˆ†é…åŒºèµ·å§‹ä½ç½®
 
-	ITERATOR m_iter{ m_shadow.before_begin() };                                                 //ºó±¸ÄÚ´æ¿é¿Õ¼ä²åÈëµü´úÆ÷                                          
+	char** m_shadowEnd{};                            //åå¤‡å†…å­˜åˆ†é…åŒºç»“æŸä½ç½®
+	
 
-	unsigned int m_needSize{};                //ÀÛ¼ÆÊµ¼ÊËùĞèÒªµÄÄÚ´æ´óĞ¡
+	unsigned int m_needSize{};                //ç´¯è®¡å®é™…æ‰€éœ€è¦çš„å†…å­˜å¤§å°
 };

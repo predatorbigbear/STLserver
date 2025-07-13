@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 #include "publicHeader.h"
@@ -65,7 +65,7 @@ private:
 
 	std::shared_ptr<HTTPSERVICE> m_mySelf{};
 
-	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //Ê±¼äÂÖ¶¨Ê±Æ÷
+	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //æ—¶é—´è½®å®šæ—¶å™¨
 
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
 
@@ -79,21 +79,32 @@ private:
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+	/*
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	è·å–çš„ç»“æœä¸ªæ•°
+	è£…è½½MYSQL_RES*çš„vectorï¼Œä¸ç”¨æ¸…ç©ºï¼Œæ¯æ¬¡æ’å…¥å‘½ä»¤åˆ°sqlæ“ä½œæ¨¡å—ä¹‹åå†…éƒ¨ä¼šè‡ªåŠ¨æ‰§è¡Œé‡Šæ”¾å†…å­˜æ“ä½œ
+	æ ¹æ®æŸ¥è¯¢çš„å‘½ä»¤ï¼Œæ¯ä¸€æ¡æŸ¥è¯¢å‘½ä»¤ä¼šæœ‰ä¸¤é¡¹æ•°æ®æ˜¾ç¤ºï¼Œç¬¬ä¸€é¡¹æ˜¯è¯¥æ¡å‘½ä»¤è¿”å›ç»“æœä¸ªæ•°ï¼Œç¬¬äºŒä¸ªæ˜¯æ¯æ¡å‘½ä»¤çš„å­—æ®µä¸ªæ•°
+	è¿”å›çš„æŸ¥è¯¢ç»“æœçš„string_viewä¸ªæ•°ï¼Œæ€»ä¸ªæ•°åº”è¯¥ç›¸å½“äºä¸Šè¿°ä¸¤é¡¹æ•°æ®çš„ä¹˜ç§¯   è¯¥æ¡å‘½ä»¤è¿”å›ç»“æœä¸ªæ•°  *  æ¡å‘½ä»¤çš„å­—æ®µä¸ªæ•°
+	å›è°ƒå¤„ç†å‡½æ•°
+
+	*/
+
+
 	using resultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<MYSQL_RES*>>,
 		std::reference_wrapper<std::vector<unsigned int>>, std::reference_wrapper<std::vector<std::string_view>>, std::function<void(bool, enum ERRORMESSAGE)> >;
 
 	/*
-	Ö´ĞĞÃüÁîstring_view¼¯
-	Ö´ĞĞÃüÁî¸öÊı
-	Ã¿ÌõÃüÁîµÄ´ÊÓï¸öÊı£¨·½±ã¸ù¾İredis RESP½øĞĞÆ´½Ó£©
-	»ñÈ¡½á¹û´ÎÊı  £¨ÒòÎª±ÈÈçÒ»Ğ©ÊÂÎñ²Ù×÷¿ÉÄÜ²»Ò»¶¨ÓĞ½á¹û·µ»Ø£©
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	æ‰§è¡Œå‘½ä»¤ä¸ªæ•°
+	æ¯æ¡å‘½ä»¤çš„è¯è¯­ä¸ªæ•°ï¼ˆæ–¹ä¾¿æ ¹æ®redis RESPè¿›è¡Œæ‹¼æ¥ï¼‰
+	è·å–ç»“æœæ¬¡æ•°  ï¼ˆå› ä¸ºæ¯”å¦‚ä¸€äº›äº‹åŠ¡æ“ä½œå¯èƒ½ä¸ä¸€å®šæœ‰ç»“æœè¿”å›ï¼‰
 
-	·µ»Ø½á¹ûstring_view
-	Ã¿¸ö½á¹ûµÄ´ÊÓï¸öÊı
+	è¿”å›ç»“æœstring_view
+	æ¯ä¸ªç»“æœçš„è¯è¯­ä¸ªæ•°
 
-	»Øµ÷º¯Êı
+	å›è°ƒå‡½æ•°
 	*/
-	// redisÀàĞÍ
+	// redisç±»å‹
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 		std::function<void(bool, enum ERRORMESSAGE)>>;
@@ -101,30 +112,30 @@ private:
 
 
 	/*
-	Ö´ĞĞÃüÁîstring_view¼¯
-	Ö´ĞĞÃüÁî¸öÊı
-	Ã¿ÌõÃüÁîµÄ´ÊÓï¸öÊı£¨·½±ã¸ù¾İredis RESP½øĞĞÆ´½Ó£©
-	¼ÓËøÖ±½ÓÆ´½Ó×Ö·û´®µ½×ÜstringÖĞ£¬·¢ËÍÇ°¼ÓËøÈ¡³öÊı¾İ½øĞĞ·¢ËÍ
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	æ‰§è¡Œå‘½ä»¤ä¸ªæ•°
+	æ¯æ¡å‘½ä»¤çš„è¯è¯­ä¸ªæ•°ï¼ˆæ–¹ä¾¿æ ¹æ®redis RESPè¿›è¡Œæ‹¼æ¥ï¼‰
+	åŠ é”ç›´æ¥æ‹¼æ¥å­—ç¬¦ä¸²åˆ°æ€»stringä¸­ï¼Œå‘é€å‰åŠ é”å–å‡ºæ•°æ®è¿›è¡Œå‘é€
 
-	×îºó»Øµ÷»ØÈ¥É¾¼õ¼ÆÊı±êÖ¾
+	æœ€åå›è°ƒå›å»åˆ å‡è®¡æ•°æ ‡å¿—
 
-	ÀûÓÃ¼ÆËã±êÖ¾ÈÃĞ´ÈëÊ±ÈÔÈ»¿ÉÒÔÍ¨¹ıÀàÖ¸ÕëµÄ·½Ê½ÀûÓÃÆäËûµØ·½buffferÖĞµÄÔ´Êı¾İ£¬ÔÚÕæÕı½øĞĞÆ´½Óºó²Å½øĞĞ»Øµ÷½øĞĞÉ¾¼õ
+	åˆ©ç”¨è®¡ç®—æ ‡å¿—è®©å†™å…¥æ—¶ä»ç„¶å¯ä»¥é€šè¿‡ç±»æŒ‡é’ˆçš„æ–¹å¼åˆ©ç”¨å…¶ä»–åœ°æ–¹buffferä¸­çš„æºæ•°æ®ï¼Œåœ¨çœŸæ­£è¿›è¡Œæ‹¼æ¥åæ‰è¿›è¡Œå›è°ƒè¿›è¡Œåˆ å‡
 	*/
-	// redisĞ´Èë ¸üĞÂÀàĞÍ
+	// rediså†™å…¥ æ›´æ–°ç±»å‹
 	using redisWriteTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>>;
 
 
-	//Ã¿´ÎÊ¹ÓÃÇ°ÏÈ½øĞĞÇå¿Õ²Ù×÷
-	std::vector<std::vector<std::string_view>>m_stringViewVec{};     //stringView·ÖÅävec
+	//æ¯æ¬¡ä½¿ç”¨å‰å…ˆè¿›è¡Œæ¸…ç©ºæ“ä½œ
+	std::vector<std::vector<std::string_view>>m_stringViewVec{};     //stringViewåˆ†é…vec
 
-	std::vector<std::vector<MYSQL_RES*>>m_mysqlResVec;             //mysql_Res* ·ÖÅäµÄvec
+	std::vector<std::vector<MYSQL_RES*>>m_mysqlResVec;             //mysql_Res* åˆ†é…çš„vec
 
-	std::vector<std::vector<unsigned int>>m_unsignedIntVec;        //unsigned int ·ÖÅäµÄvector
+	std::vector<std::vector<unsigned int>>m_unsignedIntVec;        //unsigned int åˆ†é…çš„vector
 
 	std::vector<STLtreeFast>m_STLtreeFastVec;
 
 
-	//  ÓÃÓÚ»ñÈ¡char¶¯Ì¬Êı×éµÄÄÚ´æ³Ø   ·¢ËÍ½á¹û²¢ÈëÕâÀï»ñÈ¡ÄÚ´æ¿é
+	//  ç”¨äºè·å–charåŠ¨æ€æ•°ç»„çš„å†…å­˜æ±    å‘é€ç»“æœå¹¶å…¥è¿™é‡Œè·å–å†…å­˜å—
 	MEMORYPOOL<> m_MemoryPool;
 
 
@@ -167,8 +178,8 @@ private:
 
 	int m_startPos{};
 
-	//ÎªÌá¸ßĞÔÄÜ£¬·ÖÅäµÄ¶ÁÈ¡bufferÓ¦Âú×ãÄÜ×°ÔØ´ó²¿·Ö°üÀ¨body²¿·ÖµÄ³¤¶È£¬ÕâÑù´ó²¿·ÖÇé¿öÏÂ½öÒÔÖ¸ÕëÖ¸Ïò£¬
-	//ÉÏ´«ÎÄ¼şĞèÒªÁí¼Ó´úÂë´¦Àí£¬ÕâÀï½ö¶Ôpost ºó¶Îbody²¿·Ö½øĞĞÓÅ»¯
+	//ä¸ºæé«˜æ€§èƒ½ï¼Œåˆ†é…çš„è¯»å–bufferåº”æ»¡è¶³èƒ½è£…è½½å¤§éƒ¨åˆ†åŒ…æ‹¬bodyéƒ¨åˆ†çš„é•¿åº¦ï¼Œè¿™æ ·å¤§éƒ¨åˆ†æƒ…å†µä¸‹ä»…ä»¥æŒ‡é’ˆæŒ‡å‘ï¼Œ
+	//ä¸Šä¼ æ–‡ä»¶éœ€è¦å¦åŠ ä»£ç å¤„ç†ï¼Œè¿™é‡Œä»…å¯¹post åæ®µbodyéƒ¨åˆ†è¿›è¡Œä¼˜åŒ–
 	int m_maxReadLen{ };
 
 	int m_defaultReadLen{ };
@@ -183,7 +194,7 @@ private:
 	int m_sessionMemory{};
 
 	int m_sessionLen{};
-	//¸ù¾İsessionIDÊÇ·ñÎªemptyÅĞ¶Ï´¦ÀícookieÊ±Ó¦¸ÃÖ´ĞĞµÄ²Ù×÷
+	//æ ¹æ®sessionIDæ˜¯å¦ä¸ºemptyåˆ¤æ–­å¤„ç†cookieæ—¶åº”è¯¥æ‰§è¡Œçš„æ“ä½œ
 
 
 	char *m_readBuffer{};
@@ -210,45 +221,45 @@ private:
 
 	bool hasPara{ false };
 
-	bool hasChunk{ false };                    //ÊÇ·ñÊÇChunk±àÂë¸ñÊ½
+	bool hasChunk{ false };                    //æ˜¯å¦æ˜¯Chunkç¼–ç æ ¼å¼
 
-	bool hasCompress{ false };                //ÊÇ·ñÖ§³ÖLZWÑ¹Ëõ
+	bool hasCompress{ false };                //æ˜¯å¦æ”¯æŒLZWå‹ç¼©
 
-	bool hasDeflate{ false };                 //ÊÇ·ñÖ§³ÖzlibÑ¹Ëõ
+	bool hasDeflate{ false };                 //æ˜¯å¦æ”¯æŒzlibå‹ç¼©
 
-	bool hasGzip{ false };                    //ÊÇ·ñÖ§³ÖLZ77Ñ¹Ëõ
+	bool hasGzip{ false };                    //æ˜¯å¦æ”¯æŒLZ77å‹ç¼©
 
-	bool hasIdentity{ true };                 //ÊÇ·ñ²»½øĞĞÈÎºÎÑ¹Ëõ»ò·Ö¿é£¬´«ÊäÔ­Ê¼Êı¾İ
+	bool hasIdentity{ true };                 //æ˜¯å¦ä¸è¿›è¡Œä»»ä½•å‹ç¼©æˆ–åˆ†å—ï¼Œä¼ è¾“åŸå§‹æ•°æ®
 
 	bool expect_continue{ false };
 
-	bool hasJson{ false };                     //ÇëÇó¸ñÊ½ÊÇ·ñÊÇjson
+	bool hasJson{ false };                     //è¯·æ±‚æ ¼å¼æ˜¯å¦æ˜¯json
 
-	bool hasXml{ false };                      //ÇëÇó¸ñÊ½ÊÇ·ñÊÇXML
+	bool hasXml{ false };                      //è¯·æ±‚æ ¼å¼æ˜¯å¦æ˜¯XML
 
-	bool hasX_www_form_urlencoded{ false };         //ÇëÇó¸ñÊ½ÊÇ·ñÊÇx-www-form-urlencoded
+	bool hasX_www_form_urlencoded{ false };         //è¯·æ±‚æ ¼å¼æ˜¯å¦æ˜¯x-www-form-urlencoded
 
-	bool hasMultipart_form_data{ false };          //ÇëÇó¸ñÊ½ÊÇ·ñÊÇmultipart/form-data
+	bool hasMultipart_form_data{ false };          //è¯·æ±‚æ ¼å¼æ˜¯å¦æ˜¯multipart/form-data
 
 
-	bool keep_alive{ true };                     // ConnectionÖµ   Ä¬ÈÏÎªtrue£¬½âÎöµ½closeÖ®ºó»áÉèÖÃÎªfalse
+	bool keep_alive{ true };                     // Connectionå€¼   é»˜è®¤ä¸ºtrueï¼Œè§£æåˆ°closeä¹‹åä¼šè®¾ç½®ä¸ºfalse
 
 	std::unique_ptr<const char*[]>m_httpHeaderMap{};
 
-	bool isHttp10{ false };                   //ÊÇ·ñÊÇhttp1.0
+	bool isHttp10{ false };                   //æ˜¯å¦æ˜¯http1.0
 
-	bool isHttp11{ false };                   //ÊÇ·ñÊÇhttp1.1
+	bool isHttp11{ false };                   //æ˜¯å¦æ˜¯http1.1
 
-	const bool isHttp{ true };                //ÊÇ·ñÊÇhttp
+	const bool isHttp{ true };                //æ˜¯å¦æ˜¯http
 
-	int hostPort{80};                         //http hostÄ¬ÈÏ¶Ë¿Ú
+	int hostPort{80};                         //http hosté»˜è®¤ç«¯å£
 
 
 
 	///////////////////////////////////////////////////////////////////////////
 
 
-	//ÒòÎªhttp×´Ì¬Î»ÓĞÏŞ£¬ËùÒÔÉèÖÃÒÔÏÂÖ¸ÕëÖ¸Ïò¶ÔÓ¦Î»ÖÃ£¬ÔÚ³õÊ¼»¯Ê±ÉèÖÃºÃ£¬ÒÔºóÖ±½Ó»ñÈ¡£¨×îÇ¿¡°¹şÏ£¡±£©
+	//å› ä¸ºhttpçŠ¶æ€ä½æœ‰é™ï¼Œæ‰€ä»¥è®¾ç½®ä»¥ä¸‹æŒ‡é’ˆæŒ‡å‘å¯¹åº”ä½ç½®ï¼Œåœ¨åˆå§‹åŒ–æ—¶è®¾ç½®å¥½ï¼Œä»¥åç›´æ¥è·å–ï¼ˆæœ€å¼ºâ€œå“ˆå¸Œâ€ï¼‰
 	const char **m_MethodBegin{}, **m_MethodEnd{};
 	const char **m_TargetBegin{}, **m_TargetEnd{};
 	const char **m_VersionBegin{}, **m_VersionEnd{};
@@ -309,14 +320,14 @@ private:
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-	std::vector<std::pair<const char*, const char*>>m_dataBufferVec;     //´æ´¢·ÖÉ¢µÄÄ³¶ÎÊı¾İµÄÁÙÊ±vector    
+	std::vector<std::pair<const char*, const char*>>m_dataBufferVec;     //å­˜å‚¨åˆ†æ•£çš„æŸæ®µæ•°æ®çš„ä¸´æ—¶vector    
 
 
-	unsigned int accumulateLen{};          //ÀÛ»ı³¤¶È
+	unsigned int accumulateLen{};          //ç´¯ç§¯é•¿åº¦
 
 
 
-	//ÎÄ¼ş´óĞ¡
+	//æ–‡ä»¶å¤§å°
 	int m_fileSize{};
 	int m_readFileSize{};
 	
@@ -449,11 +460,11 @@ private:
 
 	boost::system::error_code ec;
 
-	std::chrono::system_clock::time_point m_sessionClock, m_sessionGMTClock ,m_thisClock;       //ÓÃÓÚÈ¡Öµµ±Ç°Ê±¼äµã
+	std::chrono::system_clock::time_point m_sessionClock, m_sessionGMTClock ,m_thisClock;       //ç”¨äºå–å€¼å½“å‰æ—¶é—´ç‚¹
 
 	time_t m_sessionTime, m_sessionGMTTime , m_thisTime;
 
-	time_t m_firstTime{};         //Ê×´Î²âÊÔÊ±¼ä´Á
+	time_t m_firstTime{};         //é¦–æ¬¡æµ‹è¯•æ—¶é—´æˆ³
 
 	struct tm *m_tmGMT;
 
@@ -472,32 +483,32 @@ private:
 
 	void resetSocket();
 
-	//ÔÚÃ¿´Î·¢ËÍÍê±ÏºóÖØÖÃ×ÊÔ´
+	//åœ¨æ¯æ¬¡å‘é€å®Œæ¯•åé‡ç½®èµ„æº
 	void recoverMemory();
 
 	void sendOK();
 
 	void cleanData();
 
-	// Ö´ĞĞÔ¤±¸²Ù×÷
+	// æ‰§è¡Œé¢„å¤‡æ“ä½œ
 	void prepare();
 
 	void startRead();
 
-	void parseReadData(const char *source, const int size);         // ½âÎöÊı¾İ
+	void parseReadData(const char *source, const int size);         // è§£ææ•°æ®
 
-	int parseHttp(const char *source, const int size);             // ½âÎöHttpÊı¾İ
+	int parseHttp(const char *source, const int size);             // è§£æHttpæ•°æ®
 
-	bool parseHttpHeader();                                        //½âÎöhttp ×Ö¶ÎÄÚÈİ
+	bool parseHttpHeader();                                        //è§£æhttp å­—æ®µå†…å®¹
 
-	// ÆÕÍ¨Ä£Ê½
-	// READFROMDISK Ö±½Ó´Ó´ÅÅÌ¶ÁÈ¡ÎÄ¼ş·¢ËÍÄ£Ê½
+	// æ™®é€šæ¨¡å¼
+	// READFROMDISK ç›´æ¥ä»ç£ç›˜è¯»å–æ–‡ä»¶å‘é€æ¨¡å¼
 	template<typename SENDMODE = void>
 	void startWrite(const char *source, const int size);
 
 
-	// ÆÕÍ¨Ä£Ê½
-	// READFROMDISK Ö±½Ó´Ó´ÅÅÌ¶ÁÈ¡ÎÄ¼ş·¢ËÍÄ£Ê½
+	// æ™®é€šæ¨¡å¼
+	// READFROMDISK ç›´æ¥ä»ç£ç›˜è¯»å–æ–‡ä»¶å‘é€æ¨¡å¼
 	template<typename SENDMODE = void>
 	void startWriteLoop(const char *source, const int size);
 
@@ -506,18 +517,18 @@ private:
 	void makeSendJson(STLtreeFast &st, HTTPFUNCTION httpWrite=nullptr, unsigned int httpLen=0);
 
 
-	//ÎÄ¼şÃû³Æ
-	//ÎÄ¼ş³¤¶È
-	//·¢ËÍbufferÔ¤·ÖÅä¿Õ¼ä
-	//·¢ËÍbuffer×°ÔØ·µ»ØµØÖ·
-	//·¢ËÍbuffer httpÇ°×º´óĞ¡
+	//æ–‡ä»¶åç§°
+	//æ–‡ä»¶é•¿åº¦
+	//å‘é€bufferé¢„åˆ†é…ç©ºé—´
+	//å‘é€bufferè£…è½½è¿”å›åœ°å€
+	//å‘é€buffer httpå‰ç¼€å¤§å°
 	//
 	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
 	bool makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args);
 	
 
-	//ÓÃÀ´Éú³ÉÓëworkflow²âÊÔÎÄ¼şÏàÍ¬µÄ·µ»ØÊı¾İµÄ×¨ÓÃ´ò°üº¯Êı
+	//ç”¨æ¥ç”Ÿæˆä¸workflowæµ‹è¯•æ–‡ä»¶ç›¸åŒçš„è¿”å›æ•°æ®çš„ä¸“ç”¨æ‰“åŒ…å‡½æ•°
 	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
 	bool make_compareWithWorkFlowResPonse(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
 		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, unsigned int randomBodyLen, ARG&&...args);
@@ -534,42 +545,42 @@ private:
 
 	void testRandomBody();
 
-	void testGet();     //¶ÁÈ¡ÎÄ¼ş·µ»Ø
+	void testGet();     //è¯»å–æ–‡ä»¶è¿”å›
 
 	///////////////////////////////////////////////////
 
 	void testPingPong();
 
-	//ÒÔjson¸ñÊ½·µ»Øping pongĞÅÏ¢
+	//ä»¥jsonæ ¼å¼è¿”å›ping pongä¿¡æ¯
 	void testPingPongJson();
 
 
 	void handleERRORMESSAGE(ERRORMESSAGE em);
 
 
-	//  ÁªºÏsql string_view°æ±¾ ²éÑ¯º¯Êı
+	//  è”åˆsql string_viewç‰ˆæœ¬ æŸ¥è¯¢å‡½æ•°
 	void testmultiSqlReadSW();
 
 	void handleMultiSqlReadSW(bool result, ERRORMESSAGE em);
 
 
-	//  ÁªºÏredis string_view°æ±¾ ²éÑ¯º¯ÊıKEY²âÊÔº¯Êı
+	//  è”åˆredis string_viewç‰ˆæœ¬ æŸ¥è¯¢å‡½æ•°KEYæµ‹è¯•å‡½æ•°
 	void testMultiRedisReadLOT_SIZE_STRING();
 
 	void handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em);
 
 
-	//  ÁªºÏredis string_view°æ±¾ ´ÓbodyÖĞ½âÎö²ÎÊı½øĞĞ²éÑ¯KEY²âÊÔº¯Êı
+	//  è”åˆredis string_viewç‰ˆæœ¬ ä»bodyä¸­è§£æå‚æ•°è¿›è¡ŒæŸ¥è¯¢KEYæµ‹è¯•å‡½æ•°
 	void testMultiRedisParseBodyReadLOT_SIZE_STRING();
 
 
-	//  ÁªºÏredis string_view°æ±¾ ²éÑ¯º¯ÊıÊıÖµ²âÊÔº¯Êı
+	//  è”åˆredis string_viewç‰ˆæœ¬ æŸ¥è¯¢å‡½æ•°æ•°å€¼æµ‹è¯•å‡½æ•°
 	void testMultiRedisReadINTERGER();
 
 	void handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em);
 
 
-	//  ÁªºÏredis string_view°æ±¾ ²éÑ¯º¯ÊıÊıÖµ²âÊÔº¯Êı
+	//  è”åˆredis string_viewç‰ˆæœ¬ æŸ¥è¯¢å‡½æ•°æ•°å€¼æµ‹è¯•å‡½æ•°
 	void testMultiRedisReadARRAY();
 
 	void handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em);
@@ -579,7 +590,7 @@ private:
 
 
 
-	//²â¶¨Ê×´ÎÊ±¼ä´Á
+	//æµ‹å®šé¦–æ¬¡æ—¶é—´æˆ³
 	void testFirstTime();
 
 
@@ -595,26 +606,26 @@ private:
 
 	void readyParseMultiPartFormData();
 
-	//²âÊÔÉÏ´«ÎÄ¼ş
+	//æµ‹è¯•ä¸Šä¼ æ–‡ä»¶
 	void testMultiPartFormData();
 
 
 	void testSuccessUpload();
 
 
-	//²âÊÔ½âÎöchunk¸ñÊ½Êı¾İ
+	//æµ‹è¯•è§£æchunkæ ¼å¼æ•°æ®
 	void readyParseChunkData();
 
-	//json¸ñÊ½Éú³ÉÑİÊ¾
+	//jsonæ ¼å¼ç”Ÿæˆæ¼”ç¤º
 	void testMakeJson();
 
 
 
 
 
-	//Óëworkflow½øĞĞ¶Ô±È²âÊÔµÄº¯Êı
+	//ä¸workflowè¿›è¡Œå¯¹æ¯”æµ‹è¯•çš„å‡½æ•°
 	//https://github.com/sogou/workflow/tree/master/benchmark
-	//workflow¶ÔÇëÇó·µ»ØÃ¿´ÎµÄÊ±¼ä  body³¤¶È  ÒÔ¼°Connection  Conteng-typeÉèÖÃ
+	//workflowå¯¹è¯·æ±‚è¿”å›æ¯æ¬¡çš„æ—¶é—´  bodyé•¿åº¦  ä»¥åŠConnection  Conteng-typeè®¾ç½®
 	//string str{ "POST /20 HTTP/1.1\r\nHost: 101.32.203.226:8085\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 12\r\n\r\nstringlen=11" };
 	void testCompareWorkFlow();
 
@@ -629,7 +640,7 @@ private:
 
 	std::function<void()>m_business;
 	
-	// ÑéÖ¤º¯Êı×¨ÓÃbuf£¬Íâ½ç²»ÒªÊ¹ÓÃ
+	// éªŒè¯å‡½æ•°ä¸“ç”¨bufï¼Œå¤–ç•Œä¸è¦ä½¿ç”¨
 	std::unique_ptr<const char*[]>m_verifyData;
 
 	void resetVerifyData();
@@ -734,19 +745,18 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 	{
 		if (err)
 		{
-			//³¬Ê±Ê±cleanº¯Êı»áµ÷ÓÃcancel,´¥·¢operation_aborted´íÎó  ĞŞ¸´·¢Éú´íÎóÊ±²»»á´¥·¢»ØÊÕµÄÇé¿ö
+			//è¶…æ—¶æ—¶cleanå‡½æ•°ä¼šè°ƒç”¨cancel,è§¦å‘operation_abortedé”™è¯¯  ä¿®å¤å‘ç”Ÿé”™è¯¯æ—¶ä¸ä¼šè§¦å‘å›æ”¶çš„æƒ…å†µ
 			if (err != boost::asio::error::operation_aborted)
 			{
 				m_hasClean.store(false);
 			}
 			
-			//·¢Éú´íÎóÊ±µÈ´ı³¬Ê±»ØÊÕ£¬cleanº¯ÊıÄÚ»á¶ÔÄÚ´æ³Ø½øĞĞÖØÖÃ
+			//å‘ç”Ÿé”™è¯¯æ—¶ç­‰å¾…è¶…æ—¶å›æ”¶ï¼Œcleanå‡½æ•°å†…ä¼šå¯¹å†…å­˜æ± è¿›è¡Œé‡ç½®
 		}
 		else
 		{
 			if constexpr (std::is_same<SENDMODE, void>::value)
 			{
-
 				switch (m_parseStatus)
 				{
 				case PARSERESULT::complete:
@@ -754,7 +764,7 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 					startRead();
 					break;
 				case PARSERESULT::check_messageComplete:
-					//ÒòÎªÕâÀïµÄÄÚ´æ¿é¿ÉÄÜ²»ÊÇÄ¬ÈÏ¶ÁÈ¡ÄÚ´æ¿é£¬ËùÒÔ»ØÊÕ²Ù×÷Ó¦¸ÃÔÚcopy´¦ÀíÖ®ºó²Å½øĞĞ
+					//å› ä¸ºè¿™é‡Œçš„å†…å­˜å—å¯èƒ½ä¸æ˜¯é»˜è®¤è¯»å–å†…å­˜å—ï¼Œæ‰€ä»¥å›æ”¶æ“ä½œåº”è¯¥åœ¨copyå¤„ç†ä¹‹åæ‰è¿›è¡Œ
 					if (m_readBuffer != m_buffer->getBuffer())
 					{
 						std::copy(messageBegin, messageEnd, m_buffer->getBuffer());
@@ -766,7 +776,7 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 					recoverMemory();
 					parseReadData(messageBegin, messageEnd - messageBegin);
 					break;
-					//default´¦ÀíÇëÇó·Ç·¨ÒÔ¼°ÒòÄÚ´æÉêÇë´íÎóµÄÇé¿ö
+					//defaultå¤„ç†è¯·æ±‚éæ³•ä»¥åŠå› å†…å­˜ç”³è¯·é”™è¯¯çš„æƒ…å†µ
 				default:
 					recoverMemory();
 					startRead();
@@ -857,7 +867,7 @@ inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned 
 
 	unsigned int needFrontLen{ needLength + stringLen(fileLen) + MAKEJSON::newLineLen + MAKEJSON::ContentTypeLen + 1 + mineTypeStr.size() + MAKEJSON::halfNewLineLen };
 
-	//Èç¹ûÔ¤ÉêÇë¿Õ¼äÁ¬Ç°×º¿Õ¼ä¶¼²»ÄÜ×°ÔØ£¬Ôò·µ»ØÊ§°Ü
+	//å¦‚æœé¢„ç”³è¯·ç©ºé—´è¿å‰ç¼€ç©ºé—´éƒ½ä¸èƒ½è£…è½½ï¼Œåˆ™è¿”å›å¤±è´¥
 	if (assignLen < needFrontLen)
 		return false;
 

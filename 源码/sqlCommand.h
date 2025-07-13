@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 
@@ -39,7 +39,7 @@ namespace SQLCOMMAND
 
 	*/
 
-	static const char *testSqlReadMemory{ "select id,name,age,province,city,country,phone from memoryTable where flag=0 and id<4;select id,name,age,province,city,country,phone from memoryTable where flag=0 and id>3" };
+	static const char *testSqlReadMemory{ "select name,age,book from table1" };
 
 	static const char *testTestLoginSQL{ "select password from user where username='" };
 

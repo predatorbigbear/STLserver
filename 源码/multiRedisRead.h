@@ -70,7 +70,6 @@ private:
 	unsigned int m_redisPort{};
 	const char **m_data{};
 
-
 	int m_connectStatus{};
 
 	std::unique_ptr<char[]>m_receiveBuffer{};               //接收消息的缓存
