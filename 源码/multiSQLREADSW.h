@@ -65,11 +65,12 @@ struct MULTISQLREADSW
 		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize, std::shared_ptr<LOG> log,const unsigned int bufferSize);
 
 
+	//默认开启释放MYSQL_RES操作，需要多次查询mysql时可以置为false，复用结果
+	bool insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlRequest, const bool freeRes = true);
 
-	bool insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest);
 
-
-
+	//用来释放MYSQL_RES*
+	void FreeResult(std::reference_wrapper<std::vector<MYSQL_RES*>> vecwrapper);
 	
 
 	~MULTISQLREADSW();
@@ -201,7 +202,6 @@ private:
 	unsigned int m_temp{};
 
 private:
-	void FreeResult(std::reference_wrapper<std::vector<MYSQL_RES*>> vecwrapper);
 
 
 	std::shared_ptr<std::function<void(std::reference_wrapper<std::vector<MYSQL_RES*>>)>> sqlRelease();

@@ -563,6 +563,16 @@ private:
 
 	void handleMultiSqlReadSW(bool result, ERRORMESSAGE em);
 
+	//  联合sql string_view版本 解析body查询函数
+	void testmultiSqlReadParseBosySW();
+
+	//   联合sql string_view版本 测试update函数
+	void testmultiSqlReadUpdateSW();
+
+
+	//处理联合sql string_view版本 测试update函数的回调函数
+	void handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em);
+
 
 	//  联合redis string_view版本 查询函数KEY测试函数
 	void testMultiRedisReadLOT_SIZE_STRING();

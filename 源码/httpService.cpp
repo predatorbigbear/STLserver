@@ -238,6 +238,18 @@ void HTTPSERVICE::switchPOSTInterface()
 		testCompareWorkFlow();
 		break;
 
+
+	case INTERFACE::testmultiSqlReadParseBosySW:
+		testmultiSqlReadParseBosySW();
+		break;
+
+
+	case INTERFACE::testmultiSqlReadUpdateSW:
+		testmultiSqlReadUpdateSW();
+		break;
+
+
+
 		//默认，不匹配任何接口情况
 	default:
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -603,6 +615,7 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 					rowNum = *begin, fieldNum = *(begin + 1);
 
 					rowCount = -1;
+					index = 0;
 					while (++rowCount != rowNum)
 					{
 						//插入查询结果第一个字段
@@ -610,18 +623,21 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 						++resultBegin;
+						++index;
 
 						//插入查询结果第二个字段
 						if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, resultBegin->cbegin(), resultBegin->cend()))
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 						++resultBegin;
+						++index;
 
 						//插入查询结果第三个字段
 						if (!st1.put(STATICSTRING::book, STATICSTRING::book + STATICSTRING::bookLen, resultBegin->cbegin(), resultBegin->cend()))
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 						++resultBegin;
+						++index;
 
 						if (!st2.push_back(st1))
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
@@ -663,6 +679,175 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 	{
 		handleERRORMESSAGE(em);
 	}
+}
+
+
+
+//从body中解析参数执行sql查询的测试函数
+void HTTPSERVICE::testmultiSqlReadParseBosySW()
+{
+	if (!hasBody)
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char* source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::name, STATICSTRING::nameLen, STATICSTRING::age, STATICSTRING::ageLen))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	//提取name  和  age出来
+	std::string_view nameView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) }, ageView{ *(BodyBuffer + 2),*(BodyBuffer + 3) - *(BodyBuffer + 2) };
+
+	//可以在这里对数据做一些校验，校验通过后插入sql查询语句
+	
+	//可以直接在这里构建静态string_view语句，不用再翻文件找了
+	static const std::string_view query1{ "select name,age,book from table1 where name='" };
+	static const std::string_view query2{ "' or age=" };
+	static const std::string_view query3{ " limit 2" };
+
+
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	//command是每次进行的命令必须进行清除的，多条命令中间需要加;分隔开  
+	// rowField和result在多次查询时可以复用不清空
+	//另外需要多次查询时可以将insertSqlRequest第二个参数置为false，以保存之前的MYSQL_RES不被释放，这样就可以继续进行零拷贝处理
+	command.clear();
+	rowField.clear();
+	result.clear();
+
+	//使用string_view进行拼接
+	try
+	{
+
+		command.emplace_back(query1);
+		command.emplace_back(nameView);
+		command.emplace_back(query2);
+		command.emplace_back(ageView);
+		command.emplace_back(query3);
+
+
+		//执行命令数为1
+		std::get<1>(thisRequest) = 1;
+		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
+
+}
+
+
+//处理联合sql string_view版本 测试update   insert执行，delete自己可以写一条测试，需要多条操作可以参考这里
+void HTTPSERVICE::testmultiSqlReadUpdateSW()
+{
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	command.clear();
+	rowField.clear();
+	result.clear();
+
+	//暂时不要将insert语句中的值设为unique，否则重复插入出现错误时会陷入程序停顿问题，紧急修复中，请等待更新
+	//如需进行insert操作，当插入值中有unique值时可以加入if not exists逻辑先绕过这个问题
+	static const std::string_view updateSql1{ "update table1 set name='test' where name='iist'" };
+	static const std::string_view endChar{ ";" };
+	static const std::string_view updateSql2{ "insert into table1(name,age,book) value('testName',20,'python')" };
+	static const std::string_view updateSql3{ "update table1 set name='test' where name='iist'" };
+	try
+	{
+		//插入多语句的时候需要在不是最后一条语句的前面所有语句末尾插入一个;,语句中不要插入，否则引起崩溃，后面会加入检查逻辑
+		command.emplace_back(updateSql1);
+		command.emplace_back(endChar);
+		command.emplace_back(updateSql3);
+
+		//插入了两条执行语句，所以这里设置2
+		std::get<1>(thisRequest) = 2;
+		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handlemultiSqlReadUpdateSW, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
+
+}
+
+
+//处理联合sql string_view版本 测试update函数的回调函数
+void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+		resultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+
+		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+		std::vector<unsigned int>::const_iterator rowFieldIter;
+		int sum{};
+
+		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
+
+		st1.reset();
+		st2.reset();
+		st3.reset();
+		st4.reset();
+		//insert 与 delete可以自行修改上个接口进行测试
+		//对于update或者insert或者delete语句   result是不会有查询结果字符串返回的，上述每条命令执行后rowField里每一条执行命令会出现1 0，可以查看result中的string_view判断是否执行成功
+		//执行成功返回success to execute,  失败返回  fail to execute ，可以在sql读取模块中设置相关字符串内容
+		//一般在插入有unique指的sql语句时  可能出现失败情况（该值在sql中已存在的情况下）
+		if (rowField.empty() || (rowField.size() % 2) || result.empty())
+		{
+			if (!st1.clear())
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			makeSendJson(st1);
+		}
+		else if (!(rowField.size() % 2))
+		{
+			//执行结束，自己根据result中的字符串提示进行相关后续处理
+			
+			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
+		}
+		else
+		{
+			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		}
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+
 }
 
 
@@ -1682,6 +1867,12 @@ void HTTPSERVICE::clean()
 
 	m_maxReadLen = m_defaultReadLen;
 	recoverMemory();
+
+	//将所有存储MYSQL_RES*的vector进行一次清理
+	for (auto ptr : m_multiSqlRequestSWVec)
+	{
+		m_multiSqlReadSWMaster->FreeResult(std::get<2>(*ptr));
+	}
 
 
 	ec = {};

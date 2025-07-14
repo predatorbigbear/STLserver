@@ -285,7 +285,11 @@ enum INTERFACE
 
 	testMakeJson=19,
 
-	testCompareWorkFlow = 20
+	testCompareWorkFlow = 20,
+
+	testmultiSqlReadParseBosySW = 21,
+
+	testmultiSqlReadUpdateSW = 22
 };
 
 
@@ -1494,20 +1498,21 @@ namespace HTTPRESPONSEREADY
 
 	////////////////////////////////////////////////
 
-	static const char *http11OK{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nHTTP request is OK" };
+	static const char *http11OK{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:18\r\n\r\nHTTP request is OK" };
 	static size_t http11OKLen{ strlen(http11OK) };
+
 
 	//////////////////////////////////////////////////////////
 
-	static const char *http11OKNoBodyJson{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
+	static const char *http11OKNoBodyJson{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
 	static size_t http11OKNoBodyJsonLen{ strlen(http11OKNoBodyJson) };
 
 
-	static const char *http11OKNoBody{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
+	static const char *http11OKNoBody{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:0\r\n\r\n" };
 	static size_t http11OKNoBodyLen{ strlen(http11OKNoBody) };
 
-	static const char *http11OKConyentLength{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:" };
-	static size_t http11OKConyentLengthLen{ strlen(http11OKConyentLength) };
+	static const char *http11OKContentLength{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\nConnection::keep-alive\r\n\r\n" };
+	static size_t http11OKContentLengthLen{ strlen(http11OKContentLength) };
 
 
 	//////////////////////////////////////////////////
@@ -1581,7 +1586,7 @@ namespace HTTPRESPONSEREADY
 	static const char *httpInsertSqlWrite{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:31\r\n\r\nSuccess to insert sqlWrite list" };
 	static size_t httpInsertSqlWriteLen{ strlen(httpInsertSqlWrite) };
 
-	static const char *httpSTDException{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nSTD exception" };
+	static const char *httpSTDException{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:13\r\n\r\nSTD exception" };
 	static size_t httpSTDExceptionLen{ strlen(httpSTDException) };
 
 
