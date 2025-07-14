@@ -238,6 +238,18 @@ void HTTPSERVICE::switchPOSTInterface()
 		testCompareWorkFlow();
 		break;
 
+
+	case INTERFACE::testmultiSqlReadParseBosySW:
+		testmultiSqlReadParseBosySW();
+		break;
+
+
+	case INTERFACE::testmultiSqlReadUpdateSW:
+		testmultiSqlReadUpdateSW();
+		break;
+
+
+
 		//默认，不匹配任何接口情况
 	default:
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -399,8 +411,7 @@ void HTTPSERVICE::testGet()
 
 	//GET接口在读取文件时就设置了Connection 为keep-alive,为了性能考虑，这里就不修改内容直接发送出去了
 	//反正检测到close的情况下，发送完http响应之后就会停止接收新消息，问题不大
-	//如果要根据Connection的值改变的话，可以计算好一个位置，将字符串的内容改变，写close的时候前面留几个空格，
-	// 这样写几个字符就能根据Connection的值改变了
+	//不能直接改变里面的字符串，否则多线程操作会引起问题，如果需要改变的话，把这个字符串拷贝出来再进行修改
 	iter = m_fileMap->find(std::string_view(m_buffer->getView().target().data() + 1, m_buffer->getView().target().size() - 1));
 	if (iter != m_fileMap->cend())
 	{
@@ -482,16 +493,20 @@ void HTTPSERVICE::testPingPongJson()
 
 
 
-
+//测试前提条件，在database名称为serversql下创建一张表为table1,内部含有变量name,age,book即可，
+//自行插入一些数据
 void HTTPSERVICE::testmultiSqlReadSW()
 {
+
 	std::shared_ptr<resultTypeSW> &sqlRequest{ m_multiSqlRequestSWVec[0] };
 
-	std::vector<std::string_view> &command{ std::get<0>(*sqlRequest).get() };
+	resultTypeSW& thisRequest{ *sqlRequest };
 
-	std::vector<unsigned int> &rowField{ std::get<3>(*sqlRequest).get() };
+	std::vector<std::string_view> &command{ std::get<0>(thisRequest).get() };
 
-	std::vector<std::string_view> &result{ std::get<4>(*sqlRequest).get() };
+	std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
 	
 	command.clear(); 
 	rowField.clear();
@@ -500,10 +515,11 @@ void HTTPSERVICE::testmultiSqlReadSW()
 
 	try
 	{
+
 		command.emplace_back(std::string_view(SQLCOMMAND::testSqlReadMemory, SQLCOMMAND::testSqlReadMemoryLen));
 
-		std::get<1>(*sqlRequest) = 2;
-		std::get<5>(*sqlRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<1>(thisRequest) = 1;     
+		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
@@ -522,118 +538,308 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 {
 	if (result)
 	{
+
 		std::shared_ptr<resultTypeSW> &sqlRequest{ m_multiSqlRequestSWVec[0] };
 
-		unsigned int commandSize{ std::get<1>(*sqlRequest) };
+		resultTypeSW& thisRequest{ *sqlRequest };
 
-		std::vector<unsigned int> &rowField{ std::get<3>(*sqlRequest).get() };
+		std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
 
-		std::vector<std::string_view> &result{ std::get<4>(*sqlRequest).get() };
+		std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
 
-		if (rowField.empty() || result.empty() || (rowField.size() % 2))
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		std::vector<unsigned int>::const_iterator rowFieldIter;
+		int sum{};
 
-		
-		std::vector<std::string_view>::const_iterator resultBegin{ result.cbegin() };
-		std::vector<unsigned int>::const_iterator begin{ rowField.cbegin() }, end{ rowField.cend() }, iter{ begin };
-		int rowNum{}, fieldNum{}, rowCount{}, fieldCount{}, index{ -1 };
+		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
 
-		STLtreeFast &st1{ m_STLtreeFastVec[0] }, &st2{ m_STLtreeFastVec[1] },&st3{ m_STLtreeFastVec[2] }, &st4{ m_STLtreeFastVec[3] };
-
-		if (!st1.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-		if (!st2.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-		if (!st3.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-		if (!st4.clear())
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-
-		
-		do
+		st1.reset();
+		st2.reset();
+		st3.reset();
+		st4.reset();
+		//没有任何返回结果或者返回结果错误，自己处理
+		if (result.empty() || rowField.empty() || (rowField.size() % 2))
 		{
-			iter = begin;
-			rowNum = *begin, fieldNum = *(begin + 1);
 
-			rowCount = -1;
-			while (++rowCount != rowNum)
+			if (!st1.clear())
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			makeSendJson(st1);
+		}
+		else
+		{
+			//比对rowField的每两项数据的总乘积是否等于result的个数
+			for (rowFieldIter = rowField.cbegin(); rowFieldIter != rowField.cend(); rowFieldIter+=2)
+			{
+				sum += (*rowFieldIter) * (*(rowFieldIter + 1));
+			}
+			
+			//结果数量不匹配，自己处理
+			if (sum != result.size())
 			{
 			
-				if (!st1.put(STATICSTRING::id, STATICSTRING::id + STATICSTRING::idLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
+				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
+				if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-				++resultBegin;
+				makeSendJson(st1);
 
-				if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
+			else
+			{
+				std::vector<std::string_view>::const_iterator resultBegin{ result.cbegin() };
+				std::vector<unsigned int>::const_iterator begin{ rowField.cbegin() }, end{ rowField.cend() }, iter{ begin };
+				int rowNum{}, fieldNum{}, rowCount{}, fieldCount{}, index{ -1 };
 
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::province, STATICSTRING::province + STATICSTRING::provinceLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::city, STATICSTRING::city + STATICSTRING::cityLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::country, STATICSTRING::country + STATICSTRING::countryLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st1.put(STATICSTRING::phone, STATICSTRING::phone + STATICSTRING::phoneLen, &*resultBegin->cbegin(), &*resultBegin->cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				++resultBegin;
-
-				if (!st2.push_back(st1))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
+
+				if (!st2.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				if (!st3.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				if (!st4.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		
+
+				do
+				{
+					iter = begin;
+					rowNum = *begin, fieldNum = *(begin + 1);
+
+					rowCount = -1;
+					while (++rowCount != rowNum)
+					{
+						//插入查询结果第一个字段
+						if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, resultBegin->cbegin(), resultBegin->cend()))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						++resultBegin;
+
+						//插入查询结果第二个字段
+						if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, resultBegin->cbegin(), resultBegin->cend()))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						++resultBegin;
+
+						//插入查询结果第三个字段
+						if (!st1.put(STATICSTRING::book, STATICSTRING::book + STATICSTRING::bookLen, resultBegin->cbegin(), resultBegin->cend()))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						++resultBegin;
+
+						if (!st2.push_back(st1))
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+						if (!st1.clear())
+							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+					}
 
 
+
+					if (!st3.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st2))
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					if (!st2.clear())
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					if (!st4.push_back(st3))
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					if (!st3.clear())
+						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+					begin += 2;
+					
+				} while (begin != end);
+
+				if (!st1.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st4))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				makeSendJson(st1);
 			
-			if (!st3.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st2))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-			if (!st4.push_back(st3))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st3.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
+			
+		}
 		
-
-			begin += 2;
-			//std::cout << "result " << ++index << " finished\n";
-		}while(begin != end);
-
-		if (!st1.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st4))
-			return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-		
-
-		makeSendJson(st1);
 	}
 	else
 	{
 		handleERRORMESSAGE(em);
 	}
+}
+
+
+
+//从body中解析参数执行sql查询的测试函数
+void HTTPSERVICE::testmultiSqlReadParseBosySW()
+{
+	if (!hasBody)
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char* source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::name, STATICSTRING::nameLen, STATICSTRING::age, STATICSTRING::ageLen))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	//提取name  和  age出来
+	std::string_view nameView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) }, ageView{ *(BodyBuffer + 2),*(BodyBuffer + 3) - *(BodyBuffer + 2) };
+
+	//可以在这里对数据做一些校验，校验通过后插入sql查询语句
+	
+	//可以直接在这里构建静态string_view语句，不用再翻文件找了
+	static const std::string_view query1{ "select name,age,book from table1 where name='" };
+	static const std::string_view query2{ "' or age=" };
+	static const std::string_view query3{ " limit 2" };
+
+
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	//command是每次进行的命令必须进行清除的，多条命令中间需要加;分隔开  
+	// rowField和result在多次查询时可以复用不清空
+	//另外需要多次查询时可以将insertSqlRequest第二个参数置为false，以保存之前的MYSQL_RES不被释放，这样就可以继续进行零拷贝处理
+	command.clear();
+	rowField.clear();
+	result.clear();
+
+	//使用string_view进行拼接
+	try
+	{
+
+		command.emplace_back(query1);
+		command.emplace_back(nameView);
+		command.emplace_back(query2);
+		command.emplace_back(ageView);
+		command.emplace_back(query3);
+
+
+		//执行命令数为1
+		std::get<1>(thisRequest) = 1;
+		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
+
+}
+
+
+//处理联合sql string_view版本 测试update   insert执行，delete自己可以写一条测试，需要多条操作可以参考这里
+void HTTPSERVICE::testmultiSqlReadUpdateSW()
+{
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	command.clear();
+	rowField.clear();
+	result.clear();
+
+	static const std::string_view updateSql1{ "update table1 set name='test' where name='iist';" };
+	static const std::string_view updateSql2{ "insert into table1(name,age,book) value('testName',20,'python');" };
+	static const std::string_view updateSql3{ "update table1 set name='test' where name='iist';" };
+	try
+	{
+		//插入多语句的时候需要在不是最后一条语句的前面所有语句末尾插入一个;
+		command.emplace_back(updateSql1);
+		command.emplace_back(updateSql2);
+
+		//插入了两条执行语句，所以这里设置2
+		std::get<1>(thisRequest) = 2;
+		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handlemultiSqlReadUpdateSW, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
+
+}
+
+
+//处理联合sql string_view版本 测试update函数的回调函数
+void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+		resultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+
+		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+		std::vector<unsigned int>::const_iterator rowFieldIter;
+		int sum{};
+
+		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
+
+		st1.reset();
+		st2.reset();
+		st3.reset();
+		st4.reset();
+		//insert 与 delete可以自行修改上个接口进行测试
+		//对于update或者insert或者delete语句   result是不会有查询结果字符串返回的，上述每条命令执行后rowField里每一条执行命令会出现1 0，可以查看result中的string_view判断是否执行成功
+		//执行成功返回success to execute,  失败返回  fail to execute ，可以在sql读取模块中设置相关字符串内容
+		//一般在插入有unique指的sql语句时  可能出现失败情况（该值在sql中已存在的情况下）
+		if (rowField.empty() || (rowField.size() % 2) || result.empty())
+		{
+			if (!st1.clear())
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			makeSendJson(st1);
+		}
+		else if (!(rowField.size() % 2))
+		{
+			//执行结束，自己根据result中的字符串提示进行相关后续处理
+			
+			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
+		}
+		else
+		{
+			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		}
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+
 }
 
 
@@ -1861,7 +2067,7 @@ void HTTPSERVICE::prepare()
 
 
 
-
+	m_MemoryPool.reset();
 
 
 	int i = -1, j{}, z{};
@@ -1870,10 +2076,12 @@ void HTTPSERVICE::prepare()
 	m_mysqlResVec.resize(3, std::vector<MYSQL_RES*>{});
 	m_unsignedIntVec.resize(12, std::vector<unsigned int>{});
 
-	while (++i != 5)
+	while (++i != 4)
 	{
 		m_STLtreeFastVec.emplace_back(STLtreeFast(&m_MemoryPool));
 	}
+	
+
 	
 
 	i = -1, j = -1, z = -1;
@@ -1884,7 +2092,6 @@ void HTTPSERVICE::prepare()
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
-	m_MemoryPool.prepare();
 }
 
 
