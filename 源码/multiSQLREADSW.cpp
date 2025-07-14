@@ -76,12 +76,16 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest,
 	resultTypeSW& thisRequest{ *sqlRequest };
 
 
-	if(std::get<0>(thisRequest).get().empty() ||
+	if(std::get<0>(thisRequest).get().empty() || std::get<6>(thisRequest).get().empty() ||
+		std::accumulate(std::get<6>(thisRequest).get().cbegin(), std::get<6>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size() ||
 		std::any_of(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), [](auto const sw)
 	{
-		return sw.empty();
-	}) || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize)
+		return sw.empty() || std::find(sw.cbegin(),sw.cend(),';')!= sw.cend();
+	}) || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize )
 		return false;
+
+
+
 
 	std::vector<MYSQL_RES*>& vec{ std::get<2>(thisRequest).get() };
 
@@ -124,10 +128,18 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest,
 		
 
 		char *buffer{ m_messageBuffer.get() };
+		int index{ 0 };
+		std::vector<unsigned int>::const_iterator sqlNumIter{ std::get<6>(thisRequest).get().cbegin() };
 		for (auto sw : std::get<0>(thisRequest).get())
 		{
 			std::copy(sw.cbegin(), sw.cend(), buffer);
 			buffer += sw.size();
+			if (++index == *sqlNumIter)
+			{
+				index = 0;
+				++sqlNumIter;
+				*buffer++ = ';';
+			}
 		}
 
 		m_messageBufferNowSize = m_sendLen;
@@ -588,6 +600,7 @@ void MULTISQLREADSW::makeMessage()
 	int index{ -1 };
 	// messageBuffer使用
 
+	std::vector<unsigned int>::const_iterator sqlNumIter;
 	//waitMessage队列使用
 	std::shared_ptr<resultTypeSW> *waitBegin{}, *waitEnd{}, *waitIter{};
 	//统计字符串总长度，每个节点数据的命令个数
@@ -600,7 +613,7 @@ void MULTISQLREADSW::makeMessage()
 	{
 		totalLen  = m_commandNowSize = m_waitMessageListNowSize = 0;
 
-		index = -1;
+		
 		waitBegin = m_waitMessageList.get();
 
 		//一般情况下，并不会频繁遭遇此处的while循环情况，只有在内存缺乏的情况下才会进入第二次以上的while循环
@@ -638,7 +651,7 @@ void MULTISQLREADSW::makeMessage()
 			{
 				totalLen += sw.size();
 			}
-			++totalLen;
+			totalLen += std::get<6>(**waitBegin).get().size();
 
 		} while (++waitBegin != waitEnd);	
 
@@ -677,18 +690,23 @@ void MULTISQLREADSW::makeMessage()
 		    //组装消息到buffer里面
 			waitBegin = m_waitMessageList.get(), waitEnd = m_waitMessageList.get() + m_waitMessageListNowSize;
 
-			index = -1;
+			
 			bufferBegin = bufferIter = m_messageBuffer.get();
 			do
 			{
-
+				sqlNumIter = std::get<6>(**waitBegin).get().cbegin();
+				index = 0;
 				for (auto const sw : std::get<0>(**waitBegin).get())
 				{
-
 					std::copy(sw.cbegin(), sw.cend(), bufferIter);
 					bufferIter += sw.size();
+					if (++index == *sqlNumIter)
+					{
+						index = 0;
+						++sqlNumIter;
+						*bufferIter++ = ';';
+					}
 				}
-				*bufferIter++ = ';';
 			} while (++waitBegin != waitEnd);
 
 

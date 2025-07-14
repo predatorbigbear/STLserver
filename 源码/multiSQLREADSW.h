@@ -46,19 +46,20 @@
 struct MULTISQLREADSW
 {
 	/*
-	执行语句
-	执行语句数量
-	结果集
-	结果行数 列数int
-	结果数据
-	回调函数
-	本意是为了避免在插入sql查询前命令进行一次无谓的拷贝，在sql发送最终批量命令前才进行真正的copy，之前通过string_view传入，复用预定义字符串 + body里面的已有字符串，如果有多个命令，那么中间需要加;
+	执行命令string_view集,string_view集中不需要加;   多条sql语句应分开多条string_view传入
+	获取的结果个数
+	装载MYSQL_RES*的vector，不用清空，每次插入命令到sql操作模块之后内部会自动执行释放内存操作
+	根据查询的命令，每一条查询命令会有两项数据显示，第一项是该条命令返回结果个数，第二个是每条命令的字段个数
+	返回的查询结果的string_view个数，总个数应该相当于上述两项数据的乘积   该条命令返回结果个数  *  条命令的字段个数
+	回调处理函数
+	用于组成每条sql语句的string_view个数（用于检查是否中间带有;  避免mysql解析错误）
 	*/
 
 	// 
 
 	using resultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<MYSQL_RES*>>,
-		std::reference_wrapper<std::vector<unsigned int>>, std::reference_wrapper<std::vector<std::string_view>>, std::function<void(bool, enum ERRORMESSAGE)>>;
+		std::reference_wrapper<std::vector<unsigned int>>, std::reference_wrapper<std::vector<std::string_view>>, std::function<void(bool, enum ERRORMESSAGE)>,
+		std::reference_wrapper<std::vector<unsigned int>>>;
 
 
 	MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>>unlockFun, const std::string &SQLHOST, const std::string &SQLUSER,

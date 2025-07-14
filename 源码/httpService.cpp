@@ -512,18 +512,23 @@ void HTTPSERVICE::testmultiSqlReadSW()
 	std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
 
 	std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
+
+	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
+
 	
 	command.clear(); 
 	rowField.clear();
 	result.clear();
-
+	sqlNum.clear();
 
 	try
 	{
 
 		command.emplace_back(std::string_view(SQLCOMMAND::testSqlReadMemory, SQLCOMMAND::testSqlReadMemoryLen));
 
+		//
 		std::get<1>(thisRequest) = 1;     
+		sqlNum.emplace_back(1);
 		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
@@ -721,12 +726,15 @@ void HTTPSERVICE::testmultiSqlReadParseBosySW()
 
 	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
+	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
+
 	//command是每次进行的命令必须进行清除的，多条命令中间需要加;分隔开  
 	// rowField和result在多次查询时可以复用不清空
 	//另外需要多次查询时可以将insertSqlRequest第二个参数置为false，以保存之前的MYSQL_RES不被释放，这样就可以继续进行零拷贝处理
 	command.clear();
 	rowField.clear();
 	result.clear();
+	sqlNum.clear();
 
 	//使用string_view进行拼接
 	try
@@ -741,6 +749,7 @@ void HTTPSERVICE::testmultiSqlReadParseBosySW()
 
 		//执行命令数为1
 		std::get<1>(thisRequest) = 1;
+		sqlNum.emplace_back(5);
 		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
@@ -767,25 +776,28 @@ void HTTPSERVICE::testmultiSqlReadUpdateSW()
 
 	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
+	std::vector<unsigned int>& sqlNum { std::get<6>(thisRequest).get() };
+
 	command.clear();
 	rowField.clear();
 	result.clear();
+	sqlNum.clear();
 
-	//暂时不要将insert语句中的值设为unique，否则重复插入出现错误时会陷入程序停顿问题，紧急修复中，请等待更新
+	//暂时不要将insert语句中的值设为unique，否则重复插入出现错误时会陷入程序停顿问题，修复中，请等待更新
 	//如需进行insert操作，当插入值中有unique值时可以加入if not exists逻辑先绕过这个问题
 	static const std::string_view updateSql1{ "update table1 set name='test' where name='iist'" };
-	static const std::string_view endChar{ ";" };
 	static const std::string_view updateSql2{ "insert into table1(name,age,book) value('testName',20,'python')" };
-	static const std::string_view updateSql3{ "update table1 set name='test' where name='iist'" };
+	static const std::string_view updateSql3{ "update table1 set name='test1' where name='iist1'" };
 	try
 	{
-		//插入多语句的时候需要在不是最后一条语句的前面所有语句末尾插入一个;,语句中不要插入，否则引起崩溃，后面会加入检查逻辑
+		//插入多语句的时候不需要加入;   在内部会自动加入
 		command.emplace_back(updateSql1);
-		command.emplace_back(endChar);
 		command.emplace_back(updateSql3);
 
 		//插入了两条执行语句，所以这里设置2
 		std::get<1>(thisRequest) = 2;
+		sqlNum.emplace_back(1);
+		sqlNum.emplace_back(1);
 		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handlemultiSqlReadUpdateSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
@@ -2093,7 +2105,7 @@ void HTTPSERVICE::prepare()
 
 	m_stringViewVec.resize(15, std::vector<std::string_view>{});
 	m_mysqlResVec.resize(3, std::vector<MYSQL_RES*>{});
-	m_unsignedIntVec.resize(12, std::vector<unsigned int>{});
+	m_unsignedIntVec.resize(15, std::vector<unsigned int>{});
 
 	while (++i != 4)
 	{
@@ -2106,7 +2118,7 @@ void HTTPSERVICE::prepare()
 	i = -1, j = -1, z = -1;
 	while (++i != 3)
 	{
-		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr));
+		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));
 		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
