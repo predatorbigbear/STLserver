@@ -399,8 +399,7 @@ void HTTPSERVICE::testGet()
 
 	//GET接口在读取文件时就设置了Connection 为keep-alive,为了性能考虑，这里就不修改内容直接发送出去了
 	//反正检测到close的情况下，发送完http响应之后就会停止接收新消息，问题不大
-	//如果要根据Connection的值改变的话，可以计算好一个位置，将字符串的内容改变，写close的时候前面留几个空格，
-	// 这样写几个字符就能根据Connection的值改变了
+	//不能直接改变里面的字符串，否则多线程操作会引起问题，如果需要改变的话，把这个字符串拷贝出来再进行修改
 	iter = m_fileMap->find(std::string_view(m_buffer->getView().target().data() + 1, m_buffer->getView().target().size() - 1));
 	if (iter != m_fileMap->cend())
 	{
@@ -607,19 +606,19 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 					while (++rowCount != rowNum)
 					{
 						//插入查询结果第一个字段
-						if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, resultBegin->data(), resultBegin->data()+ resultBegin->size()))
+						if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, resultBegin->cbegin(), resultBegin->cend()))
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 						++resultBegin;
 
 						//插入查询结果第二个字段
-						if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, resultBegin->data(), resultBegin->data() + resultBegin->size()))
+						if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, resultBegin->cbegin(), resultBegin->cend()))
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 						++resultBegin;
 
 						//插入查询结果第三个字段
-						if (!st1.put(STATICSTRING::book, STATICSTRING::book + STATICSTRING::bookLen, resultBegin->data(), resultBegin->data() + resultBegin->size()))
+						if (!st1.put(STATICSTRING::book, STATICSTRING::book + STATICSTRING::bookLen, resultBegin->cbegin(), resultBegin->cend()))
 							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 						++resultBegin;
