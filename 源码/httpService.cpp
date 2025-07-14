@@ -495,6 +495,11 @@ void HTTPSERVICE::testPingPongJson()
 
 //测试前提条件，在database名称为serversql下创建一张表为table1,内部含有变量name,age,book即可，
 //自行插入一些数据
+//mysql客户端测试函数为 testmultiSqlReadSW();
+//  联合sql string_view版本 解析body查询函数
+//testmultiSqlReadParseBosySW();
+//   联合sql string_view版本 测试update  insert  delete以及多命令执行函数
+// testmultiSqlReadUpdateSW();
 void HTTPSERVICE::testmultiSqlReadSW()
 {
 
