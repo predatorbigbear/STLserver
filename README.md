@@ -1,3 +1,14 @@
+今天在单核机器上对搜狗workflow的hello world例子 与接口4进行对比测试
+
+其中，测试workflow的命令为   wrk -t1 -c100 -d60s  -s /home/download/postw.lua http://127.0.0.1:8085/22
+
+ 接口4  wrk测试命令为        wrk -t1 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4
+
+ 具体结果如何，我就不说了，你们可以自己测试。
+
+
+ 
+
 
 
 
