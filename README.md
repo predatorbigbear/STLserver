@@ -1,4 +1,4 @@
-接口21和22崩溃问题已初步修复
+
 
 
 http处理模块中http头部主要处理了6个，分别是 Host   Transfer_Encoding    Connection    Content_Length    Content_Type     Expect
