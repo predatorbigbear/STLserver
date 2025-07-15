@@ -105,6 +105,15 @@ private:
 	unsigned int m_messageBufferNowSize{};
 
 
+	//记录发送命令字符串执行到什么位置的buffer
+	std::unique_ptr<char* []>m_posBuffer{};
+
+	char** m_posbegin{};
+
+	char** m_posEnd{};
+
+	//m_posBuffer的分配大小
+	const int m_posBufferLen{};
 
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -783,7 +783,8 @@ void HTTPSERVICE::testmultiSqlReadUpdateSW()
 	result.clear();
 	sqlNum.clear();
 
-	//暂时不要将insert语句中的值设为unique，否则重复插入出现错误时会陷入程序停顿问题，修复中，请等待更新
+	//
+	// 插入出现错误时会陷入程序停顿问题已经修复，内部实现了机制可以在出现错误时继续获取sql结果
 	//如需进行insert操作，当插入值中有unique值时可以加入if not exists逻辑先绕过这个问题
 	static const std::string_view updateSql1{ "update table1 set name='test' where name='iist'" };
 	static const std::string_view updateSql2{ "insert into table1(name,age,book) value('testName',20,'python')" };
@@ -792,7 +793,7 @@ void HTTPSERVICE::testmultiSqlReadUpdateSW()
 	{
 		//插入多语句的时候不需要加入;   在内部会自动加入
 		command.emplace_back(updateSql1);
-		command.emplace_back(updateSql3);
+		command.emplace_back(updateSql2);
 
 		//插入了两条执行语句，所以这里设置2
 		std::get<1>(thisRequest) = 2;

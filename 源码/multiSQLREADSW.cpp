@@ -4,7 +4,7 @@ MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std
 	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, 
 	std::shared_ptr<LOG> log, const unsigned int bufferSize)
 	:m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB), m_unlockFun(unlockFun), m_commandMaxSize(commandMaxSize),m_log(log),
-	m_messageBufferMaxSize(bufferSize)
+	m_messageBufferMaxSize(bufferSize), m_posBufferLen(commandMaxSize* commandMaxSize + 1)
 {
 	if (SQLHOST.empty())
 		throw std::runtime_error("SQLHOST is empty");
@@ -46,6 +46,8 @@ MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std
 	m_messageBuffer.reset(new char[m_messageBufferMaxSize]);
 	m_messageBufferMaxSize = m_messageBufferMaxSize;
 
+
+	m_posBuffer.reset(new char* [m_posBufferLen]);
 
 
 	if (!(m_mysql = mysql_init(m_mysql)))
@@ -130,6 +132,8 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest,
 		char *buffer{ m_messageBuffer.get() };
 		int index{ 0 };
 		std::vector<unsigned int>::const_iterator sqlNumIter{ std::get<6>(thisRequest).get().cbegin() };
+		m_posbegin = m_posBuffer.get();
+		*m_posbegin++ = buffer;
 		for (auto sw : std::get<0>(thisRequest).get())
 		{
 			std::copy(sw.cbegin(), sw.cend(), buffer);
@@ -139,6 +143,7 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest,
 				index = 0;
 				++sqlNumIter;
 				*buffer++ = ';';
+				*m_posbegin++ = buffer;
 			}
 		}
 
@@ -147,7 +152,7 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest,
 		*(m_waitMessageList.get()) = sqlRequest;
 		m_commandNowSize = std::get<1>(thisRequest);
 		m_sendMessage = m_messageBuffer.get();
-
+		m_posbegin = m_posBuffer.get();
 		
 		readyQuery();
 
@@ -394,6 +399,7 @@ void MULTISQLREADSW::store()
 				std::cout << "store NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
 				break;
 			case NET_ASYNC_COMPLETE:
+				++m_posbegin;
 				if (!m_result)
 				{
 					try
@@ -541,10 +547,11 @@ void MULTISQLREADSW::next_result()
 				next_result();
 				break;
 			case NET_ASYNC_ERROR:        // 回调函数处理
+				++m_posbegin;
 				try
 				{
 					std::vector<unsigned int>& rowFieldVec = std::get<3>(**m_waitMessageListBegin);
-					rowFieldVec.emplace_back(0);
+					rowFieldVec.emplace_back(1);
 					rowFieldVec.emplace_back(0);
 
 					vec.emplace_back(sqlFail);
@@ -573,8 +580,9 @@ void MULTISQLREADSW::next_result()
 				}	
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:
-				std::cout << "next_result  NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
-
+				m_sendMessage = *m_posbegin;
+				m_sendLen = m_messageBufferNowSize - std::distance(m_messageBuffer.get(), *m_posbegin);
+				firstQuery();
 
 				break;
 			case NET_ASYNC_COMPLETE:
@@ -692,6 +700,8 @@ void MULTISQLREADSW::makeMessage()
 
 			
 			bufferBegin = bufferIter = m_messageBuffer.get();
+			m_posbegin = m_posBuffer.get();
+			*m_posbegin++ = bufferIter;
 			do
 			{
 				sqlNumIter = std::get<6>(**waitBegin).get().cbegin();
@@ -705,12 +715,15 @@ void MULTISQLREADSW::makeMessage()
 						index = 0;
 						++sqlNumIter;
 						*bufferIter++ = ';';
+						*m_posbegin++ = bufferIter;
 					}
 				}
 			} while (++waitBegin != waitEnd);
 
 
 			m_messageBufferNowSize = totalLen;
+
+			m_posbegin = m_posBuffer.get();
 
 			readyQuery();
 
