@@ -1,13 +1,13 @@
 对http处理类中的http 头部存储进行string_view改造，实测性能略有提升
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-今天在单核机器上对搜狗workflow的hello world例子 与接口4进行对比测试
+今天在单核机器上对搜狗workflow的hello world例子 与经过string-view改造后的实现  接口4进行对比测试
 
 其中，测试workflow的命令为   wrk -t1 -c100 -d60s  -s /home/download/postw.lua http://127.0.0.1:8085/22
 
  接口4  wrk测试命令为        wrk -t1 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4
 
- 具体结果如何，我就不说了，你们可以自己测试。
+实测接口4性能比搜狗workflow的hello world例子 qps更高，稍后更新视频过程链接：
 
 
  
