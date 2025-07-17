@@ -32,7 +32,7 @@ int main()
 		if (!success)
 			return -2;
 
-		//设置日志  60s检查一次  buffer空间40960   16个日志文件
+		//设置日志  60s检查一次  buffer空间40960   16个日志文件    需要有该目录存在，比如/home/deng   log是日志前缀名称
 		m1.setLog("/home/deng/log", ioPool, success, 60);
 		if (!success)
 			return -3;
@@ -51,6 +51,7 @@ int main()
 		if (!success)
 			return -6;
 
+		//设置mysql  连接地址   用户名  密码  连接数据库名称  端口
 		m1.setMultiSqlWriteSW(ioPool, success,  "127.0.0.1", "root", "884378abc", "serversql", "3306", true , 1);     //主sql写入
 		if (!success)
 		{
@@ -58,6 +59,7 @@ int main()
 			return -7;
 		}
 
+		//设置mysql  连接地址   用户名  密码  连接数据库名称  端口
 		m1.setMultiSqlReadSW(ioPool, success, "127.0.0.1", "root", "884378abc", "serversql", "3306");       //主sql读取
 		if (!success)
 		{
@@ -65,7 +67,7 @@ int main()
 			return -8;
 		}
 
-		//绑定8085端口  http默认网页文件夹   1024处理对象   60s内超时
+		//绑定8085端口  http默认网页文件夹   1024处理对象   60s内超时        网页端文件存储目录需要存在
 		m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {}, 1024, 30);
 		if (!success)
 		{
@@ -88,7 +90,6 @@ int main()
 
 	return 0;
 }
-
 
 
 
