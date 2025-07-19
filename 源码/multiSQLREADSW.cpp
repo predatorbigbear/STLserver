@@ -4,7 +4,7 @@ MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std
 	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, 
 	std::shared_ptr<LOG> log, const unsigned int bufferSize)
 	:m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB), m_unlockFun(unlockFun), m_commandMaxSize(commandMaxSize),m_log(log),
-	m_messageBufferMaxSize(bufferSize), m_posBufferLen(commandMaxSize* commandMaxSize + 1)
+	m_messageBufferMaxSize(bufferSize), m_posBufferLen(commandMaxSize* commandMaxSize + 1), m_messageList(commandMaxSize * 4)
 {
 	if (SQLHOST.empty())
 		throw std::runtime_error("SQLHOST is empty");
@@ -35,8 +35,6 @@ MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std
 
 	m_waitMessageList.reset(new std::shared_ptr<resultTypeSW>[m_commandMaxSize]);
 	m_waitMessageListMaxSize = m_commandMaxSize;
-
-	m_messageList.reset(m_commandMaxSize * 6);
 
 
 	m_timer.reset(new boost::asio::steady_timer(*ioc));
@@ -166,19 +164,11 @@ bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW> &sqlRequest,
 		//如果正在执行状态
 		//则尝试插入待插入队列之中
 
-		m_messageList.lock();
-		
-		if (!m_messageList.unsafeInsert(sqlRequest))
-		{
-			m_messageList.unlock();
+		if (!m_messageList.try_enqueue(std::shared_ptr<resultTypeSW>(sqlRequest)))
 			return false;
-		}
-		m_messageList.unlock();
 
 		return true;
 	}
-
-	return false;
 
 
 	////////////////////////////////////////////////////////////////////////////////////////////
@@ -336,33 +326,23 @@ void MULTISQLREADSW::handleAsyncError()
 {
 	m_hasConnect.store(false);
 	
+	std::shared_ptr<resultTypeSW>* request{};
 
-	m_messageList.lock();
-	if (!m_messageList.isEmpty())
+	while (m_messageList.try_dequeue(*request))
 	{
-		std::shared_ptr<resultTypeSW> *request{};
-		
+		std::get<5>(**request)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
+	}
+
+
+
+	if (m_waitMessageListBegin!= m_waitMessageListEnd)
+	{
 		do
 		{
-			m_messageList.unsafePop(*request);
-			if (*request)
-			{
-				std::get<5>(**request)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
-			}
-		} while (*request);
+			std::get<5>(**m_waitMessageListBegin)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
+		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
 	}
-	m_messageList.unlock();
-
-
-	if (m_waitMessageListNowSize)
-	{
-		std::shared_ptr<resultTypeSW> *begin{ m_waitMessageList.get() }, *end{ m_waitMessageList.get() + m_waitMessageListNowSize };
-		do
-		{
-			std::get<5>(**begin)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
-		} while (++begin != end);
-		m_waitMessageListNowSize = 0;
-	}
+	m_waitMessageListNowSize = 0;
 
 	resetConnect = true;
 	m_queryStatus.store(false);
@@ -623,27 +603,21 @@ void MULTISQLREADSW::makeMessage()
 
 		
 		waitBegin = m_waitMessageList.get();
-
+		waitEnd = m_waitMessageList.get() + m_waitMessageListMaxSize;
 		//一般情况下，并不会频繁遭遇此处的while循环情况，只有在内存缺乏的情况下才会进入第二次以上的while循环
-		m_messageList.lock();
-		if (m_messageList.isEmpty())
-		{
-			m_messageList.unlock();
-
-			m_queryStatus.store(false);
-			break;
-		}
-
 		
+	
 		//缩短加锁时长，先取出元素，再进行后续处理
 		do
 		{
-			m_messageList.unsafePop(*waitBegin);
-			if (!*waitBegin)
+			if (!m_messageList.try_dequeue(*waitBegin))
 				break;
-
-		} while (++waitBegin !=m_waitMessageList.get()+ m_waitMessageListMaxSize);
-		m_messageList.unlock();
+		} while (++waitBegin != waitEnd);
+		if (waitBegin == m_waitMessageList.get())
+		{
+			m_queryStatus.store(false);
+			break;
+		}
 
 		waitEnd = waitBegin;
 		waitBegin = m_waitMessageList.get();

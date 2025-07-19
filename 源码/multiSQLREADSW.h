@@ -6,7 +6,8 @@
 #include "mysql/mysql.h"
 #include "mysql/mysqld_error.h"
 #include "LOG.h"
-#include "fastSafeList.h"
+//#include "fastSafeList.h"
+#include "concurrentqueue.h"
 #include "errorMessage.h"
 
 #include <boost/asio.hpp>
@@ -159,8 +160,10 @@ private:
 
 
 	///////////////////////////////////////////////////////////////////
+	// 
 	//待投递队列，未/等待拼凑消息的队列
-	FASTSAFELIST<std::shared_ptr<resultTypeSW>>m_messageList;
+	//使用开源无所队列进一步提升qps ，这是github地址  https://github.com/cameron314/concurrentqueue
+	moodycamel::ConcurrentQueue<std::shared_ptr<resultTypeSW>>m_messageList;
 
 
 
