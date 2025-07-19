@@ -403,17 +403,23 @@ void HTTPSERVICE::testRandomBody()
 
 
 
+//读取文件接口
+//读取存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile
+//读取不存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile1
 void HTTPSERVICE::testGet()
 {
 	if (m_buffer->getView().target().empty() || m_buffer->getView().target().size() < 2)
-		startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
 	std::unordered_map<std::string_view, std::string>::const_iterator iter;
+
+	int len{};
+	UrlDecodeWithTransChinese(m_buffer->getView().target().data() + 1, m_buffer->getView().target().size() - 1, len);
 
 	//GET接口在读取文件时就设置了Connection 为keep-alive,为了性能考虑，这里就不修改内容直接发送出去了
 	//反正检测到close的情况下，发送完http响应之后就会停止接收新消息，问题不大
 	//不能直接改变里面的字符串，否则多线程操作会引起问题，如果需要改变的话，把这个字符串拷贝出来再进行修改
-	iter = m_fileMap->find(std::string_view(m_buffer->getView().target().data() + 1, m_buffer->getView().target().size() - 1));
+	iter = m_fileMap->find(std::string_view(m_buffer->getView().target().data() + 1, len));
 	if (iter != m_fileMap->cend())
 	{
 		startWrite(iter->second.c_str(), iter->second.size());

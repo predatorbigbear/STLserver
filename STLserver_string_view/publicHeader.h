@@ -1623,7 +1623,7 @@ namespace HTTPRESPONSEREADY
 	
 
 
-	static const char *http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\n\r\n" };
+	static const char *http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:0\r\n\r\n" };
 	static size_t http404NofileLen{ strlen(http404Nofile) };
 
 
