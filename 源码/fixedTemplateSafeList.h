@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 #include<memory>
@@ -34,25 +34,11 @@ struct FIXEDTEMPLATESAFELIST
 		{
 			if (!m_hasReady)
 			{
-				m_emptyListEnd = nullptr;
-				m_valueListEnd = nullptr;
-
-				m_valueList.reset(new HTTPCLASS[m_beginSize]);
-				m_valueIter = m_valueList.get();
-
-				m_emptyList.reset(new HTTPCLASS*[m_beginSize]);
-				m_emptyIter = m_emptyList.get();
-
-
-				for (i = 0; i != m_beginSize; ++i)
-				{
-					*m_valueIter = nullptr;
-					*m_emptyIter++ = m_valueIter;
-					++m_valueIter;
-					m_valueListEnd = m_valueIter;
-					m_emptyListEnd = m_emptyIter;
-				}
-				m_emptyIter = m_emptyList.get();
+				m_checkList.reset(new HTTPCLASS[m_beginSize]);
+				m_checkBegin = m_checkList.get();
+				m_checkEnd = m_checkBegin;
+				m_checkMax = m_checkBegin + m_beginSize;
+	
 				m_hasReady = true;
 				return true;
 			}
@@ -70,14 +56,32 @@ struct FIXEDTEMPLATESAFELIST
 	{
 		//std::lock_guard<std::mutex>l1{ m_listMutex };
 		m_listMutex.lock();
-		if (m_emptyList &&  m_emptyIter != m_emptyListEnd)
+		if (m_checkList)
 		{
-			*(*m_emptyIter) = buffer;
-			buffer->getListIter() = *m_emptyIter;
-			++m_emptyIter;
+			//如果开始位置不是空间最开始位置
+			if (m_checkBegin != m_checkList.get())
+			{
+				--m_checkBegin;
+				*m_checkBegin = buffer;
+				buffer->getListIter() = m_checkBegin;
+			}
+			else if (m_checkEnd != m_checkMax)   
+			{
+				//如果末尾位置不是空间最大值位置
+				*m_checkEnd = buffer;
+				buffer->getListIter() = m_checkEnd;
+				++m_checkEnd;
+			}
+			else
+			{
+				m_listMutex.unlock();
+				return false;
+			}
+
 			m_listMutex.unlock();
 			return true;
 		}
+		m_listMutex.unlock();
 		return false;
 	}
 
@@ -87,22 +91,38 @@ struct FIXEDTEMPLATESAFELIST
 	{
 		//std::lock_guard<std::mutex>l1{ m_listMutex };
 		m_listMutex.lock();
-		if (m_emptyList &&  m_emptyIter != m_emptyList.get() && iter != m_valueListEnd)
+		if (m_checkList && m_checkEnd != m_checkList.get())
 		{
-			--m_emptyIter;
-			*m_emptyIter = iter;
-			if (std::distance(m_tempIter, m_emptyIter) > 1)
-			{
-				++m_tempIter;
-				//l1.~lock_guard();
-				m_listMutex.unlock();
-				startCheckLoop();
-			}
+			//判断要pop出的指针位置在空间内什么位置
+			//分别判断在最开始位置
+			//最末尾位置
+			//中间位置
+			//位于中间位置时计算该位置距离前后的距离
+			//进行智能copy
+			if (iter == m_checkBegin)
+				++m_checkBegin;
+			else if (iter == (m_checkEnd - 1))
+				--m_checkEnd;
 			else
 			{
-				m_listMutex.unlock();
-				(*m_startcheckTime)();
+				int len1{ std::distance(m_checkBegin,iter) }, len2{ std::distance(iter,m_checkEnd) };
+				if (len1 < len2)
+				{
+					std::copy(m_checkBegin, iter, (m_checkBegin + 1));
+					++m_checkBegin;
+				}
+				else
+				{
+					std::copy(iter + 1, m_checkEnd, iter);
+					--m_checkEnd;
+				}
 			}
+
+			if (m_checkBegin == m_checkEnd)
+				m_checkBegin = m_checkEnd = m_checkList.get();
+			
+
+			m_listMutex.unlock();
 			return true;
 		}
 		else
@@ -119,71 +139,31 @@ struct FIXEDTEMPLATESAFELIST
 	{
 		//std::lock_guard<std::mutex>l1{ m_listMutex };
 		m_listMutex.lock();
-		if (m_emptyList && m_emptyIter != m_emptyList.get())
+		if (m_checkList && m_checkEnd != m_checkList.get())
 		{
-			for (m_tempIter = m_emptyList.get(); m_tempIter != m_emptyIter;)
+			for (m_tempIter = m_checkBegin; m_tempIter != m_checkEnd; ++m_tempIter)
 			{
-				if ((*(*m_tempIter))->checkTimeOut())
-				{
-					//l1.~lock_guard();
-					m_listMutex.unlock();
-					startClean();
-					return;
-				}
-				++m_tempIter;
+				if ((*m_tempIter)->checkTimeOut())
+					(*m_tempIter)->clean();
 			}
-			m_listMutex.unlock();
-			(*m_startcheckTime)();
-		}
-		else
-		{
-			m_listMutex.unlock();
-			(*m_startcheckTime)();
-		}
-	}
-
-
-	
-	void startCheckLoop()
-	{
-		//std::lock_guard<std::mutex>l1{ m_listMutex };
-		m_listMutex.lock();
-		for (; m_tempIter != m_emptyIter;)
-		{
-			if ((*(*m_tempIter))->checkTimeOut())
-			{
-				//l1.~lock_guard();
-				m_listMutex.unlock();
-				(*(*m_tempIter))->clean();
-				break;
-			}
-			++m_tempIter;
 		}
 		m_listMutex.unlock();
 		(*m_startcheckTime)();
 	}
-	
 
 
-	void startClean()
-	{
-		(*(*m_tempIter))->clean();
-	}
 
 
 
 
 
 private:
-	std::unique_ptr<HTTPCLASS[]> m_valueList{};                                  //  �洢����ĵ��������ǵ��ù���ָ���ָ��
 
-	std::unique_ptr<HTTPCLASS*[]> m_emptyList{};
-	HTTPCLASS** m_emptyIter{};               //  �洢��������λ�õ�˫����
-	HTTPCLASS** m_emptyListEnd{};
-	HTTPCLASS** m_tempIter{};
-
-	HTTPCLASS* m_valueIter{};
-	HTTPCLASS* m_valueListEnd{};
+	std::unique_ptr<HTTPCLASS[]> m_checkList{};            //检查是否超时的空间
+	HTTPCLASS* m_checkBegin{};                              //指向检查空间开始位置的指针
+	HTTPCLASS* m_checkEnd{};                              //指向超时的空间末尾位置的指针
+	HTTPCLASS* m_checkMax{};                                //指向超时的空间最大值的指针
+	HTTPCLASS* m_tempIter{};                               //临时遍历检查超时的空间用的指针
 
 	std::mutex m_listMutex;
 	unsigned int m_beginSize{};

@@ -69,8 +69,8 @@ bool FixedHTTPSERVICEPOOL::ready()
 					m_multiSqlReadSWPoolMaster->getSqlNext(),
 					m_multiRedisReadPoolMaster->getRedisNext(),
 					m_multiRedisWritePoolMaster->getRedisNext(), m_multiSqlWriteSWPoolMaster->getSqlNext(),
-					m_timeWheel, m_fileMap,
-					m_timeOut, m_success, i + 1
+					m_timeWheel,m_fileMap,
+					m_timeOut, m_success,i+1
 					);
 				if (!m_success)
 					break;
@@ -131,7 +131,7 @@ void FixedHTTPSERVICEPOOL::getBackElem(std::shared_ptr<HTTPSERVICE>& buffer)
 		if (m_bufferList && m_iterNow != m_bufferList.get())
 		{
 			--m_iterNow;
-			*m_iterNow = buffer;
+			*m_iterNow = std::move(buffer);
 			if (!m_startAccept)
 			{
 				m_startAccept = true;
