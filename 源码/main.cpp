@@ -8,7 +8,7 @@
 
 
 // https://zhuanlan.zhihu.com/p/104213185
-/*
+
 
 int main()
 {
@@ -65,9 +65,12 @@ int main()
 			return -8;
 		}
 
-		//绑定8085端口  http默认网页文件夹   1024处理对象   60s内超时
-		m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {}, 1024, 30);
-		if (!success)
+		//绑定8085端口  http默认网页文件夹   1024处理对象   60s内超时        网页端文件存储目录需要存在
+        //{}填入想要缓存起来的文件，内部会调用gzip预先进行压缩
+        //{}是一个vector，可以为空
+        //
+        m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
+        if (!success)
 		{
 			m1.freeMysql();
 			return -9;
@@ -90,7 +93,7 @@ int main()
 }
 
 
-*/
+
 
 
 
