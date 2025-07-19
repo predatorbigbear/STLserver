@@ -131,7 +131,7 @@ void FixedHTTPSERVICEPOOL::getBackElem(std::shared_ptr<HTTPSERVICE>& buffer)
 		if (m_bufferList && m_iterNow != m_bufferList.get())
 		{
 			--m_iterNow;
-			*m_iterNow = buffer;
+			*m_iterNow = std::move(buffer);
 			if (!m_startAccept)
 			{
 				m_startAccept = true;
