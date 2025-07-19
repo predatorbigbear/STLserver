@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 #include<string_view>
@@ -11,8 +11,6 @@ struct MYREQVIEW
 	MYREQVIEW& swap(MYREQVIEW &m1)
 	{
 		methodStr.swap(m1.methodStr);
-		bodyStr.swap(m1.bodyStr);
-		paraStr.swap(m1.paraStr);
 		versionStr.swap(m1.versionStr);
 		targetStr.swap(m1.targetStr);
 		return *this;
@@ -23,18 +21,6 @@ struct MYREQVIEW
 	{
 		std::string_view s1{ ch, len };
 		methodStr.swap(s1);
-	}
-
-	void setBody(const char *ch, const size_t len)
-	{
-		std::string_view s1{ ch, len };
-		bodyStr.swap(s1);
-	}
-
-	void setPara(const char *ch, const size_t len)
-	{
-		std::string_view s1{ ch, len };
-		paraStr.swap(s1);
 	}
 
 
@@ -53,16 +39,6 @@ struct MYREQVIEW
 	const std::string_view& method()const
 	{
 		return { methodStr };
-	}
-
-	const std::string_view& body()const
-	{
-		return { bodyStr };
-	}
-
-	const std::string_view& para()const
-	{
-		return { paraStr };
 	}
 
 	const std::string_view& version()const
@@ -91,16 +67,12 @@ struct MYREQVIEW
 		methodNum = 0;
 		std::string_view s1{};
 		methodStr = s1;
-		bodyStr = s1;
-		paraStr = s1;
 		versionStr = s1;
 		targetStr = s1;
 	}
 
 private:
 	std::string_view methodStr;
-	std::string_view bodyStr;
-	std::string_view paraStr;
 	std::string_view versionStr;
 	std::string_view targetStr;
 	int methodNum{};

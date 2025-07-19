@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 
 #include<string>
@@ -10,7 +10,6 @@
 
 namespace REGEXFUNCTION
 {
-	//校对字符串是否是有效的IPV4地址
 	static bool isVaildIpv4(const std::string &source)
 	{
 		if (source.empty())return false;
@@ -40,9 +39,6 @@ namespace REGEXFUNCTION
 			return sum += (ch - '0')*num;
 		}) > 255 || vaildTime != 3);
 	}
-
-
-	
 
 
 

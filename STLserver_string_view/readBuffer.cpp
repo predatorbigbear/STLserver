@@ -1,4 +1,4 @@
-#include "readBuffer.h"
+ï»¿#include "readBuffer.h"
 
 ReadBuffer::ReadBuffer(std::shared_ptr<boost::asio::io_context> ioc, const unsigned int bufNum)
 {
@@ -25,13 +25,13 @@ char * ReadBuffer::getBuffer()
 
 size_t & ReadBuffer::getHasRead()
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	return m_hasReadLen;
 }
 
 MYREQVIEW & ReadBuffer::getView()
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	return reqView;
 }
 
@@ -43,7 +43,7 @@ std::shared_ptr<boost::asio::ip::tcp::socket>& ReadBuffer::getSock()
 
 boost::system::error_code & ReadBuffer::getErrCode()
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	return m_err;
 }
 

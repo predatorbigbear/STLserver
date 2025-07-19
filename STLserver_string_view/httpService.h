@@ -28,7 +28,7 @@ struct HTTPSERVICE
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 		std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const unsigned int timeOut, bool & success, const unsigned int bufNum = 4096
+		const unsigned int timeOut, bool & success, const unsigned int serviceNum, const unsigned int bufNum = 4096
 		);
 
 	void setReady(const int index, std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>>clearFunction, std::shared_ptr<HTTPSERVICE> other);
@@ -46,7 +46,7 @@ struct HTTPSERVICE
 
 
 private:
-
+	const unsigned int m_serviceNum{};
 
 	const std::string &m_doc_root;
 
@@ -226,9 +226,6 @@ private:
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 
-	bool hasBody{ false };
-
-	bool hasPara{ false };
 
 	bool hasChunk{ false };                    //是否是Chunk编码格式
 

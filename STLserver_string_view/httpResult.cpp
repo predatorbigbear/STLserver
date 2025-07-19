@@ -10,11 +10,11 @@ void HTTPRESULT::resetheader()
 {
 	if (std::distance(m_headerbegin, m_headerEnd))
 	{
-		std::for_each(m_headerbegin, m_headerEnd, [](std::string_view* ptr)
+		std::for_each(m_headerbegin, m_headerEnd, [](std::string_view *&ptr)
 		{
 			*ptr = std::string_view{};
 		});
-		m_headerbegin = m_headerEnd = m_headerPtr.get();
+		m_headerEnd = m_headerbegin ;
 	}
 }
 

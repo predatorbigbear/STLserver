@@ -1,4 +1,4 @@
-#include "FixedHttpServicePool.h"
+﻿#include "FixedHttpServicePool.h"
 
 
 FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, const std::string &doc_root,
@@ -70,7 +70,7 @@ bool FixedHTTPSERVICEPOOL::ready()
 					m_multiRedisReadPoolMaster->getRedisNext(),
 					m_multiRedisWritePoolMaster->getRedisNext(), m_multiSqlWriteSWPoolMaster->getSqlNext(),
 					m_timeWheel,m_fileMap,
-					m_timeOut, m_success
+					m_timeOut, m_success,i+1
 					);
 				if (!m_success)
 					break;

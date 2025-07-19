@@ -56,7 +56,7 @@ struct MiddleCenter
 	// 连接sql的连接数
 	void setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &SQLHOST, const std::string &SQLUSER,
 		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, 
-		const int bufferNum = 1, const unsigned int commandMaxSize = 100,  const unsigned int bufferSize = 819200);
+		const int bufferNum = 1, const unsigned int commandMaxSize = 50,  const unsigned int bufferSize = 819200);
 
 
 

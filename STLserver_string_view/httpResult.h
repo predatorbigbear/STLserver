@@ -8,7 +8,7 @@
 #include<string>
 
 
-//目前target   body  para字段不在这里存储
+//目前target version字段不在这里存储
 struct HTTPRESULT
 {
 	HTTPRESULT();

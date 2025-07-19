@@ -130,11 +130,11 @@ struct MEMORYPOOL
 	{	
 		if (m_needSize > m_ptrMaxSize)
 		{
-			do
+			std::for_each(m_shadowBegin, m_shadowEnd, [](char*& buffer)
 			{
-				delete[] * m_shadowBegin;
-			} while (++m_shadowBegin != m_shadowEnd);
-			m_shadowBegin = m_shadowEnd = m_shadow.get();
+				delete[] buffer;
+			});
+			m_shadowEnd = m_shadowBegin ;
 
 			try
 			{

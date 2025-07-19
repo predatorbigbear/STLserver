@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 
@@ -13,7 +13,7 @@
 
 struct ReadBuffer
 {
-	//³õÊ¼»¯Ê±´ÓÍâ²¿´«Èëbuffer·ÖÅä¿Õ¼ä´óĞ¡
+	//åˆå§‹åŒ–æ—¶ä»å¤–éƒ¨ä¼ å…¥bufferåˆ†é…ç©ºé—´å¤§å°
 	ReadBuffer(std::shared_ptr<boost::asio::io_context> ioc, const unsigned int bufNum);
 
 	char* getBuffer();
