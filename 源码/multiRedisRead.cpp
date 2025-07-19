@@ -7,7 +7,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 	const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize)
 	:m_redisIP(redisIP), m_redisPort(redisPort), m_ioc(ioc), m_unlockFun(unlockFun), m_receiveBufferMaxSize(memorySize),
 	m_outRangeMaxSize(outRangeMaxSize),
-	m_commandMaxSize(commandSize), m_log(log), m_timeWheel(timeWheel), m_messageList(commandSize * 3)
+	m_commandMaxSize(commandSize), m_log(log), m_timeWheel(timeWheel), m_messageList(commandSize * 4)
 
 {
 	if (!ioc)
@@ -38,6 +38,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 
 	m_outRangeBuffer.reset(new char[m_outRangeMaxSize]);
 
+	
 
 	m_waitMessageList.reset(new std::shared_ptr<redisResultTypeSW>[m_commandMaxSize]);
 	m_waitMessageListMaxSize = m_commandMaxSize;
@@ -70,7 +71,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 	//     std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 	//     std::function<void(bool, enum ERRORMESSAGE) >> ;
 
-bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW> &redisRequest)
+bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redisRequest)
 {
 	if (!redisRequest)
 		return false;
@@ -250,7 +251,6 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW> &redi
 	}
 	else
 	{
-
 		if (!m_messageList.try_enqueue(std::shared_ptr<redisResultTypeSW>(redisRequest)))
 			return false;
 
@@ -3089,15 +3089,7 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 {
 	if (err)
 	{
-		m_log->writeLog(__FUNCTION__, __LINE__, err.what());
-		m_connectStatus = 2;
-
-		ec = {};
-		m_sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
-
-		static std::function<void()>socketTimeOut{ [this]() {shutdownLoop(); } };
-		m_timeWheel->insert(socketTimeOut, 5);
-
+		m_log->writeLog(__FILE__, __LINE__, err.what());
 	}
 	else
 	{
@@ -3204,8 +3196,8 @@ void MULTIREDISREAD::readyMessage()
 		//尝试计算总命令个数  命令字符串所需要总长度,不用检查非空问题
 		m_waitMessageListEnd = m_waitMessageListBegin;
 		m_waitMessageListBegin = m_waitMessageList.get();
-
 		totalLen = 0;
+
 
 		do
 		{

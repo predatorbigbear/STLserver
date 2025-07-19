@@ -1,8 +1,9 @@
-#pragma once
+ï»¿#pragma once
 
 
 #include "LOG.h"
 #include "concurrentqueue.h"
+#include "fastSafeList.h"
 #include "regexFunction.h"
 #include "httpResponse.h"
 #include "errorMessage.h"
@@ -21,15 +22,15 @@
 struct MULTIREDISREAD
 {
 	/*
-	Ö´ĞĞÃüÁîstring_view¼¯
-	Ö´ĞĞÃüÁî¸öÊı
-	Ã¿ÌõÃüÁîµÄ´ÊÓï¸öÊı£¨·½±ã¸ù¾İredis RESP½øĞĞÆ´½Ó£©
-	»ñÈ¡½á¹û´ÎÊı  £¨ÒòÎª±ÈÈçÒ»Ğ©ÊÂÎñ²Ù×÷¿ÉÄÜ²»Ò»¶¨ÓĞ½á¹û·µ»Ø£©
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	æ‰§è¡Œå‘½ä»¤ä¸ªæ•°
+	æ¯æ¡å‘½ä»¤çš„è¯è¯­ä¸ªæ•°ï¼ˆæ–¹ä¾¿æ ¹æ®redis RESPè¿›è¡Œæ‹¼æ¥ï¼‰
+	è·å–ç»“æœæ¬¡æ•°  ï¼ˆå› ä¸ºæ¯”å¦‚ä¸€äº›äº‹åŠ¡æ“ä½œå¯èƒ½ä¸ä¸€å®šæœ‰ç»“æœè¿”å›ï¼‰
 
-	·µ»Ø½á¹ûstring_view
-	Ã¿¸ö½á¹ûµÄ´ÊÓï¸öÊı
+	è¿”å›ç»“æœstring_view
+	æ¯ä¸ªç»“æœçš„è¯è¯­ä¸ªæ•°
 
-	»Øµ÷º¯Êı
+	å›è°ƒå‡½æ•°
 	*/
 	// 
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
@@ -43,9 +44,9 @@ struct MULTIREDISREAD
 		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
 
 
-	//²åÈëÇëÇó£¬Ê×ÏÈÅĞ¶ÏÊÇ·ñÁ¬½Óredis·şÎñÆ÷³É¹¦£¬
-	//Èç¹ûÃ»ÓĞÁ¬½Ó£¬²åÈëÖ±½Ó·µ»Ø´íÎó
-	//Á¬½Ó³É¹¦µÄÇé¿öÏÂ£¬¼ì²éÇëÇóÊÇ·ñ·ûºÏÒªÇó
+	//æ’å…¥è¯·æ±‚ï¼Œé¦–å…ˆåˆ¤æ–­æ˜¯å¦è¿æ¥redisæœåŠ¡å™¨æˆåŠŸï¼Œ
+	//å¦‚æœæ²¡æœ‰è¿æ¥ï¼Œæ’å…¥ç›´æ¥è¿”å›é”™è¯¯
+	//è¿æ¥æˆåŠŸçš„æƒ…å†µä¸‹ï¼Œæ£€æŸ¥è¯·æ±‚æ˜¯å¦ç¬¦åˆè¦æ±‚
 	bool insertRedisRequest(std::shared_ptr<redisResultTypeSW> &redisRequest);
 
 
@@ -72,21 +73,21 @@ private:
 
 	int m_connectStatus{};
 
-	std::unique_ptr<char[]>m_receiveBuffer{};               //½ÓÊÕÏûÏ¢µÄ»º´æ
-	unsigned int m_receiveBufferMaxSize{};                //½ÓÊÕÏûÏ¢ÄÚ´æ¿é×Ü´óĞ¡
-	unsigned int m_receiveBufferNowSize{};                //Ã¿´Î¼ì²éµÄ¿é´óĞ¡
+	std::unique_ptr<char[]>m_receiveBuffer{};               //æ¥æ”¶æ¶ˆæ¯çš„ç¼“å­˜
+	unsigned int m_receiveBufferMaxSize{};                //æ¥æ”¶æ¶ˆæ¯å†…å­˜å—æ€»å¤§å°
+	unsigned int m_receiveBufferNowSize{};                //æ¯æ¬¡æ£€æŸ¥çš„å—å¤§å°
 
 
-	unsigned int m_thisReceivePos{};              //¼ÆËãÃ¿´Îreceive pos¿ªÊ¼´¦
-	unsigned int m_thisReceiveLen{};              //¼ÆËãÃ¿´Îreceive³¤¶È
+	unsigned int m_thisReceivePos{};              //è®¡ç®—æ¯æ¬¡receive poså¼€å§‹å¤„
+	unsigned int m_thisReceiveLen{};              //è®¡ç®—æ¯æ¬¡receiveé•¿åº¦
 
 
-	unsigned int m_commandTotalSize{};                //±¾´Î½Úµã½á¹ûÊı×Ü¼Æ
-	unsigned int m_commandCurrentSize{};              //±¾´Î½Úµã½á¹ûÊıµ±Ç°¼ÆÊı
+	unsigned int m_commandTotalSize{};                //æœ¬æ¬¡èŠ‚ç‚¹ç»“æœæ•°æ€»è®¡
+	unsigned int m_commandCurrentSize{};              //æœ¬æ¬¡èŠ‚ç‚¹ç»“æœæ•°å½“å‰è®¡æ•°
 
 	bool m_jumpNode{ false };
-	unsigned int m_lastPrasePos{  };     //  m_lastReceivePosÔÚÃ¿´Î½âÎöºó²ÅÈ¥±ä¸ü£¬¼ÇÂ¼µ±Ç°½âÎöµ½µÄÎ»ÖÃ
-	//Ã¿´Î½âÎö¿ªÊ¼Ê±¼ì²âµ±Ç°½ÚµãÎ»ÖÃ£¬µ±Ç°½Úµã×î´óÃüÁî£¬ÒÑ¾­»ñÈ¡µ½µÄÃüÁîÊı£¨ÒÔ¼°¸ÃÃüÁîÊÇ·ñÒÑ¾­·µ»Ø±¨´í´¦Àí£¬¶ø¼¤»îÁËÌø¹ı±êÖ¾£©
+	unsigned int m_lastPrasePos{  };     //  m_lastReceivePosåœ¨æ¯æ¬¡è§£æåæ‰å»å˜æ›´ï¼Œè®°å½•å½“å‰è§£æåˆ°çš„ä½ç½®
+	//æ¯æ¬¡è§£æå¼€å§‹æ—¶æ£€æµ‹å½“å‰èŠ‚ç‚¹ä½ç½®ï¼Œå½“å‰èŠ‚ç‚¹æœ€å¤§å‘½ä»¤ï¼Œå·²ç»è·å–åˆ°çš„å‘½ä»¤æ•°ï¼ˆä»¥åŠè¯¥å‘½ä»¤æ˜¯å¦å·²ç»è¿”å›æŠ¥é”™å¤„ç†ï¼Œè€Œæ¿€æ´»äº†è·³è¿‡æ ‡å¿—ï¼‰
 	// $-1\r\n$11\r\nhello_world\r\n               REDISPARSETYPE::LOT_SIZE_STRING
 	// :11\r\n:0\r\n                               REDISPARSETYPE::INTERGER
 	// -ERR unknown command `getx`, with args beginning with: `foo`, \r\n-ERR unknown command `getg`, with args beginning with: `dan`, \r\n                REDISPARSETYPE::ERROR
@@ -94,20 +95,19 @@ private:
 	// *2\r\n$3\r\nfoo\r\n$3\r\nfoo\r\n*2\r\n$3\r\nfoo\r\n$-1\r\n         REDISPARSETYPE::ARRAY
 
 
-	std::unique_ptr<char[]>m_outRangeBuffer{};              //±£´æ±ß½çÎ»ÖÃµÄ×Ö·û´®£¬Èç¹ûÔ½½çµÄ×Ö·û´®³¤¶È³¬¹ım_outRangeMaxSize£¬Ö±½Ó·µ»Ø0¸ö£¬±ÜÃâºóÃæÊ¹ÓÃÊ±³öÏÖ¿ÕÖ¸ÕëÎÊÌâ£¬Êı¾İ´íÂÒÎÊÌâ¿ÉÒÔÍ¨¹ıÀ©´óbuffer´óĞ¡½â¾ö
+	std::unique_ptr<char[]>m_outRangeBuffer{};              //ä¿å­˜è¾¹ç•Œä½ç½®çš„å­—ç¬¦ä¸²ï¼Œå¦‚æœè¶Šç•Œçš„å­—ç¬¦ä¸²é•¿åº¦è¶…è¿‡m_outRangeMaxSizeï¼Œç›´æ¥è¿”å›0ä¸ªï¼Œé¿å…åé¢ä½¿ç”¨æ—¶å‡ºç°ç©ºæŒ‡é’ˆé—®é¢˜ï¼Œæ•°æ®é”™ä¹±é—®é¢˜å¯ä»¥é€šè¿‡æ‰©å¤§bufferå¤§å°è§£å†³
 	unsigned int m_outRangeMaxSize{};                     //
 	unsigned int m_outRangeNowSize{};
 
 
-	std::atomic<bool>m_connect{ false };                  //ÅĞ¶ÏÊÇ·ñÒÑ¾­½¨Á¢Óëredis¶ËµÄÁ¬½Ó
+	std::atomic<bool>m_connect{ false };                  //åˆ¤æ–­æ˜¯å¦å·²ç»å»ºç«‹ä¸redisç«¯çš„è¿æ¥
 	std::atomic<bool>m_queryStatus{ false };
 	
 
 
-	//´ıÍ¶µİ¶ÓÁĞ£¬Î´/µÈ´ıÆ´´ÕÏûÏ¢µÄ¶ÓÁĞ
-	//Ê¹ÓÃ¿ªÔ´ÎŞËù¶ÓÁĞ½øÒ»²½ÌáÉıqps £¬ÕâÊÇgithubµØÖ·  https://github.com/cameron314/concurrentqueue
+	//å¾…æŠ•é€’é˜Ÿåˆ—ï¼Œæœª/ç­‰å¾…æ‹¼å‡‘æ¶ˆæ¯çš„é˜Ÿåˆ—
+	//ä½¿ç”¨å¼€æºæ— æ‰€é˜Ÿåˆ—è¿›ä¸€æ­¥æå‡qps ï¼Œè¿™æ˜¯githubåœ°å€  https://github.com/cameron314/concurrentqueue
 	moodycamel::ConcurrentQueue<std::shared_ptr<redisResultTypeSW>>m_messageList;
-
 
 
 /////////////////////////////////////////////////////////
@@ -121,21 +121,21 @@ private:
 
 	std::shared_ptr<redisResultTypeSW> *m_waitMessageListEnd{};
 
-	std::shared_ptr<redisResultTypeSW> *m_waitMessageListBeforeParse{};      //ÓÃÀ´ÅĞ¶Ï½âÎöºóÎ»ÖÃÓĞÃ»ÓĞ·¢Éú±ä»¯
+	std::shared_ptr<redisResultTypeSW> *m_waitMessageListBeforeParse{};      //ç”¨æ¥åˆ¤æ–­è§£æåä½ç½®æœ‰æ²¡æœ‰å‘ç”Ÿå˜åŒ–
 
-	std::shared_ptr<redisResultTypeSW> *m_waitMessageListAfterParse{};       //ÓÃÀ´ÅĞ¶Ï½âÎöºóÎ»ÖÃÓĞÃ»ÓĞ·¢Éú±ä»¯
+	std::shared_ptr<redisResultTypeSW> *m_waitMessageListAfterParse{};       //ç”¨æ¥åˆ¤æ–­è§£æåä½ç½®æœ‰æ²¡æœ‰å‘ç”Ÿå˜åŒ–
 
 	std::shared_ptr<redisResultTypeSW> redisRequest;
 
-	//Ò»´ÎĞÔ·¢ËÍ×î´óµÄÃüÁî¸öÊı
+	//ä¸€æ¬¡æ€§å‘é€æœ€å¤§çš„å‘½ä»¤ä¸ªæ•°
 	unsigned int m_commandMaxSize{};
 
-	//±¾´Î·¢ËÍµÄÃüÁî¸öÊı
+	//æœ¬æ¬¡å‘é€çš„å‘½ä»¤ä¸ªæ•°
 	unsigned int m_commandNowSize{};
 
 
 	////////////////////////////////////////////////////////
-	//std::string m_message;                     //ÁªºÏ·¢ËÍÃüÁî×Ö·û´®
+	//std::string m_message;                     //è”åˆå‘é€å‘½ä»¤å­—ç¬¦ä¸²
 
 	std::unique_ptr<char[]>m_messageBuffer{};
 
@@ -148,7 +148,7 @@ private:
 
 	unsigned int m_sendLen{};
 
-	std::vector<std::string_view>m_arrayResult;             //ÁÙÊ±´æ´¢Êı×é½á¹ûµÄvector
+	std::vector<std::string_view>m_arrayResult;             //ä¸´æ—¶å­˜å‚¨æ•°ç»„ç»“æœçš„vector
 	//////////////////////////////////////////////////////////////////////////////
 
 	boost::system::error_code ec;
@@ -162,7 +162,7 @@ private:
 
 	void firstConnect();
 
-	//redis¿Í»§¶ËºÍ·şÎñÆ÷Ê§È¥Á¬½ÓºóÖØÁ¬º¯Êı
+	//rediså®¢æˆ·ç«¯å’ŒæœåŠ¡å™¨å¤±å»è¿æ¥åé‡è¿å‡½æ•°
 	void reconnect();
 
 
@@ -180,13 +180,13 @@ private:
 
 	void resetReceiveBuffer();
 
-	//redis·µ»ØÏûÏ¢½âÎöËã·¨
+	//redisè¿”å›æ¶ˆæ¯è§£æç®—æ³•
 	bool parse(const int size);
 
 
 	void handlelRead(const boost::system::error_code &err, const std::size_t size);
 
-	//·¢ËÍ¸øredis-serverµÄÃüÁîÆ´×°º¯Êı
+	//å‘é€ç»™redis-serverçš„å‘½ä»¤æ‹¼è£…å‡½æ•°
 	void readyMessage();
 
 

@@ -10,12 +10,12 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> l
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const unsigned int timeOut, bool & success, const unsigned int bufNum
+	const unsigned int timeOut, bool & success, const unsigned int serviceNum, const unsigned int bufNum
 	)
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
 	m_multiSqlReadSWMaster(multiSqlReadSWMaster),m_fileMap(fileMap),
 	m_multiRedisReadMaster(multiRedisReadMaster),m_multiRedisWriteMaster(multiRedisWriteMaster),m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
-	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum)
+	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
 {
 	try
 	{
@@ -39,7 +39,8 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> l
 			throw std::runtime_error("timeWheel is nullptr");
 		if(!bufNum)
 			throw std::runtime_error("bufNum is 0");
-
+		if(!serviceNum)
+			throw std::runtime_error("serviceNum is 0");
 
 		m_timer.reset(new boost::asio::steady_timer(*m_ioc));
 
@@ -77,6 +78,8 @@ void HTTPSERVICE::setReady(const int index, std::shared_ptr<std::function<void(s
 	m_index = index;
 	m_clearFunction = clearFunction;
 	m_mySelf = other;
+
+	m_log->writeLog(__FUNCTION__, __LINE__, " setReady ", m_serviceNum);
 
 	run();
 }
@@ -124,7 +127,7 @@ void HTTPSERVICE::checkMethod()
 	case METHOD::POST:
 		if (!refBuffer.getView().target().empty() &&
 			std::all_of(refBuffer.getView().target().cbegin() + 1, refBuffer.getView().target().cend(),
-				std::bind(std::logical_and<>(), std::bind(std::greater_equal<>(), std::placeholders::_1, '0'), std::bind(std::less_equal<>(), std::placeholders::_1, '9'))))
+				std::bind(std::logical_and<bool>(), std::bind(std::greater_equal<>(), std::placeholders::_1, '0'), std::bind(std::less_equal<>(), std::placeholders::_1, '9'))))
 		{
 			switchPOSTInterface();
 		}
@@ -140,7 +143,6 @@ void HTTPSERVICE::checkMethod()
 
 
 	default:
-
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		break;
 	}
@@ -932,11 +934,13 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 		//目前实现好MULTIREDISREAD对象类，可以正常返回多种redis结果值
 		//MULTIREDISWRITE的设置目的是为了高效执行一些写入操作，不返回执行结果的字符串，只返回1和0代表成功与否，目前还需要完善
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+		{
+			return startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+		}
 	}
 	catch (const std::exception &e)
 	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
 }
 
@@ -946,6 +950,8 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 //这里返回，另外使用一个新发送函数
 void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
 {
+	//m_log->writeLog(__FUNCTION__, __LINE__, " handleMultiRedisReadLOT_SIZE_STRING ", m_serviceNum);
+
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
 
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -962,13 +968,17 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 			st1.reset();
 
 			if (!st1.clear())
+			{
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
 
 			//如果确定不需要开启json转码处理，可以不带<TRANSFORMTYPE>即可，默认不开启json转码处理
 
 			//启用json转码处理
 			if (!st1.put<TRANSFORMTYPE>(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+			{
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
 
 			//启用json转码处理
 			makeSendJson<TRANSFORMTYPE>(st1);
@@ -986,11 +996,17 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 
 			if (!resultVec.empty())
 			{
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				st1.reset();
 
-				if(!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+				if (!st1.clear())
+				{
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				}
+
+				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+				{
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				}
 
 				makeSendJson(st1);
 			}
@@ -1000,7 +1016,9 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 			}
 		}
 		else
+		{
 			handleERRORMESSAGE(em);
+		}
 	}
 }
 
@@ -1871,8 +1889,9 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 
 void HTTPSERVICE::clean()
 {
-	//cout << "start clean\n";
+	//cout << "start clean\n"
 	m_hasClean.store(true);
+	m_log->writeLog(__FUNCTION__, __LINE__, " clean ", m_serviceNum);
 
 	m_sessionLen = 0;
 	m_startPos = 0;
@@ -2143,7 +2162,6 @@ void HTTPSERVICE::startRead()
 			{
 				if (err != boost::asio::error::operation_aborted)
 				{
-					//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 					m_hasClean.store(false);
 				}
 			}
@@ -2154,6 +2172,7 @@ void HTTPSERVICE::startRead()
 				{
 					std::string_view message{ m_readBuffer + m_startPos, size };
 					m_message.swap(message);
+					//m_log->writeLog(__FUNCTION__, m_message, m_serviceNum);
 
 					parseReadData(m_readBuffer + m_startPos, size);
 				}
@@ -2202,12 +2221,14 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 
 
 		case PARSERESULT::invaild:
+			/*
 			m_startPos = 0;
 			m_readBuffer = refBuffer.getBuffer();
 			m_maxReadLen = m_defaultReadLen;
 			m_availableLen = refBuffer.getSock()->available();
 			m_sendBuffer = HTTPRESPONSEREADY::http11invaild, m_sendLen = HTTPRESPONSEREADY::http11invaildLen;
 			cleanData();
+			*/
 			break;
 
 		case PARSERESULT::parseMultiPartFormData:
@@ -2343,11 +2364,15 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	MYREQVIEW& refMyReView{ refBuffer.getView() };
 
 
+
+
+
 	switch (m_parseStatus)
 	{
 	case PARSERESULT::check_messageComplete:
 	case PARSERESULT::invaild:
 	case PARSERESULT::complete:
+		
 		if(isHttp)
 			hostPort = 80;         //默认http  host端口
 		else
@@ -2559,7 +2584,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (!isupper(*iterFindBegin))
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funBegin !isupper");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funBegin !isupper");
 			return PARSERESULT::invaild;
 		}
 
@@ -2600,18 +2625,18 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXMETHODLEN - accumulateLen);
 
-			funEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_not<>(), std::bind(isupper, std::placeholders::_1)));
+			funEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_not<bool>(), std::bind(isupper, std::placeholders::_1)));
 
 			if (funEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd funEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd funEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
 		}
 		else
 		{
-			funEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_not<>(), std::bind(isupper, std::placeholders::_1)));
+			funEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_not<bool>(), std::bind(isupper, std::placeholders::_1)));
 
 			if (funEnd == iterFindEnd)
 			{
@@ -2635,7 +2660,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -2649,7 +2674,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*funEnd != ' ')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd *funEnd != ' '");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd *funEnd != ' '");
 			return PARSERESULT::invaild;
 		}
 
@@ -2668,7 +2693,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -2702,7 +2727,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			case 'P':
 				if (!std::equal(finalFunBegin, finalFunEnd, PUTStr.cbegin(), PUTStr.cend()))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal PUTStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal PUTStr");
 					return PARSERESULT::invaild;
 				}
 				refMyReView.method() = METHOD::PUT;
@@ -2711,14 +2736,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			case 'G':
 				if (!std::equal(finalFunBegin, finalFunEnd, GETStr.cbegin(), GETStr.cend()))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal GETStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal GETStr");
 					return PARSERESULT::invaild;
 				}
 				refMyReView.method() = METHOD::GET;
 				refMyReView.setMethod(finalFunBegin, HTTPHEADER::THREE);
 				break;
 			default:
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd THREE default");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd THREE default");
 				return PARSERESULT::invaild;
 				break;
 			}
@@ -2729,7 +2754,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			case 'P':
 				if (!std::equal(finalFunBegin, finalFunEnd, POSTStr.cbegin(), POSTStr.cend()))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal POSTStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal POSTStr");
 					return PARSERESULT::invaild;
 				}
 				refMyReView.method() = METHOD::POST;
@@ -2738,14 +2763,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			case 'H':
 				if (!std::equal(finalFunBegin, finalFunEnd, HEADStr.cbegin(), HEADStr.cend()))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal HEADStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal HEADStr");
 					return PARSERESULT::invaild;
 				}
 				refMyReView.method() = METHOD::HEAD;
 				refMyReView.setMethod(finalFunBegin, HTTPHEADER::FOUR);
 				break;
 			default:
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd FOUR default");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd FOUR default");
 				return PARSERESULT::invaild;
 				break;
 			}
@@ -2753,7 +2778,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		case HTTPHEADER::FIVE:
 			if (!std::equal(finalFunBegin, finalFunEnd, TRACEStr.cbegin(), TRACEStr.cend()))
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal TRACEStr");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal TRACEStr");
 				return PARSERESULT::invaild;
 			}
 			refMyReView.method() = METHOD::TRACE;
@@ -2762,7 +2787,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		case HTTPHEADER::SIX:
 			if (!std::equal(finalFunBegin, finalFunEnd, DELETEStr.cbegin(), DELETEStr.cend()))
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal DELETEStr");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal DELETEStr");
 				return PARSERESULT::invaild;
 			}
 			refMyReView.method() = METHOD::DELETE;
@@ -2774,7 +2799,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			case 'C':
 				if (!std::equal(finalFunBegin, finalFunEnd, CONNECTStr.cbegin(), CONNECTStr.cend()))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal CONNECTStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal CONNECTStr");
 					return PARSERESULT::invaild;
 				}
 				refMyReView.method() = METHOD::CONNECT;
@@ -2783,20 +2808,20 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			case 'O':
 				if (!std::equal(finalFunBegin, finalFunEnd, OPTIONSStr.cbegin(), OPTIONSStr.cend()))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal OPTIONSStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd !equal OPTIONSStr");
 					return PARSERESULT::invaild;
 				}
 				refMyReView.method() = METHOD::OPTIONS;
 				refMyReView.setMethod(finalFunBegin, HTTPHEADER::SEVEN);
 				break;
 			default:
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd SEVEN default");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd SEVEN default");
 				return PARSERESULT::invaild;
 				break;
 			}
 			break;
 		default:
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_funEnd default");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_funEnd default");
 			return PARSERESULT::invaild;
 			break;
 		}
@@ -2822,7 +2847,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 				if (!newBuffer)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_targetBegin !newBuffer");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_targetBegin !newBuffer");
 					return PARSERESULT::invaild;
 				}
 
@@ -2834,7 +2859,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*iterFindBegin == '\r')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_targetBegin *iterFindBegin == '\r'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_targetBegin *iterFindBegin == '\r'");
 			return PARSERESULT::invaild;
 		}
 
@@ -2852,12 +2877,12 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXTARGETLEN - accumulateLen);
 
-			targetEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
-				std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
+			targetEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
 
 			if (targetEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_targetEnd targetEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_targetEnd targetEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -2865,8 +2890,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			targetEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
-				std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
+			targetEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
 
 			if (targetEnd == iterFindEnd)
 			{
@@ -2887,7 +2912,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_targetEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_targetEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -2901,7 +2926,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*targetEnd == '\r')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_targetEnd *targetEnd == '\r'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_targetEnd *targetEnd == '\r'");
 			return PARSERESULT::invaild;
 		}
 
@@ -2924,7 +2949,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_targetEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_targetEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -2973,7 +2998,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraBegin !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_paraBegin !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -2985,7 +3010,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (*iterFindBegin == '\r')
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraBegin *iterFindBegin == '\r'");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_paraBegin *iterFindBegin == '\r'");
 				return PARSERESULT::invaild;
 			}
 
@@ -3001,12 +3026,12 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXFIRSTBODYLEN - accumulateLen);
 
-				paraEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				paraEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 					std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 				if (paraEnd == iterFindThisEnd)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraEnd paraEnd == iterFindThisEnd");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_paraEnd paraEnd == iterFindThisEnd");
 					return PARSERESULT::invaild;
 				}
 
@@ -3014,7 +3039,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			else
 			{
 
-				paraEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				paraEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 					std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 				if (paraEnd == iterFindEnd)
@@ -3037,7 +3062,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 						if (!newBuffer)
 						{
-							reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraEnd !newBuffer");
+							reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_paraEnd !newBuffer");
 							return PARSERESULT::invaild;
 						}
 
@@ -3051,7 +3076,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (*paraEnd == '\r')
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraEnd *paraEnd == '\r'");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_paraEnd *paraEnd == '\r'");
 				return PARSERESULT::invaild;
 			}
 
@@ -3070,7 +3095,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 				if (!newBuffer)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_paraEnd !newBuffer");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_paraEnd !newBuffer");
 					return PARSERESULT::invaild;
 				}
 
@@ -3118,7 +3143,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 				if (!newBuffer)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpBegin !newBuffer");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpBegin !newBuffer");
 					return PARSERESULT::invaild;
 				}
 
@@ -3130,7 +3155,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*iterFindBegin != 'H')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpBegin *iterFindBegin != 'H'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpBegin *iterFindBegin != 'H'");
 			return PARSERESULT::invaild;
 		}
 
@@ -3147,12 +3172,12 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXHTTPLEN - accumulateLen);
 
-			httpEnd = std::find_if_not(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
+			httpEnd = std::find_if_not(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<bool>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
 				std::bind(less_equal<>(), std::placeholders::_1, 'Z')));
 
 			if (httpEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpEnd httpEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpEnd httpEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -3160,7 +3185,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			httpEnd = std::find_if_not(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
+			httpEnd = std::find_if_not(iterFindBegin, iterFindEnd, std::bind(std::logical_and<bool>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
 				std::bind(less_equal<>(), std::placeholders::_1, 'Z')));
 
 			if (httpEnd == iterFindEnd)
@@ -3183,7 +3208,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -3197,7 +3222,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*httpEnd != '/')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpEnd *httpEnd != '/'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpEnd *httpEnd != '/'");
 			return PARSERESULT::invaild;
 		}
 
@@ -3216,7 +3241,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -3238,7 +3263,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (!std::equal(finalHttpBegin, finalHttpEnd, HTTPStr.cbegin(), HTTPStr.cend()))
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_httpEnd !equal HTTPStr");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_httpEnd !equal HTTPStr");
 			return PARSERESULT::invaild;
 		}
 
@@ -3261,7 +3286,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 				if (!newBuffer)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionBegin !newBuffer");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionBegin !newBuffer");
 					return PARSERESULT::invaild;
 				}
 
@@ -3274,7 +3299,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*iterFindBegin != '1' && *iterFindBegin != '2')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionBegin *iterFindBegin != '1' && *iterFindBegin != '2'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionBegin *iterFindBegin != '1' && *iterFindBegin != '2'");
 			return PARSERESULT::invaild;
 		}
 
@@ -3294,7 +3319,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (versionEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd versionEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd versionEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -3324,7 +3349,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -3338,7 +3363,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*versionEnd != '\r')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd *versionEnd != '\r'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd *versionEnd != '\r'");
 			return PARSERESULT::invaild;
 		}
 
@@ -3356,7 +3381,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -3379,7 +3404,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if(*finalVersionBegin!='1' || *(finalVersionBegin+1)!='.')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal http11 HTTP11");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal http11 HTTP11");
 			return PARSERESULT::invaild;
 		}
 
@@ -3394,7 +3419,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			isHttp11 = false;
 			break;
 		default:
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal http11 HTTP11");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal http11 HTTP11");
 			return PARSERESULT::invaild;
 			break;
 		}
@@ -3412,12 +3437,12 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXLINELEN - accumulateLen);
 
-			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_lineEnd lineEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_lineEnd lineEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -3425,7 +3450,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindEnd)
@@ -3467,7 +3492,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_lineEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_lineEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -3492,7 +3517,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_lineEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_lineEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -3524,7 +3549,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	{
 		if (!std::equal(finalLineBegin, finalLineEnd, lineStr.cbegin(), lineStr.cbegin() + 2))
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_lineEnd len ==2 !equal lineStr");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_lineEnd len ==2 !equal lineStr");
 			return PARSERESULT::invaild;
 		}
 
@@ -3543,12 +3568,12 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXHEADLEN - accumulateLen);
 
-			headEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
+			headEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
 				std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 			if (headEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_headEnd headEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_headEnd headEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -3556,7 +3581,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			headEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
+			headEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
 				std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 			if (headEnd == iterFindEnd)
@@ -3579,7 +3604,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_headEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_headEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -3593,7 +3618,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 		if (*headEnd == '\r')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_headEnd *headEnd == '\r'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_headEnd *headEnd == '\r'");
 			return PARSERESULT::invaild;
 		}
 
@@ -3612,7 +3637,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_headEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_headEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -3653,7 +3678,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (wordBegin == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_wordBegin wordBegin == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_wordBegin wordBegin == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -3677,7 +3702,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_wordBegin !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_wordBegin !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -3711,7 +3736,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (wordEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_wordEnd wordEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_wordEnd wordEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -3741,7 +3766,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_wordEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_wordEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -3767,7 +3792,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_wordEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_wordEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -3798,7 +3823,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			{
 				if (*m_TEBegin)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_TEBegin is not nullptr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_TEBegin is not nullptr");
 					return PARSERESULT::invaild;
 				}
 
@@ -3816,7 +3841,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			{
 				if (*m_ViaBegin)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_ViaBegin is not nullptr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ViaBegin is not nullptr");
 					return PARSERESULT::invaild;
 				}
 
@@ -3838,7 +3863,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_DateBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_DateBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_DateBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -3857,7 +3882,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_FromBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_FromBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_FromBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -3877,7 +3902,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_HostBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_HostBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_HostBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -3902,7 +3927,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			{
 				if (*m_RangeBegin)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_RangeBegin is not nullptr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_RangeBegin is not nullptr");
 					return PARSERESULT::invaild;
 				}
 
@@ -3924,7 +3949,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_AcceptBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_AcceptBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_AcceptBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -3944,7 +3969,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_CookieBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_CookieBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_CookieBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -3964,7 +3989,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_ExpectBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_ExpectBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ExpectBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 					
@@ -3985,7 +4010,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_PragmaBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_PragmaBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_PragmaBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4014,7 +4039,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_RefererBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_RefererBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_RefererBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4033,7 +4058,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_UpgradeBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_UpgradeBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_UpgradeBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4053,7 +4078,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_WarningBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_WarningBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_WarningBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4082,7 +4107,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_If_MatchBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_If_MatchBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_MatchBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4101,7 +4126,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_If_RangeBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_If_RangeBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_RangeBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4129,7 +4154,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_ConnectionBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4148,7 +4173,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_User_AgentBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4176,7 +4201,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Content_TypeBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Content_TypeBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Content_TypeBegin is not nullptr  ");
 						return PARSERESULT::invaild;
 					}
 
@@ -4196,7 +4221,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Max_ForwardsBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Max_ForwardsBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Max_ForwardsBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4225,7 +4250,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Accept_RangesBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Accept_RangesBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Accept_RangesBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4245,7 +4270,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_AuthorizationBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_AuthorizationBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_AuthorizationBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4265,7 +4290,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Cache_ControlBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Cache_ControlBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Cache_ControlBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4285,7 +4310,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_If_None_MatchBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_If_None_MatchBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_None_MatchBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4314,7 +4339,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Accept_CharsetBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_If_None_MatchBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_None_MatchBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4335,7 +4360,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Content_LengthBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Content_LengthBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Content_LengthBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4364,7 +4389,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Accept_EncodingBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Accept_EncodingBegin  is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Accept_EncodingBegin  is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4383,7 +4408,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Accept_LanguageBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Accept_LanguageBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Accept_LanguageBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4414,7 +4439,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_If_Modified_SinceBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_If_Modified_SinceBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_Modified_SinceBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4433,7 +4458,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Transfer_EncodingBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Transfer_EncodingBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Transfer_EncodingBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4460,7 +4485,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_If_Unmodified_SinceBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_If_Unmodified_SinceBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_Unmodified_SinceBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4479,7 +4504,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				{
 					if (*m_Proxy_AuthorizationBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Proxy_AuthorizationBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Proxy_AuthorizationBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
@@ -4514,12 +4539,12 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXLINELEN - accumulateLen);
 
-			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindThisEnd)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd lineEnd == iterFindThisEnd");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd lineEnd == iterFindThisEnd");
 				return PARSERESULT::invaild;
 			}
 
@@ -4527,7 +4552,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindEnd)
@@ -4557,7 +4582,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 					if (!newBuffer)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd !newBuffer");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd !newBuffer");
 						return PARSERESULT::invaild;
 					}
 
@@ -4583,7 +4608,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			if (!newBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd !newBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd !newBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -4610,7 +4635,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	//http1.1必需带host头
 	if (len != 4)
 	{
-		reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd len != 2 && len != 4");
+		reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_secondLineEnd len != 2 && len != 4");
 		return PARSERESULT::invaild;
 	}
 
@@ -4626,7 +4651,7 @@ check_len:
 	{
 		if (!std::equal(finalLineBegin, finalLineEnd, lineStr.cbegin(), lineStr.cend()))
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "len == 4 !std::equal lineStr");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "len == 4 !std::equal lineStr");
 			return PARSERESULT::invaild;
 		}
 
@@ -4665,7 +4690,7 @@ check_len:
 				char* newReadBuffer{ m_MemoryPool.getMemory<char*>(m_bodyLen) };
 				if (!newReadBuffer)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_finalBodyEnd !newReadBuffer");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_finalBodyEnd !newReadBuffer");
 					return PARSERESULT::invaild;
 				}
 
@@ -4690,7 +4715,7 @@ check_len:
 
 			if (!m_readBuffer)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "begin_checkChunkData !m_readBuffer");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "begin_checkChunkData !m_readBuffer");
 				return PARSERESULT::invaild;
 			}
 
@@ -4710,7 +4735,7 @@ check_len:
 
 				if (!std::isalnum(*iterFindBegin))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fistCharacter !std::isalnum");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_fistCharacter !std::isalnum");
 					return PARSERESULT::invaild;
 				}
 
@@ -4737,7 +4762,7 @@ check_len:
 
 					if ((chunkNumEnd = std::find_if_not(chunkNumEnd, iterFindThisEnd, std::bind(::isalnum, std::placeholders::_1))) == iterFindThisEnd)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_chunkNumEnd std::find_if_not");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_chunkNumEnd std::find_if_not");
 						return PARSERESULT::invaild;
 					}
 				}
@@ -4758,7 +4783,7 @@ check_len:
 
 				if (*chunkNumEnd != '\r')
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_chunkNumEnd *chunkNumEnd != '\r'");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_chunkNumEnd *chunkNumEnd != '\r'");
 					return PARSERESULT::invaild;
 				}
 
@@ -4790,7 +4815,7 @@ check_len:
 
 				if (!std::equal(lineStr.cbegin(), lineStr.cbegin() + len, chunkNumEnd, chunkNumEnd + len))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_thirdLineEnd !std::equal lineStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_thirdLineEnd !std::equal lineStr");
 					return PARSERESULT::invaild;
 				}
 
@@ -4852,7 +4877,7 @@ check_len:
 
 				if (!std::equal(chunkDataEnd, chunkDataEnd + 2, lineStr.cbegin(), lineStr.cbegin() + 2))
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fourthLineEnd !std::equal lineStr");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_fourthLineEnd !std::equal lineStr");
 					return PARSERESULT::invaild;
 				}
 
@@ -4878,7 +4903,7 @@ begin_checkBoundaryBegin:
 
 	if (!m_readBuffer)
 	{
-		reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "begin_checkBoundaryBegin !m_readBuffer");
+		reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "begin_checkBoundaryBegin !m_readBuffer");
 		return PARSERESULT::invaild;
 	}
 
@@ -4893,7 +4918,7 @@ find_boundaryBegin:
 		m_bodyLen -= iterFindEnd - iterFindBegin;
 		if (m_bodyLen <= 0)
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryBegin m_bodyLen <= 0");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryBegin m_bodyLen <= 0");
 			return PARSERESULT::invaild;
 		}
 		findBoundaryBegin = m_readBuffer;
@@ -4902,7 +4927,7 @@ find_boundaryBegin:
 
 	if (*findBoundaryBegin != *boundaryBegin)
 	{
-		reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryBegin *findBoundaryBegin != *m_boundaryBegin");
+		reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryBegin *findBoundaryBegin != *m_boundaryBegin");
 		return PARSERESULT::invaild;
 	}
 
@@ -4910,7 +4935,7 @@ find_boundaryBegin:
 find_halfBoundaryBegin:
 	if (m_bodyLen <= m_boundaryLen)
 	{
-		reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin m_bodyLen <= m_boundaryLen");
+		reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin m_bodyLen <= m_boundaryLen");
 		return PARSERESULT::invaild;
 	}
 
@@ -4920,7 +4945,7 @@ find_halfBoundaryBegin:
 		m_bodyLen -= iterFindEnd - iterFindBegin;
 		if (m_bodyLen <= 0)
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin m_bodyLen <= 0");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin m_bodyLen <= 0");
 			return PARSERESULT::invaild;
 		}
 		if (findBoundaryBegin != m_readBuffer)
@@ -4935,7 +4960,7 @@ find_halfBoundaryBegin:
 
 	if (!std::equal(findBoundaryBegin, findBoundaryBegin + m_boundaryLen, boundaryBegin, boundaryEnd))
 	{
-		reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin !std::equal m_boundaryBegin");
+		reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_halfBoundaryBegin !std::equal m_boundaryBegin");
 		return PARSERESULT::invaild;
 	}
 
@@ -4954,7 +4979,7 @@ find_boundaryHeaderBegin:
 		m_bodyLen -= iterFindEnd - iterFindBegin;
 		if (m_bodyLen <= 0)
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderBegin m_bodyLen <= 0");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderBegin m_bodyLen <= 0");
 			return PARSERESULT::invaild;
 		}
 		if (findBoundaryBegin != m_readBuffer)
@@ -4982,7 +5007,7 @@ find_boundaryHeaderBegin:
 				m_bodyLen -= iterFindEnd - iterFindBegin;
 				if (m_bodyLen <= 0)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderBegin2 m_bodyLen <= 0");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderBegin2 m_bodyLen <= 0");
 					return PARSERESULT::invaild;
 				}
 				m_startPos = 0;
@@ -4996,11 +5021,11 @@ find_boundaryHeaderBegin:
 			len = std::distance(boundaryHeaderEnd, iterFindEnd);
 			iterFindThisEnd = len >= MAXBOUNDARYHEADERNLEN ? (boundaryHeaderEnd + MAXBOUNDARYHEADERNLEN) : iterFindEnd;
 
-			if ((boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')))) == iterFindEnd)
+			if ((boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')))) == iterFindEnd)
 			{
 				if (std::distance(boundaryHeaderBegin, boundaryHeaderEnd) >= MAXBOUNDARYHEADERNLEN)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd >= MAXBOUNDARYHEADERNLEN");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd >= MAXBOUNDARYHEADERNLEN");
 					return PARSERESULT::invaild;
 				}
 				else
@@ -5008,7 +5033,7 @@ find_boundaryHeaderBegin:
 					m_bodyLen -= iterFindEnd - iterFindBegin;
 					if (m_bodyLen <= 0)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd m_bodyLen <= 0");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryHeaderEnd m_bodyLen <= 0");
 						return PARSERESULT::invaild;
 					}
 					if (boundaryHeaderBegin != m_readBuffer)
@@ -5031,7 +5056,7 @@ find_boundaryHeaderBegin:
 				{
 					if (*m_Boundary_NameBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Boundary_NameBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Boundary_NameBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 					m_boundaryHeaderPos = HTTPBOUNDARYHEADERLEN::NameLen;
@@ -5043,7 +5068,7 @@ find_boundaryHeaderBegin:
 				{
 					if (*m_Boundary_FilenameBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Boundary_FilenameBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Boundary_FilenameBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 					m_boundaryHeaderPos = HTTPBOUNDARYHEADERLEN::FilenameLen;
@@ -5055,7 +5080,7 @@ find_boundaryHeaderBegin:
 				{
 					if (*m_Boundary_ContentTypeBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Boundary_ContentTypeBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Boundary_ContentTypeBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 					m_boundaryHeaderPos = HTTPBOUNDARYHEADERLEN::Content_TypeLen;
@@ -5067,7 +5092,7 @@ find_boundaryHeaderBegin:
 				{
 					if (*m_Boundary_ContentDispositionBegin)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "m_Boundary_ContentDispositionBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Boundary_ContentDispositionBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 					m_boundaryHeaderPos = HTTPBOUNDARYHEADERLEN::Content_DispositionLen;
@@ -5087,7 +5112,7 @@ find_boundaryHeaderBegin:
 				m_bodyLen -= iterFindEnd - iterFindBegin;
 				if (m_bodyLen <= 0)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordBegin m_bodyLen <= 0");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordBegin m_bodyLen <= 0");
 					return PARSERESULT::invaild;
 				}
 				m_startPos = 0;
@@ -5114,7 +5139,7 @@ find_boundaryHeaderBegin:
 				m_bodyLen -= iterFindEnd - iterFindBegin;
 				if (m_bodyLen <= 0)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordBegin2 m_bodyLen <= 0");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordBegin2 m_bodyLen <= 0");
 					return PARSERESULT::invaild;
 				}
 				m_startPos = 0;
@@ -5133,13 +5158,13 @@ find_boundaryHeaderBegin:
 					len = std::distance(thisBoundaryWordBegin, boundaryWordEnd);
 					if (len == m_maxReadLen)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd len == m_maxReadLen");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd len == m_maxReadLen");
 						return PARSERESULT::invaild;
 					}
 					m_bodyLen -= iterFindEnd - iterFindBegin;
 					if (m_bodyLen <= 0)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd m_bodyLen <= 0");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd m_bodyLen <= 0");
 						return PARSERESULT::invaild;
 					}
 					if (thisBoundaryWordBegin != m_readBuffer)
@@ -5157,7 +5182,7 @@ find_boundaryHeaderBegin:
 
 
 		find_boundaryWordEnd2:
-			if ((boundaryWordEnd = std::find_if(boundaryWordEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ';'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r')))) == iterFindEnd)
+			if ((boundaryWordEnd = std::find_if(boundaryWordEnd, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ';'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r')))) == iterFindEnd)
 			{
 				len = std::distance(thisBoundaryWordBegin, boundaryWordEnd);
 				if (isDoubleQuotation)
@@ -5165,7 +5190,7 @@ find_boundaryHeaderBegin:
 					m_bodyLen -= iterFindEnd - iterFindBegin;
 					if (m_bodyLen <= 0)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0");
 						return PARSERESULT::invaild;
 					}
 					// 修复此处再次读取时thisBoundaryWordBegin失效问题
@@ -5184,13 +5209,13 @@ find_boundaryHeaderBegin:
 				{
 					if (len == m_maxReadLen)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 len == m_maxReadLen");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 len == m_maxReadLen");
 						return PARSERESULT::invaild;
 					}
 					m_bodyLen -= iterFindEnd - iterFindBegin;
 					if (m_bodyLen <= 0)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0 2");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 m_bodyLen <= 0 2");
 						return PARSERESULT::invaild;
 					}
 					if (thisBoundaryWordBegin != m_readBuffer)
@@ -5218,7 +5243,7 @@ find_boundaryHeaderBegin:
 
 				if (!newBuffer)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 !newBuffer");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_boundaryWordEnd2 !newBuffer");
 					return PARSERESULT::invaild;
 				}
 
@@ -5271,7 +5296,7 @@ find_boundaryHeaderBegin:
 					m_bodyLen -= iterFindEnd - iterFindBegin;
 					if (m_bodyLen <= 0)
 					{
-						reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_nextboundaryHeaderBegin m_bodyLen <= 0");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_nextboundaryHeaderBegin m_bodyLen <= 0");
 						return PARSERESULT::invaild;
 					}
 					if (boundaryWordEnd != m_readBuffer)
@@ -5293,7 +5318,7 @@ find_boundaryHeaderBegin:
 				m_bodyLen -= iterFindEnd - iterFindBegin;
 				if (m_bodyLen <= 0)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_nextboundaryHeaderBegin3 m_bodyLen <= 0");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_nextboundaryHeaderBegin3 m_bodyLen <= 0");
 					return PARSERESULT::invaild;
 				}
 				m_startPos = 0;
@@ -5310,7 +5335,7 @@ find_boundaryHeaderBegin:
 			m_bodyLen -= iterFindEnd - iterFindBegin;
 			if (m_bodyLen <= 0)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBegin m_bodyLen <= 0");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_fileBegin m_bodyLen <= 0");
 				return PARSERESULT::invaild;
 			}
 
@@ -5341,7 +5366,7 @@ find_boundaryHeaderBegin:
 				m_bodyLen -= iterFindEnd - iterFindBegin;
 				if (m_bodyLen <= 0)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBoundaryBegin m_bodyLen <= 0 1");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_fileBoundaryBegin m_bodyLen <= 0 1");
 					return PARSERESULT::invaild;
 				}
 				m_startPos = 0;
@@ -5358,7 +5383,7 @@ find_boundaryHeaderBegin:
 				m_bodyLen -= iterFindEnd - iterFindBegin;
 				if (m_bodyLen <= 0)
 				{
-					reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "find_fileBoundaryBegin m_bodyLen <= 0 2");
+					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_fileBoundaryBegin m_bodyLen <= 0 2");
 					return PARSERESULT::invaild;
 				}
 				if (findBoundaryBegin != m_readBuffer)
@@ -5397,7 +5422,7 @@ find_boundaryHeaderBegin:
 			m_bodyLen -= iterFindEnd - iterFindBegin;
 			if (m_bodyLen <= 0)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd m_bodyLen <= 0");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd m_bodyLen <= 0");
 				return PARSERESULT::invaild;
 			}
 			m_startPos = 0;
@@ -5407,7 +5432,7 @@ find_boundaryHeaderBegin:
 
 		if (*findBoundaryBegin != '-' && *findBoundaryBegin != '\r')
 		{
-			reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd *findBoundaryBegin != '-' && *findBoundaryBegin != '\r'");
+			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd *findBoundaryBegin != '-' && *findBoundaryBegin != '\r'");
 			return PARSERESULT::invaild;
 		}
 
@@ -5418,7 +5443,7 @@ find_boundaryHeaderBegin:
 			m_bodyLen -= iterFindEnd - iterFindBegin;
 			if (m_bodyLen <= 0)
 			{
-				reflog.writeLog(__FILE__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd2 m_bodyLen <= 0");
+				reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "check_fileBoundaryEnd2 m_bodyLen <= 0");
 				return PARSERESULT::invaild;
 			}
 			if (findBoundaryBegin != m_readBuffer)
