@@ -79,7 +79,7 @@ void HTTPSERVICE::setReady(const int index, std::shared_ptr<std::function<void(s
 	m_clearFunction = clearFunction;
 	m_mySelf = other;
 
-	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
+	m_log->writeLog(__FUNCTION__, __LINE__, " setReady ", m_serviceNum);
 
 	run();
 }
@@ -127,7 +127,7 @@ void HTTPSERVICE::checkMethod()
 	case METHOD::POST:
 		if (!refBuffer.getView().target().empty() &&
 			std::all_of(refBuffer.getView().target().cbegin() + 1, refBuffer.getView().target().cend(),
-				std::bind(std::logical_and<>(), std::bind(std::greater_equal<>(), std::placeholders::_1, '0'), std::bind(std::less_equal<>(), std::placeholders::_1, '9'))))
+				std::bind(std::logical_and<bool>(), std::bind(std::greater_equal<>(), std::placeholders::_1, '0'), std::bind(std::less_equal<>(), std::placeholders::_1, '9'))))
 		{
 			switchPOSTInterface();
 		}
@@ -143,7 +143,6 @@ void HTTPSERVICE::checkMethod()
 
 
 	default:
-
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 		break;
 	}
@@ -266,11 +265,12 @@ void HTTPSERVICE::switchPOSTInterface()
 
 void HTTPSERVICE::testBody()
 {
-	if (m_httpresult.isBodyEmpty())
+	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
+
+	const char *source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char** BodyBuffer{ m_buffer->bodyPara() };
@@ -313,15 +313,16 @@ Host: 192.168.80.128:8085\r\n\r\n
 
 void HTTPSERVICE::testRandomBody()
 {
-	if (!m_httpresult.isparaEmpty())
+	if (hasPara)
 	{
-		std::string_view para{ m_httpresult.getpara() };
-		if (!UrlDecodeWithTransChinese(para.cbegin(), para.size(), m_len))
+		if (!UrlDecodeWithTransChinese(m_buffer->getView().para().cbegin(), m_buffer->getView().para().size(), m_len))
 			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 		m_buffer->setBodyLen(m_len);
 
-		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(para.cbegin(), m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
+		const char *source{ &*m_buffer->getView().para().cbegin() };
+
+		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
 		{
 			const char **para{ m_buffer->bodyPara() };
 			std::string_view testStr{}, parameterStr{}, numberStr{};
@@ -354,15 +355,15 @@ void HTTPSERVICE::testRandomBody()
 
 
 
-	else if(!m_httpresult.isBodyEmpty())
+	else if(hasBody)
 	{
-		std::string_view bodyView{ m_httpresult.getBody() };
-		if (!UrlDecodeWithTransChinese(bodyView.cbegin(), bodyView.size(), m_len))
+		if (!UrlDecodeWithTransChinese(m_buffer->getView().body().cbegin(), m_buffer->getView().body().size(), m_len))
 			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 		m_buffer->setBodyLen(m_len);
 
-		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(bodyView.cbegin(), m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
+		const char *source{ &*m_buffer->getView().body().cbegin() };
+		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(source, m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
 		{
 			const char **para{ m_buffer->bodyPara() };
 			std::string_view testStr{}, parameterStr{}, numberStr{};
@@ -435,8 +436,8 @@ void HTTPSERVICE::testGet()
 
 void HTTPSERVICE::testPingPong()
 {
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (bodyView.empty())
+	int bodyLen{ m_buffer->getView().body().size() };
+	if (!bodyLen)
 	{
 		startWrite(HTTPRESPONSEREADY::http11OKNoBody, HTTPRESPONSEREADY::http11OKNoBodyLen);
 	}
@@ -450,7 +451,7 @@ void HTTPSERVICE::testPingPong()
 		if (st1.make_pingPongResppnse(sendBuffer, sendLen, nullptr, 0,
 			finalVersionBegin, finalVersionEnd, MAKEJSON::http200,
 			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
-			bodyView.cbegin(), bodyView.cend(),
+			finalBodyBegin, finalBodyEnd,
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen,
 			MAKEJSON::Connection, MAKEJSON::Connection+ MAKEJSON::ConnectionLen,
@@ -470,9 +471,10 @@ void HTTPSERVICE::testPingPong()
 
 void HTTPSERVICE::testPingPongJson()
 {
-	std::string_view bodyView{ m_httpresult.getBody() };
+	int bodyLen{ m_buffer->getView().body().size() };
 
-	if (bodyView.empty())
+
+	if (!bodyLen)
 	{
 		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
 		return;
@@ -488,7 +490,7 @@ void HTTPSERVICE::testPingPongJson()
 	}
 
 	//设置json转换标志，会进行转义处理，如果确定没有转义字符出现，可以不写<TRANSFORMTYPE>
-	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, bodyView.cbegin(), bodyView.cend()))
+	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, &*m_buffer->getView().body().cbegin(), &*m_buffer->getView().body().cend()))
 	{
 		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
 		return;
@@ -702,11 +704,11 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 //从body中解析参数执行sql查询的测试函数
 void HTTPSERVICE::testmultiSqlReadParseBosySW()
 {
-	if (m_httpresult.isBodyEmpty())
+	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::name, STATICSTRING::nameLen, STATICSTRING::age, STATICSTRING::ageLen))
+	const char* source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::name, STATICSTRING::nameLen, STATICSTRING::age, STATICSTRING::ageLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char** BodyBuffer{ m_buffer->bodyPara() };
@@ -938,11 +940,13 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 		//目前实现好MULTIREDISREAD对象类，可以正常返回多种redis结果值
 		//MULTIREDISWRITE的设置目的是为了高效执行一些写入操作，不返回执行结果的字符串，只返回1和0代表成功与否，目前还需要完善
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+		{
+			return startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+		}
 	}
 	catch (const std::exception &e)
 	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
 }
 
@@ -952,6 +956,8 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 //这里返回，另外使用一个新发送函数
 void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
 {
+	//m_log->writeLog(__FUNCTION__, __LINE__, " handleMultiRedisReadLOT_SIZE_STRING ", m_serviceNum);
+
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
 
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -968,13 +974,17 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 			st1.reset();
 
 			if (!st1.clear())
+			{
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
 
 			//如果确定不需要开启json转码处理，可以不带<TRANSFORMTYPE>即可，默认不开启json转码处理
 
 			//启用json转码处理
 			if (!st1.put<TRANSFORMTYPE>(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+			{
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
 
 			//启用json转码处理
 			makeSendJson<TRANSFORMTYPE>(st1);
@@ -992,11 +1002,17 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 
 			if (!resultVec.empty())
 			{
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				st1.reset();
 
-				if(!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+				if (!st1.clear())
+				{
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				}
+
+				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+				{
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				}
 
 				makeSendJson(st1);
 			}
@@ -1006,7 +1022,9 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 			}
 		}
 		else
+		{
 			handleERRORMESSAGE(em);
+		}
 	}
 }
 
@@ -1017,11 +1035,11 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 //  联合redis string_view版本 从body中解析参数进行查询KEY测试函数
 void HTTPSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
 {
-	if (m_httpresult.isBodyEmpty())
+	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::key, STATICSTRING::keyLen))
+	const char* source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::key, STATICSTRING::keyLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char** BodyBuffer{ m_buffer->bodyPara() };
@@ -1404,9 +1422,10 @@ void HTTPSERVICE::readyParseChunkData()
 //  keyValue   {"key":"value"}
 //  
 
+//测试json生成函数
 void HTTPSERVICE::testMakeJson()
 {
-	if(m_httpresult.isBodyEmpty())
+	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	std::string_view bodyView{ m_httpresult.getBody() };
@@ -1433,7 +1452,7 @@ void HTTPSERVICE::testMakeJson()
 	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
 		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
 
-	bool success{ false }, innerSuccess{false};
+	bool success{ false }, innerSuccess{ false };
 
 	char *newbuffer{};
 
@@ -1508,7 +1527,7 @@ void HTTPSERVICE::testMakeJson()
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
 			{
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
 					break;
 				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
 					break;
@@ -1573,11 +1592,11 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::jsonArrayLen:
 			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonArray, STATICSTRING::jsonArray + STATICSTRING::jsonArrayLen))
 				break;
-			if (!st2.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+			if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
 				break;
-			if (!st2.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+			if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, nullptr, nullptr))
 				break;
-			if (!st2.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
+			if (!st2.putBoolean<TRANSFORMTYPE>(nullptr, nullptr, true))
 				break;
 			if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
 				break;
@@ -1605,14 +1624,13 @@ void HTTPSERVICE::testMakeJson()
 
 void HTTPSERVICE::testCompareWorkFlow()
 {
-	if (m_httpresult.isBodyEmpty())
+	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	ReadBuffer &refBuffer{ *m_buffer };
 
-	std::string_view bodyView{ m_httpresult.getBody() };
 	//解释获取body中的参数stringlen  必须存在此项参数
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), refBuffer.bodyPara(), STATICSTRING::stringlen, STATICSTRING::stringlenLen))
+	if (!praseBody(&*refBuffer.getView().body().cbegin(), refBuffer.getView().body().size(), refBuffer.bodyPara(), STATICSTRING::stringlen, STATICSTRING::stringlenLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char **BodyBuffer{ refBuffer.bodyPara() };
@@ -1878,9 +1896,9 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 
 void HTTPSERVICE::clean()
 {
-	//cout << "start clean\n";
-	m_log->writeLog(__FUNCTION__, __LINE__, "clean ",m_serviceNum);
+	//cout << "start clean\n"
 	m_hasClean.store(true);
+	m_log->writeLog(__FUNCTION__, __LINE__, " clean ", m_serviceNum);
 
 	m_sessionLen = 0;
 	m_startPos = 0;
@@ -1970,7 +1988,7 @@ void HTTPSERVICE::resetSocket()
 
 void HTTPSERVICE::recoverMemory()
 {
-	m_httpresult.resetheader();
+	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
 	m_MemoryPool.prepare();
 }
 
@@ -2020,7 +2038,6 @@ void HTTPSERVICE::prepare()
 	m_httpHeaderMap.reset(new const char*[HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN]);
 	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
 
-	/*
 	m_MethodBegin = m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::Method, m_MethodEnd = m_MethodBegin + 1;
 
 	m_TargetBegin = m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::Target, m_TargetEnd = m_TargetBegin + 1;
@@ -2090,7 +2107,6 @@ void HTTPSERVICE::prepare()
 	m_BodyBegin = m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::Body, m_BodyEnd = m_BodyBegin + 1;
 
 	m_Transfer_EncodingBegin = m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::Transfer_Encoding, m_Transfer_EncodingEnd = m_Transfer_EncodingBegin + 1;
-	*/
 
 
 	m_Boundary_ContentDispositionBegin = m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::boundary_ContentDisposition, m_Boundary_ContentDispositionEnd = m_Boundary_ContentDispositionBegin + 1;
@@ -2153,7 +2169,6 @@ void HTTPSERVICE::startRead()
 			{
 				if (err != boost::asio::error::operation_aborted)
 				{
-					//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 					m_hasClean.store(false);
 				}
 			}
@@ -2164,6 +2179,7 @@ void HTTPSERVICE::startRead()
 				{
 					std::string_view message{ m_readBuffer + m_startPos, size };
 					m_message.swap(message);
+					//m_log->writeLog(__FUNCTION__, m_message, m_serviceNum);
 
 					parseReadData(m_readBuffer + m_startPos, size);
 				}
@@ -2212,12 +2228,14 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 
 
 		case PARSERESULT::invaild:
+			/*
 			m_startPos = 0;
 			m_readBuffer = refBuffer.getBuffer();
 			m_maxReadLen = m_defaultReadLen;
 			m_availableLen = refBuffer.getSock()->available();
 			m_sendBuffer = HTTPRESPONSEREADY::http11invaild, m_sendLen = HTTPRESPONSEREADY::http11invaildLen;
 			cleanData();
+			*/
 			break;
 
 		case PARSERESULT::parseMultiPartFormData:
@@ -2353,17 +2371,21 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	MYREQVIEW& refMyReView{ refBuffer.getView() };
 
 
+
+
+
 	switch (m_parseStatus)
 	{
 	case PARSERESULT::check_messageComplete:
 	case PARSERESULT::invaild:
 	case PARSERESULT::complete:
+		
 		if(isHttp)
 			hostPort = 80;         //默认http  host端口
 		else
 			hostPort = 443;        //默认http  host端口
 		refMyReView.clear();
-		hasX_www_form_urlencoded = hasXml = hasJson = hasChunk = false;
+		hasX_www_form_urlencoded = hasXml = hasJson = hasBody = hasChunk = hasPara = false;
 		hasMultipart_form_data = expect_continue = keep_alive = hasCompress = hasDeflate = hasGzip = false;
 		hasIdentity = keep_alive = true;
 		m_bodyLen = 0;
@@ -2610,7 +2632,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXMETHODLEN - accumulateLen);
 
-			funEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_not<>(), std::bind(isupper, std::placeholders::_1)));
+			funEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_not<bool>(), std::bind(isupper, std::placeholders::_1)));
 
 			if (funEnd == iterFindThisEnd)
 			{
@@ -2621,7 +2643,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		}
 		else
 		{
-			funEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_not<>(), std::bind(isupper, std::placeholders::_1)));
+			funEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_not<bool>(), std::bind(isupper, std::placeholders::_1)));
 
 			if (funEnd == iterFindEnd)
 			{
@@ -2862,8 +2884,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXTARGETLEN - accumulateLen);
 
-			targetEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
-				std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
+			targetEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
 
 			if (targetEnd == iterFindThisEnd)
 			{
@@ -2875,8 +2897,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			targetEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
-				std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
+			targetEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, '?'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r'))));
 
 			if (targetEnd == iterFindEnd)
 			{
@@ -3011,7 +3033,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			{
 				iterFindThisEnd = iterFindBegin + (MAXFIRSTBODYLEN - accumulateLen);
 
-				paraEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				paraEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 					std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 				if (paraEnd == iterFindThisEnd)
@@ -3024,7 +3046,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			else
 			{
 
-				paraEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
+				paraEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 					std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 				if (paraEnd == iterFindEnd)
@@ -3101,7 +3123,9 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			}
 			
 
-			m_httpresult.setpara(finalParaBegin, finalParaEnd);
+
+			refMyReView.setPara(finalParaBegin, finalParaEnd - finalParaBegin);
+			hasPara = true;
 		}
 
 		///////////////////////////////////////////////////////////////////////////////   firstBody已完成  /////////////////////////////////
@@ -3155,7 +3179,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXHTTPLEN - accumulateLen);
 
-			httpEnd = std::find_if_not(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
+			httpEnd = std::find_if_not(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<bool>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
 				std::bind(less_equal<>(), std::placeholders::_1, 'Z')));
 
 			if (httpEnd == iterFindThisEnd)
@@ -3168,7 +3192,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			httpEnd = std::find_if_not(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
+			httpEnd = std::find_if_not(iterFindBegin, iterFindEnd, std::bind(std::logical_and<bool>(), std::bind(greater_equal<>(), std::placeholders::_1, 'A'),
 				std::bind(less_equal<>(), std::placeholders::_1, 'Z')));
 
 			if (httpEnd == iterFindEnd)
@@ -3420,7 +3444,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXLINELEN - accumulateLen);
 
-			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindThisEnd)
@@ -3433,7 +3457,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindEnd)
@@ -3551,7 +3575,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXHEADLEN - accumulateLen);
 
-			headEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
+			headEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
 				std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 			if (headEnd == iterFindThisEnd)
@@ -3564,7 +3588,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			headEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
+			headEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'),
 				std::bind(std::equal_to<>(), std::placeholders::_1, '\r')));
 
 			if (headEnd == iterFindEnd)
@@ -3804,13 +3828,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			if (std::equal(finalHeadBegin, finalHeadEnd, TE.cbegin(), TE.cend(),
 				std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 			{
-				if (!m_httpresult.isTEEmpty())
+				if (*m_TEBegin)
 				{
 					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_TEBegin is not nullptr");
 					return PARSERESULT::invaild;
 				}
 
-				m_httpresult.setTE(finalWordBegin, finalWordEnd);
+				*m_TEBegin = finalWordBegin;
+				*m_TEEnd = finalWordEnd;
 
 			}
 
@@ -3821,14 +3846,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			if (std::equal(finalHeadBegin, finalHeadEnd, Via.cbegin(), Via.cend(),
 				std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 			{
-				if (!m_httpresult.isViaEmpty())
+				if (*m_ViaBegin)
 				{
 					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ViaBegin is not nullptr");
 					return PARSERESULT::invaild;
 				}
 
-				m_httpresult.setVia(finalWordBegin, finalWordEnd);
-				
+				*m_ViaBegin = finalWordBegin;
+				*m_ViaEnd = finalWordEnd;
 				
 			}
 
@@ -3843,13 +3868,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Date.cbegin(), Date.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isDateEmpty())
+					if (*m_DateBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_DateBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setDate(finalWordBegin, finalWordEnd);
+					*m_DateBegin = finalWordBegin;
+					*m_DateEnd = finalWordEnd;
 
 				}
 
@@ -3861,13 +3887,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, From.cbegin(), From.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isFromEmpty())
+					if (*m_FromBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_FromBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setFrom(finalWordBegin, finalWordEnd);
+					*m_FromBegin = finalWordBegin;
+					*m_FromEnd = finalWordEnd;
 					
 
 				}
@@ -3880,14 +3907,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Host.cbegin(), Host.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isHostEmpty())
+					if (*m_HostBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_HostBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setHost(finalWordBegin, finalWordEnd);
-					
+					*m_HostBegin = finalWordBegin;
+					*m_HostEnd = finalWordEnd;
 
 				}
 
@@ -3905,13 +3932,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 			if (std::equal(finalHeadBegin, finalHeadEnd, Range.cbegin(), Range.cend(),
 				std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 			{
-				if (!m_httpresult.isRangeEmpty())
+				if (*m_RangeBegin)
 				{
 					reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_RangeBegin is not nullptr");
 					return PARSERESULT::invaild;
 				}
 
-				m_httpresult.setRange(finalWordBegin, finalWordEnd);
+				*m_RangeBegin = finalWordBegin;
+				*m_RangeEnd = finalWordEnd;
 
 			}
 
@@ -3926,13 +3954,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Accept.cbegin(), Accept.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isAcceptEmpty())
+					if (*m_AcceptBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_AcceptBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setAccept(finalWordBegin, finalWordEnd);
+					*m_AcceptBegin = finalWordBegin;
+					*m_AcceptEnd = finalWordEnd;
 			
 
 				}
@@ -3945,13 +3974,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Cookie.cbegin(), Cookie.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isCookieEmpty())
+					if (*m_CookieBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_CookieBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setCookie(finalWordBegin, finalWordEnd);
+					*m_CookieBegin = finalWordBegin;
+					*m_CookieEnd = finalWordEnd;
 		
 
 				}
@@ -3964,13 +3994,15 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Expect.cbegin(), Expect.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isExpectEmpty())
+					if (*m_ExpectBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ExpectBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 					
-					m_httpresult.setExpect(finalWordBegin, finalWordEnd);
+
+					*m_ExpectBegin = finalWordBegin;
+					*m_ExpectEnd = finalWordEnd;
 			
 
 				}
@@ -3983,14 +4015,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Pragma.cbegin(), Pragma.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isPragmaEmpty())
+					if (*m_PragmaBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_PragmaBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setPragma(finalWordBegin, finalWordEnd);
-					
+					*m_PragmaBegin = finalWordBegin;
+					*m_PragmaEnd = finalWordEnd;
 
 				}
 
@@ -4012,14 +4044,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Referer.cbegin(), Referer.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isRefererEmpty())
+					if (*m_RefererBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_RefererBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setReferer(finalWordBegin, finalWordEnd);
-					
+					*m_RefererBegin = finalWordBegin;
+					*m_RefererEnd = finalWordEnd;
 
 				}
 
@@ -4031,13 +4063,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Upgrade.cbegin(), Upgrade.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isUpgradeEmpty())
+					if (*m_UpgradeBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_UpgradeBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setUpgrade(finalWordBegin, finalWordEnd);
+					*m_UpgradeBegin = finalWordBegin;
+					*m_UpgradeEnd = finalWordEnd;
 			
 
 				}
@@ -4050,14 +4083,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Warning.cbegin(), Warning.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isWarningEmpty())
+					if (*m_WarningBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_WarningBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setWarning(finalWordBegin, finalWordEnd);
-											
+					*m_WarningBegin = finalWordBegin;
+					*m_WarningEnd = finalWordEnd;
 
 				}
 
@@ -4079,14 +4112,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, If_Match.cbegin(), If_Match.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isIf_MatchEmpty())
+					if (*m_If_MatchBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_MatchBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setIf_Match(finalWordBegin, finalWordEnd);
-					
+					*m_If_MatchBegin = finalWordBegin;
+					*m_If_MatchEnd = finalWordEnd;
 
 				}
 
@@ -4098,13 +4131,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, If_Range.cbegin(), If_Range.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isIf_RangeEmpty())
+					if (*m_If_RangeBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_RangeBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setIf_Range(finalWordBegin, finalWordEnd);
+					*m_If_RangeBegin = finalWordBegin;
+					*m_If_RangeEnd = finalWordEnd;
 
 				}
 
@@ -4125,14 +4159,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Connection.cbegin(), Connection.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isConnectionEmpty())
+					if (*m_ConnectionBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setConnection(finalWordBegin, finalWordEnd);
-		
+					*m_ConnectionBegin = finalWordBegin;
+					*m_ConnectionEnd = finalWordEnd;
 
 				}
 
@@ -4144,13 +4178,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, User_Agent.cbegin(), User_Agent.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isUser_AgentEmpty())
+					if (*m_User_AgentBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ConnectionBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setUser_Agent(finalWordBegin, finalWordEnd);
+					*m_User_AgentBegin = finalWordBegin;
+					*m_User_AgentEnd = finalWordEnd;
 
 				}
 
@@ -4171,13 +4206,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Content_Type.cbegin(), Content_Type.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isContent_TypeEmpty())
+					if (*m_Content_TypeBegin)
 					{
-						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Content_TypeBegin is not nullptr");
+						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Content_TypeBegin is not nullptr  ");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setContent_Type(finalWordBegin, finalWordEnd);
+					*m_Content_TypeBegin = finalWordBegin;
+					*m_Content_TypeEnd = finalWordEnd;
 					
 
 				}
@@ -4190,13 +4226,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Max_Forwards.cbegin(), Max_Forwards.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isMax_ForwardsEmpty())
+					if (*m_Max_ForwardsBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Max_ForwardsBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setMax_Forwards(finalWordBegin, finalWordEnd);
+					*m_Max_ForwardsBegin = finalWordBegin;
+					*m_Max_ForwardsEnd = finalWordEnd;
 					
 
 				}
@@ -4218,14 +4255,15 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Accept_Ranges.cbegin(), Accept_Ranges.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isAccept_RangesEmpty())
+					if (*m_Accept_RangesBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Accept_RangesBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setAccept_Ranges(finalWordBegin, finalWordEnd);
-						
+					*m_Accept_RangesBegin = finalWordBegin;
+					*m_Accept_RangesEnd = finalWordEnd;
+					
 
 				}
 
@@ -4237,13 +4275,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Authorization.cbegin(), Authorization.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isAuthorizationEmpty())
+					if (*m_AuthorizationBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_AuthorizationBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setAuthorization(finalWordBegin, finalWordEnd);
+					*m_AuthorizationBegin = finalWordBegin;
+					*m_AuthorizationEnd = finalWordEnd;
 					
 
 				}
@@ -4256,13 +4295,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Cache_Control.cbegin(), Cache_Control.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isCache_ControlEmpty())
+					if (*m_Cache_ControlBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Cache_ControlBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setCache_Control(finalWordBegin, finalWordEnd);
+					*m_Cache_ControlBegin = finalWordBegin;
+					*m_Cache_ControlEnd = finalWordEnd;
 					
 
 				}
@@ -4275,13 +4315,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, If_None_Match.cbegin(), If_None_Match.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isIf_None_MatchEmpty())
+					if (*m_If_None_MatchBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_None_MatchBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setIf_None_Match(finalWordBegin, finalWordEnd);
+					*m_If_None_MatchBegin = finalWordBegin;
+					*m_If_None_MatchEnd = finalWordEnd;
 					
 
 				}
@@ -4303,13 +4344,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Accept_Charset.cbegin(), Accept_Charset.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isAccept_CharsetEmpty())
+					if (*m_Accept_CharsetBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_None_MatchBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setAccept_Charset(finalWordBegin, finalWordEnd);
+					*m_Accept_CharsetBegin = finalWordBegin;
+					*m_Accept_CharsetEnd = finalWordEnd;
 				
 
 				}
@@ -4323,14 +4365,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, ContentLength.cbegin(), ContentLength.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isContent_LengthEmpty())
+					if (*m_Content_LengthBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Content_LengthBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setContent_Length(finalWordBegin, finalWordEnd);
-					
+					*m_Content_LengthBegin = finalWordBegin;
+					*m_Content_LengthEnd = finalWordEnd;
 
 				}
 
@@ -4352,13 +4394,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Accept_Encoding.cbegin(), Accept_Encoding.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isAccept_EncodingEmpty())
+					if (*m_Accept_EncodingBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Accept_EncodingBegin  is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setAccept_Encoding(finalWordBegin, finalWordEnd);
+					*m_Accept_EncodingBegin = finalWordBegin;
+					*m_Accept_EncodingEnd = finalWordEnd;
 
 				}
 
@@ -4370,13 +4413,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Accept_Language.cbegin(), Accept_Language.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isAccept_LanguageEmpty())
+					if (*m_Accept_LanguageBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Accept_LanguageBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setAccept_Language(finalWordBegin, finalWordEnd);
+					*m_Accept_LanguageBegin = finalWordBegin;
+					*m_Accept_LanguageEnd = finalWordEnd;
 			
 
 				}
@@ -4400,13 +4444,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, If_Modified_Since.cbegin(), If_Modified_Since.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isIf_Modified_SinceEmpty())
+					if (*m_If_Modified_SinceBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_Modified_SinceBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setIf_Modified_Since(finalWordBegin, finalWordEnd);
+					*m_If_Modified_SinceBegin = finalWordBegin;
+					*m_If_Modified_SinceEnd = finalWordEnd;
 
 				}
 
@@ -4418,13 +4463,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Transfer_Encoding.cbegin(), Transfer_Encoding.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isTransfer_EncodingEmpty())
+					if (*m_Transfer_EncodingBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Transfer_EncodingBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setTransfer_Encoding(finalWordBegin, finalWordEnd);
+					*m_Transfer_EncodingBegin = finalWordBegin;
+					*m_Transfer_EncodingEnd = finalWordEnd;
 
 				}
 
@@ -4444,14 +4490,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, If_Unmodified_Since.cbegin(), If_Unmodified_Since.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isIf_Unmodified_SinceEmpty())
+					if (*m_If_Unmodified_SinceBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_If_Unmodified_SinceBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setIf_Unmodified_Since(finalWordBegin, finalWordEnd);
-
+					*m_If_Unmodified_SinceBegin = finalWordBegin;
+					*m_If_Unmodified_SinceEnd = finalWordEnd;
 
 				}
 
@@ -4463,14 +4509,14 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				if (std::equal(finalHeadBegin, finalHeadEnd, Proxy_Authorization.cbegin(), Proxy_Authorization.cend(),
 					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
 				{
-					if (!m_httpresult.isProxy_AuthorizationEmpty())
+					if (*m_Proxy_AuthorizationBegin)
 					{
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_Proxy_AuthorizationBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
 
-					m_httpresult.setProxy_Authorization(finalWordBegin, finalWordEnd);
-					
+					*m_Proxy_AuthorizationBegin = finalWordBegin;
+					*m_Proxy_AuthorizationEnd = finalWordEnd;
 
 				}
 
@@ -4500,7 +4546,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		{
 			iterFindThisEnd = iterFindBegin + (MAXLINELEN - accumulateLen);
 
-			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindThisEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindThisEnd)
@@ -4513,7 +4559,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 		else
 		{
 
-			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
+			lineEnd = std::find_if(iterFindBegin, iterFindEnd, std::bind(std::logical_and<bool>(), std::bind(std::not_equal_to<>(), std::placeholders::_1, '\r'),
 				std::bind(std::not_equal_to<>(), std::placeholders::_1, '\n')));
 
 			if (lineEnd == iterFindEnd)
@@ -4619,15 +4665,14 @@ check_len:
 
 		if (m_bodyLen)
 		{
-			if (!m_httpresult.isContent_TypeEmpty())
+			if (*m_Content_TypeBegin && *m_Content_TypeEnd)
 			{
-				std::string_view Content_TypeView{ m_httpresult.getContent_Type() };
-				if (*Content_TypeView.cbegin() == 'm' && (boundaryBegin = std::search(Content_TypeView.cbegin(), Content_TypeView.cend(), boundary.cbegin(), boundary.cend())) != Content_TypeView.cend())
+				if (**m_Content_TypeBegin == 'm' && (boundaryBegin = std::search(*m_Content_TypeBegin, *m_Content_TypeEnd, boundary.cbegin(), boundary.cend())) != *m_Content_TypeEnd)
 				{
 					*(m_verifyData.get() + VerifyDataPos::customPos1Begin) = lineEnd;
 					*(m_verifyData.get() + VerifyDataPos::customPos1End) = iterFindEnd;
 					boundaryBegin += boundary.size();
-					boundaryEnd = Content_TypeView.cend();
+					boundaryEnd = *m_Content_TypeEnd;
 					return PARSERESULT::parseMultiPartFormData;
 				}
 			}
@@ -4641,7 +4686,8 @@ check_len:
 			{
 
 				finalBodyBegin = iterFindBegin, finalBodyEnd = iterFindBegin + m_bodyLen;
-				m_httpresult.setBody(finalBodyBegin, finalBodyEnd);
+				refMyReView.setBody(finalBodyBegin, m_bodyLen);
+				hasBody = true;
 				messageBegin = iterFindBegin + m_bodyLen;
 				goto check_messageComplete;
 			}
@@ -4982,7 +5028,7 @@ find_boundaryHeaderBegin:
 			len = std::distance(boundaryHeaderEnd, iterFindEnd);
 			iterFindThisEnd = len >= MAXBOUNDARYHEADERNLEN ? (boundaryHeaderEnd + MAXBOUNDARYHEADERNLEN) : iterFindEnd;
 
-			if ((boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')))) == iterFindEnd)
+			if ((boundaryHeaderEnd = std::find_if(boundaryHeaderEnd, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '=')))) == iterFindEnd)
 			{
 				if (std::distance(boundaryHeaderBegin, boundaryHeaderEnd) >= MAXBOUNDARYHEADERNLEN)
 				{
@@ -5143,7 +5189,7 @@ find_boundaryHeaderBegin:
 
 
 		find_boundaryWordEnd2:
-			if ((boundaryWordEnd = std::find_if(boundaryWordEnd, iterFindEnd, std::bind(std::logical_or<>(), std::bind(std::equal_to<>(), std::placeholders::_1, ';'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r')))) == iterFindEnd)
+			if ((boundaryWordEnd = std::find_if(boundaryWordEnd, iterFindEnd, std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ';'), std::bind(std::equal_to<>(), std::placeholders::_1, '\r')))) == iterFindEnd)
 			{
 				len = std::distance(thisBoundaryWordBegin, boundaryWordEnd);
 				if (isDoubleQuotation)
@@ -5459,16 +5505,15 @@ bool HTTPSERVICE::parseHttpHeader()
 
 
 	//解析Host字段内容
-	if (m_httpresult.isHostEmpty())
+	if (!*m_HostBegin)
 	{
 		if(isHttp11)
 			return false;
 	}
 	else
 	{
-		std::string_view HostView{ m_httpresult.getHost() };
-		strBegin = HostView.cbegin();
-		strEnd = HostView.cend();
+		strBegin = *m_HostBegin;
+		strEnd = *m_HostEnd;
 		//Host字段允许为空
 		if (std::distance(strBegin, strEnd))
 		{
@@ -5531,11 +5576,10 @@ bool HTTPSERVICE::parseHttpHeader()
 	//解析Transfer_Encoding
 	//‌编码值必须小写
 	//逗号后需加空格
-	if (!m_httpresult.isTransfer_EncodingEmpty())
+	if (*m_Transfer_EncodingBegin)
 	{
-		std::string_view Transfer_EncodingView{ m_httpresult.getTransfer_Encoding() };
-		strBegin = Transfer_EncodingView.cbegin();
-		strEnd = Transfer_EncodingView.cend();
+		strBegin = *m_Transfer_EncodingBegin;
+		strEnd = *m_Transfer_EncodingEnd;
 
 		while (strBegin != strEnd)
 		{
@@ -5625,11 +5669,10 @@ bool HTTPSERVICE::parseHttpHeader()
 	//解析Connection,目前仅处理close 和 keep-alive
 	//因为代理控制指令和非标准扩展指令都是自定义的
 	//会遍历内容查找是否存在close 或者 keep-alive，找到则跳出解析
-	if (!m_httpresult.isConnectionEmpty())
+	if (*m_ConnectionBegin)
 	{
-		std::string_view ConnectionView{ m_httpresult.getConnection() };
-		strBegin = ConnectionView.cbegin();
-		strEnd = ConnectionView.cend();
+		strBegin = *m_ConnectionBegin;
+		strEnd = *m_ConnectionEnd;
 
 		//字段值标准指令必须全小写
 		while (strBegin != strEnd)
@@ -5672,20 +5715,18 @@ after_parse_Connection:
 	;
 
 	//解析Expect头部
-	if (!m_httpresult.isExpectEmpty())
+	if (*m_ExpectBegin)
 	{
-		std::string_view ExpectView{ m_httpresult.getExpect() };
-		if(std::equal(ExpectView.cbegin(), ExpectView.cend(), Expect100_continue.cbegin(), Expect100_continue.cend()))
+		if(std::equal(*m_ExpectBegin, *m_ExpectEnd, Expect100_continue.cbegin(), Expect100_continue.cend()))
 			expect_continue = true;
 	}
 
 
 	//解析Content-Length 长度
-	if (!m_httpresult.isContent_LengthEmpty())
+	if (*m_Content_LengthBegin)
 	{
-		std::string_view Content_LengthView{ m_httpresult.getContent_Length() };
-		strBegin = Content_LengthView.cbegin();
-		strEnd = Content_LengthView.cend();
+		strBegin = *m_Content_LengthBegin;
+		strEnd = *m_Content_LengthEnd;
 
 		index = -1, num = 1, sum = 0;
 		//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
@@ -5700,6 +5741,8 @@ after_parse_Connection:
 		}))
 			return false;
 		m_bodyLen = sum;
+		if (m_bodyLen > 0)
+			hasBody = true;
 	}
 
 
@@ -5709,11 +5752,10 @@ after_parse_Connection:
 	//‌application/xml‌
 	//application/x-www-form-urlencoded
 	//multipart/form-data     文件上传功能还需要测试
-	if (!m_httpresult.isContent_TypeEmpty())
+	if (*m_Content_TypeBegin)
 	{
-		std::string_view Content_TypeView{ m_httpresult.getContent_Type() };
-		strBegin = Content_TypeView.cbegin();
-		strEnd = Content_TypeView.cend();
+		strBegin = *m_Content_TypeBegin;
+		strEnd = *m_Content_TypeEnd;
 		//字段值标准指令必须全小写
 		while (strBegin != strEnd)
 		{
