@@ -1,4 +1,4 @@
-#include "LOG.h"
+ï»¿#include "LOG.h"
 
 
 LOG::LOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &result ,const int overTime , const int bufferSize ):m_overTime(overTime),m_bufferSize(bufferSize)
@@ -57,7 +57,6 @@ void LOG::StartCheckLog()
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
 		//std::lock_guard<mutex>l1{ m_logMutex };
-		m_logMutex.lock();
 		if (err)
 		{
 
@@ -65,6 +64,7 @@ void LOG::StartCheckLog()
 		}
 		else
 		{
+			m_logMutex.lock();
 			if (m_hasLog)
 			{
 				m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
@@ -176,7 +176,7 @@ void LOG::makeReadyTime()
 
 LOG & LOG::operator<<(const char * log)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	if (log)
 	{
 		m_num = strlen(log);
@@ -207,7 +207,7 @@ LOG & LOG::operator<<(const char * log)
 
 LOG & LOG::operator<<(const std::string &log)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	if (!log.empty())
 	{
 		m_num = log.size();
@@ -237,7 +237,7 @@ LOG & LOG::operator<<(const std::string &log)
 
 LOG & LOG::operator<<(const int  num)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	m_check = false;
 	if (m_bufferSize - m_nowSize > 11)
 	{
@@ -596,7 +596,7 @@ LOG & LOG::operator<<(const int  num)
 
 LOG & LOG::operator<<(const unsigned int  num)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	m_check = false;
 	if (m_bufferSize - m_nowSize > 11)
 	{
@@ -945,7 +945,7 @@ LOG & LOG::operator<<(const unsigned int  num)
 
 LOG & LOG::operator<<(const char ch)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	if (m_bufferSize - m_nowSize > 1)
 	{
 		m_ch = m_Buffer.get() + m_nowSize;
@@ -972,7 +972,7 @@ LOG & LOG::operator<<(const char ch)
 
 LOG & LOG::operator<<(const std::string_view log)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 	if (!log.empty())
 	{
 		m_num = log.size();
