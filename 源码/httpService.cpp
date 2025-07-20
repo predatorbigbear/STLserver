@@ -1425,11 +1425,11 @@ void HTTPSERVICE::readyParseChunkData()
 //测试json生成函数
 void HTTPSERVICE::testMakeJson()
 {
-	if (m_httpresult.isBodyEmpty())
+	if (!hasBody)
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
+	const char *source{ &*m_buffer->getView().body().cbegin() };
+	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char **BodyBuffer{ m_buffer->bodyPara() };
