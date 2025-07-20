@@ -1422,13 +1422,14 @@ void HTTPSERVICE::readyParseChunkData()
 //  keyValue   {"key":"value"}
 //  
 
+//测试json生成函数
 void HTTPSERVICE::testMakeJson()
 {
-	if(!hasBody)
+	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	const char *source{ &*m_buffer->getView().body().cbegin() };
-	if (!praseBody(source, m_buffer->getView().body().size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
+	std::string_view bodyView{ m_httpresult.getBody() };
+	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	const char **BodyBuffer{ m_buffer->bodyPara() };
@@ -1451,7 +1452,7 @@ void HTTPSERVICE::testMakeJson()
 	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
 		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
 
-	bool success{ false }, innerSuccess{false};
+	bool success{ false }, innerSuccess{ false };
 
 	char *newbuffer{};
 
@@ -1526,7 +1527,7 @@ void HTTPSERVICE::testMakeJson()
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
 			{
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
 					break;
 				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
 					break;
@@ -1591,11 +1592,11 @@ void HTTPSERVICE::testMakeJson()
 		case STATICSTRING::jsonArrayLen:
 			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonArray, STATICSTRING::jsonArray + STATICSTRING::jsonArrayLen))
 				break;
-			if (!st2.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
+			if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
 				break;
-			if (!st2.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
+			if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, nullptr, nullptr))
 				break;
-			if (!st2.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
+			if (!st2.putBoolean<TRANSFORMTYPE>(nullptr, nullptr, true))
 				break;
 			if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
 				break;
