@@ -10,7 +10,7 @@
 template<typename HTTPCLASS>
 struct FIXEDTEMPLATESAFELIST
 {
-	FIXEDTEMPLATESAFELIST(std::shared_ptr<std::function<void()>> startcheckTime, 
+	FIXEDTEMPLATESAFELIST(std::shared_ptr<std::function<void()>> &startcheckTime, 
 		const int beginSize = 200) :
 		m_startcheckTime(startcheckTime), m_beginSize(beginSize)
 	{
@@ -97,25 +97,18 @@ struct FIXEDTEMPLATESAFELIST
 			//分别判断在最开始位置
 			//最末尾位置
 			//中间位置
-			//位于中间位置时计算该位置距离前后的距离
-			//进行智能copy
+			//位于中间位置时与末尾元素swap
+			//这样子无论在任何地方都可以O（1）效率pop出元素
 			if (iter == m_checkBegin)
 				++m_checkBegin;
 			else if (iter == (m_checkEnd - 1))
 				--m_checkEnd;
 			else
 			{
-				int len1{ std::distance(m_checkBegin,iter) }, len2{ std::distance(iter,m_checkEnd) };
-				if (len1 < len2)
-				{
-					std::copy(m_checkBegin, iter, (m_checkBegin + 1));
-					++m_checkBegin;
-				}
-				else
-				{
-					std::copy(iter + 1, m_checkEnd, iter);
-					--m_checkEnd;
-				}
+				//改变末尾元素类中记录的指针位置到当前位置
+				(*(m_checkEnd - 1))->getListIter() = iter;
+				std::swap(*iter, *(m_checkEnd - 1));
+				--m_checkEnd;
 			}
 
 			if (m_checkBegin == m_checkEnd)
