@@ -158,6 +158,39 @@ void LOG::fastReadyTime()
 			*m_ch++ = m_ptm.tm_sec % 10 + '0';
 			m_nowSize += m_dataSize;
 		}
+		else
+		{
+			m_time_seconds = time(0);
+			localtime_r(&m_time_seconds, &m_ptm);
+
+			m_num = m_ptm.tm_year + 1900;
+			m_file << (m_num / 1000) + '0';
+			m_file << (m_num / 100) % 10 + '0';
+			m_file << (m_num / 10) % 10 + '0';
+			m_file << m_num % 10 + '0';
+			m_file << '-';
+
+			m_num = m_ptm.tm_mon + 1;
+			m_file << (m_num / 10) + '0';
+			m_file << m_num % 10 + '0';
+			m_file << '-';
+
+			m_file << (m_ptm.tm_mday / 10) + '0';
+			m_file << m_ptm.tm_mday % 10 + '0';
+			m_file << ' ';
+
+			m_file << (m_ptm.tm_hour / 10) + '0';
+			m_file << m_ptm.tm_hour % 10 + '0';
+			m_file << ':';
+
+			m_file << (m_ptm.tm_min / 10) + '0';
+			m_file << m_ptm.tm_min % 10 + '0';
+			m_file << ':';
+
+			m_file << (m_ptm.tm_sec / 10) + '0';
+			m_file << m_ptm.tm_sec % 10 + '0';
+
+		}
 	}
 }
 
@@ -198,6 +231,10 @@ LOG & LOG::operator<<(const char * log)
 				m_nowSize += m_num;
 				m_hasLog = true;
 			}
+			else
+			{
+				m_file.write(const_cast<char*>(log), m_num);
+			}
 		}
 	}
 	return *this;
@@ -228,6 +265,10 @@ LOG & LOG::operator<<(const std::string &log)
 				std::copy(log.cbegin(), log.cend(), m_Buffer.get());
 				m_nowSize += m_num;
 				m_hasLog = true;
+			}
+			else
+			{
+				m_file << log;
 			}
 		}
 	}
@@ -589,6 +630,173 @@ LOG & LOG::operator<<(const int  num)
 			}
 			m_hasLog = true;
 		}
+		else
+		{
+
+			m_temp = num;
+			if (num < 0)
+			{
+				m_temp *= -1;
+				m_file << '-';
+			}
+			m_num = m_temp / 1000000000;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+				}
+			}
+
+			m_num = m_temp / 100000000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+				
+				}
+			}
+
+			m_num = m_temp / 10000000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+			
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 1000000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 100000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 10000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 1000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 100 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 10 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+		}
 	}
 	return *this;
 }
@@ -938,6 +1146,172 @@ LOG & LOG::operator<<(const unsigned int  num)
 			}
 			m_hasLog = true;
 		}
+		else
+		{
+			m_temp = num;
+
+
+			m_num = m_temp / 1000000000;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 100000000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 10000000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 1000000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 100000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 10000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 1000 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 100 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp / 10 % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+			m_num = m_temp % 10;
+			if (m_check)
+			{
+				m_file << m_num + '0';
+				
+			}
+			else
+			{
+				if (m_num)
+				{
+					m_check = true;
+					m_file << m_num + '0';
+					
+				}
+			}
+
+		}
 	}
 	return *this;
 }
@@ -964,6 +1338,10 @@ LOG & LOG::operator<<(const char ch)
 			*m_ch++ = ch;
 			++m_nowSize;
 			m_hasLog = true;
+		}
+		else
+		{
+			m_file << static_cast<char>(ch);
 		}
 	}
 	return *this;
@@ -993,6 +1371,10 @@ LOG & LOG::operator<<(const std::string_view log)
 				std::copy(log.cbegin(), log.cend(), m_Buffer.get());
 				m_nowSize += m_num;
 				m_hasLog = true;
+			}
+			else
+			{
+				m_file << log;
 			}
 		}
 	}
