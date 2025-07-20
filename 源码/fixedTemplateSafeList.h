@@ -121,9 +121,8 @@ struct FIXEDTEMPLATESAFELIST
 		else
 		{
 			m_listMutex.unlock();
-			(*m_startcheckTime)();
+			return false;
 		}
-		return false;
 	}
 
 
