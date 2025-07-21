@@ -402,7 +402,6 @@ void HTTPSERVICE::testRandomBody()
 }
 
 
-
 //读取文件接口
 //读取存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile
 //读取不存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile1
@@ -884,6 +883,7 @@ void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
 //测试从redis中读取ARRAY结果集的可以查看testMultiRedisReadARRAY接口
 void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 {
+
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
 
@@ -952,6 +952,7 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 //这里返回，另外使用一个新发送函数
 void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
 {
+
 	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
 
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -992,6 +993,8 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 
 			if (!resultVec.empty())
 			{
+				st1.reset();
+
 				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
@@ -1407,7 +1410,7 @@ void HTTPSERVICE::readyParseChunkData()
 //测试json生成函数
 void HTTPSERVICE::testMakeJson()
 {
-	if (m_httpresult.isBodyEmpty())
+	if(m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	std::string_view bodyView{ m_httpresult.getBody() };
@@ -1434,7 +1437,7 @@ void HTTPSERVICE::testMakeJson()
 	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
 		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
 
-	bool success{ false }, innerSuccess{ false };
+	bool success{ false }, innerSuccess{false};
 
 	char *newbuffer{};
 
@@ -1509,7 +1512,7 @@ void HTTPSERVICE::testMakeJson()
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
 			{
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
 					break;
 				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
 					break;
@@ -2160,6 +2163,7 @@ void HTTPSERVICE::startRead()
 			}
 			else
 			{
+				
 				m_hasClean.store(true);
 				if (size > 0)
 				{

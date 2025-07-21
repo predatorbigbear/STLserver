@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 
 
@@ -12,10 +12,10 @@
 #include<iostream>
 #include<filesystem>
 
-// ÈÕÖ¾Ä£¿é²ÉÈ¡Ö±½ÓĞ´Èë»º´æ²¿·ÖµÄ·½Ê½ÒÔÌá¸ßĞÔÄÜ
+// æ—¥å¿—æ¨¡å—é‡‡å–ç›´æ¥å†™å…¥ç¼“å­˜éƒ¨åˆ†çš„æ–¹å¼ä»¥æé«˜æ€§èƒ½
 struct LOG
 {
-	LOG(const char *logFileName , std::shared_ptr<IOcontextPool> ioPool ,bool &result , const int overTime=60,const int bufferSize=20480);                                         //¹¹Ôìº¯Êı
+	LOG(const char *logFileName , std::shared_ptr<IOcontextPool> ioPool ,bool &result , const int overTime=60,const int bufferSize=20480);                                         //æ„é€ å‡½æ•°
 
 
 	template<typename T, size_t N, typename ...ARGS>
@@ -61,7 +61,7 @@ private:
 	std::ofstream m_file;
 
 
-	int m_overTime{};                                                             //¶¨Ê±´¥·¢Ê±¼ä
+	int m_overTime{};                                                             //å®šæ—¶è§¦å‘æ—¶é—´
 	std::shared_ptr<boost::asio::steady_timer>m_timer{};
 	bool m_hasLog{ false };
 
@@ -82,9 +82,9 @@ private:
 	const int m_delNum{ 1000000000 };
 
 private:
-	void StartCheckLog();                                                         //¿ªÆôÑ­»·´¦ÀíÈÕÖ¾º¯Êı
+	void StartCheckLog();                                                         //å¼€å¯å¾ªç¯å¤„ç†æ—¥å¿—å‡½æ•°
 
-	void fastReadyTime();                                                          //»ñÈ¡µ±Ç°Ê±¼äÖ±½ÓĞ´Èëbuffer·½Ê½
+	void fastReadyTime();                                                          //è·å–å½“å‰æ—¶é—´ç›´æ¥å†™å…¥bufferæ–¹å¼
 
 	void makeReadyTime();
 
@@ -103,7 +103,7 @@ private:
 	template<typename T, size_t N>
 	LOG& operator<<(const T(&arr)[N])
 	{
-		// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+		// TODO: åœ¨æ­¤å¤„æ’å…¥ return è¯­å¥
 		for (m_num = 0; m_num != N; ++m_num)
 		{
 			*this << arr[m_num];

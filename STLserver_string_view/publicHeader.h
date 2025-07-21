@@ -247,9 +247,9 @@ enum METHOD
 
 enum INTERFACE
 {
-	testBodyParse=1,
+	testBodyParse = 1,
 
-	pingPong=2,
+	pingPong = 2,
 
 	multiSqlReadSW = 3,
 
@@ -281,9 +281,9 @@ enum INTERFACE
 
 	successUpload = 17,
 
-	testPingPongJson =18,
+	testPingPongJson = 18,
 
-	testMakeJson=19,
+	testMakeJson = 19,
 
 	testCompareWorkFlow = 20,
 
@@ -291,7 +291,6 @@ enum INTERFACE
 
 	testmultiSqlReadUpdateSW = 22
 };
-
 
 enum HTTPHEADER
 {
@@ -534,7 +533,6 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 	}
 	return true;
 }
-
 
 
 
@@ -1059,7 +1057,7 @@ static bool UrlDecodeWithTransChinese(const char* source, const int len, int& de
 	desLen = 0;
 	if (len > 0)
 	{
-		const char* iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
+		const char* iterBegin{ source }, * iterEnd{ source + len }, * iterFirst{ source }, * iterTemp{ source };
 		desLen = len;
 		decltype(urlMap)::const_iterator iter;
 		int index{}, index1{}, index2{}, index3{}, BeginToEndLen{};
@@ -1313,6 +1311,7 @@ static bool UrlDecodeWithTransChinese(const char* source, const int len, int& de
 	}
 	return true;
 }
+
 
 
 
@@ -1824,7 +1823,7 @@ namespace HTTPRESPONSEREADY
 	static const char *httpPasswordIsWrong{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nPassword is wrong" };
 	static size_t httpPasswordIsWrongLen{ strlen(httpPasswordIsWrong) };
 
-	
+
 	static const char *httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis async write error" };
 	static size_t httpREDIS_ASYNC_WRITE_ERRORLen{ strlen(httpREDIS_ASYNC_WRITE_ERROR) };
 
@@ -1851,7 +1850,7 @@ namespace HTTPRESPONSEREADY
 	static size_t httpFileGetErrorLen{ strlen(httpFileGetError) };
 
 
-	
+
 
 
 	static const char *http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:0\r\n\r\n" };
@@ -1906,6 +1905,7 @@ namespace HTTPRESPONSEREADY
 	static const char *http100Continue{ "HTTP/1.1 100 Continue\r\n\r\n" };
 	static size_t http100ContinueLen{ strlen(http100Continue) };
 }
+
 
 
 

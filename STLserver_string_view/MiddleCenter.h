@@ -22,7 +22,7 @@ struct MiddleCenter
 	// 检测写入文件的定时时间
 	// 临时存储日志数据的buffer空间大小
 	// log池内元素大小
-	void setLog(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &success , const int overTime = 60 ,const int bufferSize = 81920, const int bufferNum = 1);
+	void setLog(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &success , const int overTime = 60 ,const int bufferSize = 80960, const int bufferNum = 1);
 
 	// 默认网页文件目录
 	// http处理池内元素个数

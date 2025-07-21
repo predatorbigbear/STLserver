@@ -161,7 +161,6 @@ private:
 	unsigned int m_beginSize{};
 
 	bool m_hasReady{ false };
-	int i{};
 	std::shared_ptr<std::function<void()>>m_startcheckTime{};
 
 };
