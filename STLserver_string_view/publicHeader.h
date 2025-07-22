@@ -1623,15 +1623,16 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 				{
 					if (*iterEnd == '%')
 					{
+						const SOURCE* urlBegin{ iterEnd };
 						iterEnd = std::find(iterEnd + 1, iterLast, '&');
 						if (iterEnd != iterLast)
 							return false;
 						int len{};
 						//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置
-						UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
+						UrlDecodeWithTransChinese(urlBegin, std::distance(urlBegin, iterEnd), len);
 
 						*des = iterBegin;
-						*(++des) = iterBegin + len;
+						*(++des) = iterBegin + std::distance(iterBegin, urlBegin) + len;
 						return true;
 					}
 					else
@@ -1689,15 +1690,16 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 			}
 			else
 			{
+				const SOURCE* urlBegin{ iterEnd };
 				iterEnd = std::find(iterEnd + 1, iterLast, '&');
 				if (iterEnd == iterLast)
 					return false;
 				int len{};
 				//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置
-				UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
+				UrlDecodeWithTransChinese(urlBegin, std::distance(urlBegin, iterEnd), len);
 
 				*des = iterBegin;
-				*(++des) = iterBegin + len;
+				*(++des) = iterBegin + std::distance(iterBegin, urlBegin) + len;
 				iterBegin = iterEnd;
 			}
 		}

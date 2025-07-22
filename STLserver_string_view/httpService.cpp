@@ -278,8 +278,31 @@ void HTTPSERVICE::testBody()
 	std::string_view testView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
 	std::string_view parameterView{ *(BodyBuffer+2),*(BodyBuffer + 3) - *(BodyBuffer+2) };
 	std::string_view numberView{ *(BodyBuffer + 4),*(BodyBuffer + 5) - *(BodyBuffer + 4) };
+
+	static const std::string_view test{ "test" }, parameter{ "parameter" }, number{ "number" };
+
+	STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+	st1.reset();
+
+	if (!st1.clear())
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	//如果确定不需要开启json转码处理，可以不带<TRANSFORMTYPE>即可，默认不开启json转码处理
+
+	//启用json转码处理
+	if (!st1.put<TRANSFORMTYPE>(test.cbegin(), test.cend(), testView.cbegin(), testView.cend()))
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	if (!st1.put<TRANSFORMTYPE>(parameter.cbegin(), parameter.cend(), parameterView.cbegin(), parameterView.cend()))
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	if (!st1.put<TRANSFORMTYPE>(number.cbegin(), number.cend(), numberView.cbegin(), numberView.cend()))
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	//启用json转码处理
+	makeSendJson<TRANSFORMTYPE>(st1);
 	
-	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
