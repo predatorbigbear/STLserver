@@ -1616,16 +1616,31 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 			else
 			{
 				++iterBegin;
-				iterEnd = std::find(iterBegin, iterLast, '&');
+				iterEnd = std::find_if(iterBegin, iterLast,
+					std::bind(std::logical_or<bool>(),
+						std::bind(std::equal_to<>(), std::placeholders::_1, '%'), std::bind(std::equal_to<>(), std::placeholders::_1, '&')));
 				if (iterEnd != iterLast)
-					return false;
+				{
+					if (*iterEnd == '%')
+					{
+						iterEnd = std::find(iterEnd + 1, iterLast, '&');
+						if (iterEnd != iterLast)
+							return false;
+						int len{};
+						//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置
+						UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
 
-				int len{};
-				//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置
-				UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
+						*des = iterBegin;
+						*(++des) = iterBegin + len;
+						return true;
+					}
+					else
+						return false;
+				}
+
 
 				*des = iterBegin;
-				*(++des) = iterBegin + len;
+				*(++des) = iterEnd;
 			}
 		}
 
@@ -1661,17 +1676,30 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 		else if (*iterBegin == '=')
 		{
 			++iterBegin;
-			iterEnd = std::find(iterBegin, iterLast, '&');
+			iterEnd = std::find_if(iterBegin, iterLast, 
+				std::bind(std::logical_or<bool>(),
+					std::bind(std::equal_to<>(),std::placeholders::_1,'%'), std::bind(std::equal_to<>(), std::placeholders::_1, '&')));
 			if (iterEnd == iterLast)
 				return false;
+			if (*iterEnd == '&')
+			{
+				*des = iterBegin;
+				*(++des) = iterEnd;
+				iterBegin = iterEnd;
+			}
+			else
+			{
+				iterEnd = std::find(iterEnd + 1, iterLast, '&');
+				if (iterEnd == iterLast)
+					return false;
+				int len{};
+				//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置
+				UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
 
-			int len{};
-			//对body进行url转码和中文转换，此种中文转换只在charset=UTF-8下有用  可以用postman设置
-			UrlDecodeWithTransChinese(iterBegin, std::distance(iterBegin, iterEnd), len);
-
-			*des = iterBegin;
-			*(++des) = iterBegin + len;
-			iterBegin = iterEnd;
+				*des = iterBegin;
+				*(++des) = iterBegin + len;
+				iterBegin = iterEnd;
+			}
 		}
 		else
 			return false;
