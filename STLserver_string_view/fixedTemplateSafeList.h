@@ -107,7 +107,7 @@ struct FIXEDTEMPLATESAFELIST
 			{
 				//改变末尾元素类中记录的指针位置到当前位置
 				(*(m_checkEnd - 1))->getListIter() = iter;
-				std::swap(*iter, *(m_checkEnd - 1));
+				*iter = *(m_checkEnd - 1);
 				--m_checkEnd;
 			}
 

@@ -1,7 +1,8 @@
-﻿#include "LOG.h"
+﻿#include "ASYNCLOG.h"
 
 
-LOG::LOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &result ,const int overTime , const int bufferSize ):m_overTime(overTime),m_bufferSize(bufferSize)
+ASYNCLOG::ASYNCLOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &result ,const int overTime , const int bufferSize ):
+	m_overTime(overTime), m_bufferSize(bufferSize * 10), m_messageList(100), m_checkSize(bufferSize * 2)
 {
 	try
 	{
@@ -13,7 +14,7 @@ LOG::LOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &r
 			throw std::runtime_error("bufferSize is invaild");
 
 		m_Buffer.reset(new char[m_bufferSize]);
-		m_nowSize = 0;
+		m_nowSize = m_beginSize = 0;
 
 		m_timer.reset(new boost::asio::steady_timer(*ioPool->getIoNext()));
 
@@ -37,6 +38,8 @@ LOG::LOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &r
 		m_file.open(logFileName, std::ios::app);
 		if (!m_file)
 			throw std::runtime_error("can not open " + std::string(logFileName));
+
+		m_asyncFile.reset(new boost::asio::posix::stream_descriptor(*ioPool->getIoNext(), static_cast<__gnu_cxx::stdio_filebuf<char>*>(m_file.rdbuf())->fd()));
 		
 		result = true;
 		StartCheckLog();
@@ -50,48 +53,70 @@ LOG::LOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &r
 
 
 
-void LOG::StartCheckLog()
+void ASYNCLOG::StartCheckLog()
 {
-	
 	m_timer->expires_after(std::chrono::seconds(m_overTime));
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
-		//std::lock_guard<mutex>l1{ m_logMutex };
 		if (err)
 		{
-
 
 		}
 		else
 		{
 			m_logMutex.lock();
-			if (m_hasLog)
+			if (m_nowSize)
 			{
-				m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
+				m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+				m_beginSize += m_nowSize;
 				m_nowSize = 0;
-				m_file.flush();
-				m_hasLog = false;
 			}
-
 			m_logMutex.unlock();
+			startWrite();
 			StartCheckLog();
 		}
 	});
 }
 
+void ASYNCLOG::startWrite()
+{
+	if (!m_write.load())
+	{
+		m_write.store(true);
+		writeLoop();
+	}
+
+}
+
+
+void ASYNCLOG::writeLoop()
+{
+	std::string_view tempView;
+	if (m_messageList.try_dequeue(tempView))
+	{
+		boost::asio::async_write(*m_asyncFile, boost::asio::buffer(tempView.data(), tempView.size()), [this](const boost::system::error_code& ec, size_t bytes_written)
+		{
+			writeLoop();
+		});
+	}
+	else
+	{
+		m_write.store(false);
+	}
+}
 
 
 
-void LOG::fastReadyTime()
+
+void ASYNCLOG::fastReadyTime()
 {
 	m_time_seconds = time(0);
 	m_ptm = localtime(&m_time_seconds);
 	struct tm& ptm{ *m_ptm };
-	if (m_bufferSize - m_nowSize > m_dataSize)
+	if (m_bufferSize - (m_beginSize + m_nowSize) > m_dataSize)
 	{
-
-		m_ch = m_Buffer.get() + m_nowSize;
-		int m_num{ ptm.tm_year + 1900 };
+		m_ch = m_Buffer.get() + m_beginSize + m_nowSize;
+		m_num = ptm.tm_year + 1900;
 		*m_ch++ = (m_num / 1000) + '0';
 		*m_ch++ = (m_num / 100) % 10 + '0';
 		*m_ch++ = (m_num / 10) % 10 + '0';
@@ -121,15 +146,17 @@ void LOG::fastReadyTime()
 	}
 	else
 	{
-		m_timer->cancel();
-		m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-		StartCheckLog();
-		m_nowSize = 0;
+		if (m_nowSize)
+		{
+			m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+			startWrite();
+		}
+		m_beginSize = m_nowSize = 0;
 		if (m_bufferSize > m_dataSize)
 		{
 
 			m_ch = m_Buffer.get();
-			int m_num{ ptm.tm_year + 1900 };
+			m_num = ptm.tm_year + 1900;
 			*m_ch++ = (m_num / 1000) + '0';
 			*m_ch++ = (m_num / 100) % 10 + '0';
 			*m_ch++ = (m_num / 10) % 10 + '0';
@@ -157,44 +184,13 @@ void LOG::fastReadyTime()
 			*m_ch++ = ptm.tm_sec % 10 + '0';
 			m_nowSize += m_dataSize;
 		}
-		else
-		{
-
-			int m_num{ ptm.tm_year + 1900 };
-			m_file << (m_num / 1000) + '0';
-			m_file << (m_num / 100) % 10 + '0';
-			m_file << (m_num / 10) % 10 + '0';
-			m_file << m_num % 10 + '0';
-			m_file << '-';
-
-			m_num = ptm.tm_mon + 1;
-			m_file << (m_num / 10) + '0';
-			m_file << m_num % 10 + '0';
-			m_file << '-';
-
-			m_file << (ptm.tm_mday / 10) + '0';
-			m_file << ptm.tm_mday % 10 + '0';
-			m_file << ' ';
-
-			m_file << (ptm.tm_hour / 10) + '0';
-			m_file << ptm.tm_hour % 10 + '0';
-			m_file << ':';
-
-			m_file << (ptm.tm_min / 10) + '0';
-			m_file << ptm.tm_min % 10 + '0';
-			m_file << ':';
-
-			m_file << (ptm.tm_sec / 10) + '0';
-			m_file << ptm.tm_sec % 10 + '0';
-
-		}
 	}
 }
 
 
 
 
-void LOG::makeReadyTime()
+void ASYNCLOG::makeReadyTime()
 {
 	fastReadyTime();
 	*this << ' ';
@@ -204,33 +200,29 @@ void LOG::makeReadyTime()
 
 
 
-LOG & LOG::operator<<(const char * log)
+ASYNCLOG& ASYNCLOG::operator<<(const char * log)
 {
 	// TODO: 在此处插入 return 语句
 	if (log)
 	{
-		int m_num{ strlen(log) };
-		if (m_bufferSize - m_nowSize > m_num)
+		m_num = strlen(log);
+		if (m_bufferSize - (m_beginSize + m_nowSize) > m_num)
 		{
-			std::copy(log, log + m_num, m_Buffer.get() + m_nowSize);
+			std::copy(log, log + m_num, m_Buffer.get() + m_beginSize + m_nowSize);
 			m_nowSize += m_num;
-			m_hasLog = true;
 		}
 		else
 		{
-			m_timer->cancel();
-			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-			StartCheckLog();
-			m_nowSize = 0;
+			if (m_nowSize)
+			{
+				m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+				startWrite();
+			}
+			m_beginSize = m_nowSize = 0;
 			if (m_bufferSize > m_num)
 			{
 				std::copy(log, log + m_num, m_Buffer.get());
 				m_nowSize += m_num;
-				m_hasLog = true;
-			}
-			else
-			{
-				m_file.write(const_cast<char*>(log), m_num);
 			}
 		}
 	}
@@ -239,33 +231,29 @@ LOG & LOG::operator<<(const char * log)
 
 
 
-LOG & LOG::operator<<(const std::string &log)
+ASYNCLOG& ASYNCLOG::operator<<(const std::string &log)
 {
 	// TODO: 在此处插入 return 语句
 	if (!log.empty())
 	{
-		int m_num{ log.size() };
-		if (m_bufferSize - m_nowSize > m_num)
+		m_num = log.size();
+		if (m_bufferSize - (m_beginSize + m_nowSize) > m_num)
 		{
-			std::copy(log.cbegin(), log.cend(), m_Buffer.get() + m_nowSize);
+			std::copy(log.cbegin(), log.cend(), m_Buffer.get() + m_beginSize + m_nowSize);
 			m_nowSize += m_num;
-			m_hasLog = true;
 		}
 		else
 		{
-			m_timer->cancel();
-			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-			StartCheckLog();
-			m_nowSize = 0;
+			if (m_nowSize)
+			{
+				m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+				startWrite();
+			}
+			m_beginSize = m_nowSize = 0;
 			if (m_bufferSize > m_num)
 			{
 				std::copy(log.cbegin(), log.cend(), m_Buffer.get());
 				m_nowSize += m_num;
-				m_hasLog = true;
-			}
-			else
-			{
-				m_file << log;
 			}
 		}
 	}
@@ -273,14 +261,14 @@ LOG & LOG::operator<<(const std::string &log)
 }
 
 
-LOG & LOG::operator<<(const int  num)
+ASYNCLOG& ASYNCLOG::operator<<(const int  num)
 {
 	// TODO: 在此处插入 return 语句
-	bool m_check{ false };
-	if (m_bufferSize - m_nowSize > 11)
+	m_check = false;
+	if (m_bufferSize - (m_beginSize + m_nowSize) > 11)
 	{
-		m_ch = m_Buffer.get() + m_nowSize;
-		int m_temp{ num };
+		m_ch = m_Buffer.get() + m_nowSize + m_beginSize;
+		m_temp = num;
 		if (num < 0)
 		{
 			m_temp *= -1;
@@ -288,7 +276,7 @@ LOG & LOG::operator<<(const int  num)
 			++m_nowSize;
 		}
 
-		int m_num{ m_temp / 1000000000 };
+		m_num = m_temp / 1000000000;
 		if (m_check)
 		{
 			*m_ch++ = m_num + '0';
@@ -448,25 +436,26 @@ LOG & LOG::operator<<(const int  num)
 			}
 		}
 
-		m_hasLog = true;
 	}
 	else
 	{
-	    m_timer->cancel();
-	    m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-		StartCheckLog();
-	    m_nowSize = 0;
+		if (m_nowSize)
+		{
+			m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+			startWrite();
+		}
+		m_beginSize = m_nowSize = 0;
 		if (m_bufferSize > 11)
 		{
 			m_ch = m_Buffer.get();
-			int m_temp{ num };
+			m_temp = num;
 			if (num < 0)
 			{
 				m_temp *= -1;
 				*m_ch++ = '-';
 				++m_nowSize;
 			}
-			int m_num{ m_temp / 1000000000 };
+			m_num = m_temp / 1000000000;
 			if (m_check)
 			{
 				*m_ch++ = m_num + '0';
@@ -625,190 +614,23 @@ LOG & LOG::operator<<(const int  num)
 					++m_nowSize;
 				}
 			}
-			m_hasLog = true;
-		}
-		else
-		{
-
-			int m_temp{ num };
-			if (num < 0)
-			{
-				m_temp *= -1;
-				m_file << '-';
-			}
-			int m_num{ m_temp / 1000000000 };
-			if (m_check)
-			{
-				m_file << m_num + '0';
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-				}
-			}
-
-			m_num = m_temp / 100000000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-				
-				}
-			}
-
-			m_num = m_temp / 10000000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
 			
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 1000000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 100000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 10000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 1000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 100 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 10 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
 		}
 	}
 	return *this;
 }
 
 
-LOG & LOG::operator<<(const unsigned int  num)
+ASYNCLOG& ASYNCLOG::operator<<(const unsigned int  num)
 {
 	// TODO: 在此处插入 return 语句
-	bool m_check{ false };
-	if (m_bufferSize - m_nowSize > 11)
+	m_check = false;
+	if (m_bufferSize - (m_beginSize + m_nowSize) > 11)
 	{
-		m_ch = m_Buffer.get() + m_nowSize;
-		int m_temp{ num };
+		m_ch = m_Buffer.get() + m_nowSize + m_beginSize;
+		m_temp = num;
 
-		int m_num{ m_temp / 1000000000 };
+		m_num = m_temp / 1000000000;
 		if (m_check)
 		{
 			*m_ch++ = m_num + '0';
@@ -968,21 +790,22 @@ LOG & LOG::operator<<(const unsigned int  num)
 			}
 		}
 
-		m_hasLog = true;
 	}
 	else
 	{
-	    m_timer->cancel();
-		m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-		StartCheckLog();
-		m_nowSize = 0;
+		if (m_nowSize)
+		{
+			m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+			startWrite();
+		}
+		m_beginSize = m_nowSize = 0;
 		if (m_bufferSize > 11)
 		{
 			m_ch = m_Buffer.get();
-			int m_temp{ num };
+			m_temp = num;
 			
 
-			int m_num{ m_temp / 1000000000 };
+			m_num = m_temp / 1000000000;
 			if (m_check)
 			{
 				*m_ch++ = m_num + '0';
@@ -1141,237 +964,67 @@ LOG & LOG::operator<<(const unsigned int  num)
 					++m_nowSize;
 				}
 			}
-			m_hasLog = true;
-		}
-		else
-		{
-			int m_temp{ num };
-
-
-			int m_num{ m_temp / 1000000000 };
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 100000000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 10000000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 1000000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 100000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 10000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 1000 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 100 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp / 10 % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
-			m_num = m_temp % 10;
-			if (m_check)
-			{
-				m_file << m_num + '0';
-				
-			}
-			else
-			{
-				if (m_num)
-				{
-					m_check = true;
-					m_file << m_num + '0';
-					
-				}
-			}
-
+			
 		}
 	}
 	return *this;
 }
 
 
-LOG & LOG::operator<<(const char ch)
+ASYNCLOG& ASYNCLOG::operator<<(const char ch)
 {
 	// TODO: 在此处插入 return 语句
-	if (m_bufferSize - m_nowSize > 1)
+	if (m_bufferSize - (m_beginSize + m_nowSize) > 1)
 	{
-		m_ch = m_Buffer.get() + m_nowSize;
+		m_ch = m_Buffer.get() + m_nowSize + m_beginSize;
 		*m_ch++ = ch;
 		++m_nowSize;
-		m_hasLog = true;
 	}
 	else
 	{
-		m_timer->cancel();
-		m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-		StartCheckLog();
-		m_nowSize = 0;
+		if (m_nowSize)
+		{
+			m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+			startWrite();
+		}
+		m_beginSize = m_nowSize = 0;
 		if (m_bufferSize > 1)
 		{
+			m_ch = m_Buffer.get();
 			*m_ch++ = ch;
 			++m_nowSize;
-			m_hasLog = true;
-		}
-		else
-		{
-			m_file << static_cast<char>(ch);
+		
 		}
 	}
 	return *this;
 }
 
 
-LOG & LOG::operator<<(const std::string_view log)
+ASYNCLOG& ASYNCLOG::operator<<(const std::string_view log)
 {
 	// TODO: 在此处插入 return 语句
 	if (!log.empty())
 	{
-		int m_num{ log.size() };
-		if (m_bufferSize - m_nowSize > m_num)
+		m_num = log.size();
+		if (m_bufferSize - (m_beginSize + m_nowSize) > m_num)
 		{
-			std::copy(log.cbegin(), log.cend(), m_Buffer.get() + m_nowSize);
+			std::copy(log.cbegin(), log.cend(), m_Buffer.get() + m_nowSize + m_beginSize);
 			m_nowSize += m_num;
-			m_hasLog = true;
+			
 		}
 		else
 		{
-			m_timer->cancel();
-			m_file.write(reinterpret_cast<char*>(m_Buffer.get()), m_nowSize);
-			StartCheckLog();
-			m_nowSize = 0;
+			if (m_nowSize)
+			{
+				m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+				startWrite();
+			}
+			m_beginSize = m_nowSize = 0;
 			if (m_bufferSize > m_num)
 			{
 				std::copy(log.cbegin(), log.cend(), m_Buffer.get());
 				m_nowSize += m_num;
-				m_hasLog = true;
-			}
-			else
-			{
-				m_file << log;
+				
 			}
 		}
 	}

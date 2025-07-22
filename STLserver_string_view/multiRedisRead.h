@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 
-#include "LOG.h"
+#include "ASYNCLOG.h"
 #include "concurrentqueue.h"
 //#include "fastSafeList.h"
 #include "regexFunction.h"
@@ -38,7 +38,7 @@ struct MULTIREDISREAD
 		std::function<void(bool, enum ERRORMESSAGE)>>;
 
 
-	MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<LOG> log, std::shared_ptr<std::function<void()>>unlockFun, 
+	MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log, std::shared_ptr<std::function<void()>>unlockFun,
 		std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::string &redisIP, const unsigned int redisPort,
 		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
@@ -63,7 +63,7 @@ private:
 	std::unique_ptr<boost::asio::ip::tcp::endpoint>m_endPoint{};
 	std::unique_ptr<boost::asio::ip::tcp::socket>m_sock{};
 
-	std::shared_ptr<LOG> m_log{};
+	std::shared_ptr<ASYNCLOG> m_log{};
 	std::shared_ptr<STLTimeWheel> m_timeWheel{};
 
 	std::shared_ptr<std::function<void()>> m_unlockFun{};

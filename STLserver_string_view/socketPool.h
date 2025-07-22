@@ -1,14 +1,14 @@
-#pragma once
+﻿#pragma once
 
 
 
 #include "readBuffer.h"
-#include "LOG.h"
+#include "ASYNCLOG.h"
 
 struct SocketPool
 {
 	SocketPool(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<std::function<void()>> startFunction , std::shared_ptr<std::function<void()>> starthttpServicePool , 
-		std::shared_ptr<LOG> log , int beginSize=200,int newSize=50);
+		std::shared_ptr<ASYNCLOG> log , int beginSize=200,int newSize=50);
 
 	void getNextBuffer(std::shared_ptr<ReadBuffer> & outBuffer);
 
@@ -41,7 +41,7 @@ private:
 	std::shared_ptr<std::function<void()>>m_startFunction;
 	std::shared_ptr<std::function<void()>>m_starthttpServicePool;
 	std::unique_ptr<boost::asio::steady_timer> m_timer;
-	std::shared_ptr<LOG>m_log;
+	std::shared_ptr<ASYNCLOG>m_log;
 	std::shared_ptr<IOcontextPool> m_ioPool;
 
 

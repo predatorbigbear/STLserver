@@ -1,11 +1,11 @@
-#pragma once
+ï»¿#pragma once
 
 
 
 
 #include "mysql/mysql.h"
 #include "mysql/mysqld_error.h"
-#include "LOG.h"
+#include "ASYNCLOG.h"
 #include "STLtreeFast.h"
 #include "memoryPool.h"
 #include "safeList.h"
@@ -17,9 +17,9 @@
 struct MULTISQLWRITESW
 {
 	/*
-	Ö´ĞĞÃüÁîstring_view¼¯
-	Ö´ĞĞÃüÁî¸öÊı
-	¼ÓËøÖ±½ÓÆ´½Ó×Ö·û´®µ½×ÜstringÖĞ£¬·¢ËÍÇ°¼ÓËøÈ¡³öÊı¾İ½øĞĞ·¢ËÍ
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	æ‰§è¡Œå‘½ä»¤ä¸ªæ•°
+	åŠ é”ç›´æ¥æ‹¼æ¥å­—ç¬¦ä¸²åˆ°æ€»stringä¸­ï¼Œå‘é€å‰åŠ é”å–å‡ºæ•°æ®è¿›è¡Œå‘é€
 
 	*/
 	// 
@@ -28,13 +28,13 @@ struct MULTISQLWRITESW
 
 
 	MULTISQLWRITESW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>>unlockFun, const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int nodeMaxSize ,std::shared_ptr<LOG> log);
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int nodeMaxSize ,std::shared_ptr<ASYNCLOG> log);
 
 
 	/*
-	//²åÈëÇëÇó£¬Ê×ÏÈÅĞ¶ÏÊÇ·ñÁ¬½Óredis·şÎñÆ÷³É¹¦£¬
-	//Èç¹ûÃ»ÓĞÁ¬½Ó£¬²åÈëÖ±½Ó·µ»Ø´íÎó
-	//Á¬½Ó³É¹¦µÄÇé¿öÏÂ£¬¼ì²éÇëÇóÊÇ·ñ·ûºÏÒªÇó
+	//æ’å…¥è¯·æ±‚ï¼Œé¦–å…ˆåˆ¤æ–­æ˜¯å¦è¿æ¥redisæœåŠ¡å™¨æˆåŠŸï¼Œ
+	//å¦‚æœæ²¡æœ‰è¿æ¥ï¼Œæ’å…¥ç›´æ¥è¿”å›é”™è¯¯
+	//è¿æ¥æˆåŠŸçš„æƒ…å†µä¸‹ï¼Œæ£€æŸ¥è¯·æ±‚æ˜¯å¦ç¬¦åˆè¦æ±‚
 	*/
 	bool insertSQLRequest(std::shared_ptr<SQLWriteTypeSW> sqlRequest);
 
@@ -65,9 +65,9 @@ private:
 
 
 
-	unsigned int m_commandMaxSize{};        // ÃüÁî¸öÊı×î´ó´óĞ¡£¨³¤¶È£©
+	unsigned int m_commandMaxSize{};        // å‘½ä»¤ä¸ªæ•°æœ€å¤§å¤§å°ï¼ˆé•¿åº¦ï¼‰
 
-	unsigned int m_commandNowSize{};        // ÃüÁî¸öÊıÊµ¼Ê´óĞ¡£¨³¤¶È£©
+	unsigned int m_commandNowSize{};        // å‘½ä»¤ä¸ªæ•°å®é™…å¤§å°ï¼ˆé•¿åº¦ï¼‰
 
 
 
@@ -75,7 +75,7 @@ private:
 
 
 	std::mutex m_mutex;
-	bool m_hasConnect{ false };         //ÊÇ·ñÒÑ¾­´¦ÓÚÁ¬½Ó×´Ì¬
+	bool m_hasConnect{ false };         //æ˜¯å¦å·²ç»å¤„äºè¿æ¥çŠ¶æ€
 
 
 	net_async_status m_status;
@@ -86,7 +86,7 @@ private:
 
 
 	////////////////////////////////////////////////////////
-	//std::string m_message;                     //ÁªºÏ·¢ËÍÃüÁî×Ö·û´®
+	//std::string m_message;                     //è”åˆå‘é€å‘½ä»¤å­—ç¬¦ä¸²
 
 	std::unique_ptr<char[]>m_messageBuffer{};
 
@@ -99,30 +99,30 @@ private:
 
 	unsigned int m_sendLen{};
 
-	std::vector<std::string_view>m_arrayResult;             //ÁÙÊ±´æ´¢Êı×é½á¹ûµÄvector
+	std::vector<std::string_view>m_arrayResult;             //ä¸´æ—¶å­˜å‚¨æ•°ç»„ç»“æœçš„vector
 	//////////////////////////////////////////////////////////////////////////////
 
-	bool m_queryStatus{ false };                         //ÅĞ¶ÏÊÇ·ñÒÑ¾­Æô¶¯´¦ÀíÁ÷³Ì£¬ÕâÀïµÄqueryStatus²»½ö½öÊÇÇëÇóÄÇÃ´¼òµ¥£¬¶øÊÇ°üÀ¨ÇëÇó£¬½ÓÊÕÏûÏ¢£¬½«Ä¿Ç°ÇëÇóÈ«²¿Ïû»¯Íê±ÏµÄ±êÖ¾
+	bool m_queryStatus{ false };                         //åˆ¤æ–­æ˜¯å¦å·²ç»å¯åŠ¨å¤„ç†æµç¨‹ï¼Œè¿™é‡Œçš„queryStatusä¸ä»…ä»…æ˜¯è¯·æ±‚é‚£ä¹ˆç®€å•ï¼Œè€Œæ˜¯åŒ…æ‹¬è¯·æ±‚ï¼Œæ¥æ”¶æ¶ˆæ¯ï¼Œå°†ç›®å‰è¯·æ±‚å…¨éƒ¨æ¶ˆåŒ–å®Œæ¯•çš„æ ‡å¿—
 
 
 
-	std::unique_ptr<char[]>m_receiveBuffer{};               //½ÓÊÕÏûÏ¢µÄ»º´æ
-	unsigned int m_receiveBufferMaxSize{};                //½ÓÊÕÏûÏ¢ÄÚ´æ¿é×Ü´óĞ¡
-	unsigned int m_receiveBufferNowSize{};                //Ã¿´Î¼ì²éµÄ¿é´óĞ¡
+	std::unique_ptr<char[]>m_receiveBuffer{};               //æ¥æ”¶æ¶ˆæ¯çš„ç¼“å­˜
+	unsigned int m_receiveBufferMaxSize{};                //æ¥æ”¶æ¶ˆæ¯å†…å­˜å—æ€»å¤§å°
+	unsigned int m_receiveBufferNowSize{};                //æ¯æ¬¡æ£€æŸ¥çš„å—å¤§å°
 
 
-	unsigned int m_thisReceivePos{};              //¼ÆËãÃ¿´Îreceive pos¿ªÊ¼´¦
-	unsigned int m_thisReceiveLen{};              //¼ÆËãÃ¿´Îreceive³¤¶È
+	unsigned int m_thisReceivePos{};              //è®¡ç®—æ¯æ¬¡receive poså¼€å§‹å¤„
+	unsigned int m_thisReceiveLen{};              //è®¡ç®—æ¯æ¬¡receiveé•¿åº¦
 
 
-	unsigned int m_commandTotalSize{};                //±¾´Î½Úµã½á¹ûÊı×Ü¼Æ
-	unsigned int m_commandCurrentSize{};              //±¾´Î½Úµã½á¹ûÊıµ±Ç°¼ÆÊı
+	unsigned int m_commandTotalSize{};                //æœ¬æ¬¡èŠ‚ç‚¹ç»“æœæ•°æ€»è®¡
+	unsigned int m_commandCurrentSize{};              //æœ¬æ¬¡èŠ‚ç‚¹ç»“æœæ•°å½“å‰è®¡æ•°
 
 	bool m_jumpNode{ false };
-	unsigned int m_lastPrasePos{  };     //  m_lastReceivePosÔÚÃ¿´Î½âÎöºó²ÅÈ¥±ä¸ü£¬¼ÇÂ¼µ±Ç°½âÎöµ½µÄÎ»ÖÃ
+	unsigned int m_lastPrasePos{  };     //  m_lastReceivePosåœ¨æ¯æ¬¡è§£æåæ‰å»å˜æ›´ï¼Œè®°å½•å½“å‰è§£æåˆ°çš„ä½ç½®
 
 
-	//´ı»ñÈ¡½á¹û¶ÓÁĞ£¬ÒÑ¾­·¢ËÍÇëÇóµÄ¶ÓÁĞ£¬´¦ÀíÊ±Ê¹ÓÃm_waitMessageList½øĞĞ´¦Àí£¬¼õÉÙÊ¹ÓÃm_messageListµÄËøµÄ»ú»á
+	//å¾…è·å–ç»“æœé˜Ÿåˆ—ï¼Œå·²ç»å‘é€è¯·æ±‚çš„é˜Ÿåˆ—ï¼Œå¤„ç†æ—¶ä½¿ç”¨m_waitMessageListè¿›è¡Œå¤„ç†ï¼Œå‡å°‘ä½¿ç”¨m_messageListçš„é”çš„æœºä¼š
 	std::unique_ptr<std::shared_ptr<SQLWriteTypeSW>[]>m_waitMessageList{};
 
 	unsigned int m_waitMessageListMaxSize{};
@@ -130,7 +130,7 @@ private:
 	unsigned int m_waitMessageListNowSize{};
 
 
-	//  ¸ù¾İm_waitMessageListBegin»ñÈ¡Ã¿´ÎµÄRES
+	//  æ ¹æ®m_waitMessageListBeginè·å–æ¯æ¬¡çš„RES
 	std::shared_ptr<SQLWriteTypeSW> *m_waitMessageListBegin{};
 
 	std::shared_ptr<SQLWriteTypeSW> *m_waitMessageListEnd{};
@@ -139,16 +139,16 @@ private:
 	MEMORYPOOL<> m_charMemoryPool;
 
 
-	//´ıÍ¶µİ¶ÓÁĞ£¬Î´/µÈ´ıÆ´´ÕÏûÏ¢µÄ¶ÓÁĞ  C++17    ÁÙÊ±sql buffer  buffer³¤¶È   ÃüÁî¸öÊı
-	//¼ì²ém_messageListÊÇ·ñÎª¿Õ£¬
-	//Îª¿ÕµÄÖÃ±êÖ¾Î»ÍË³ö
-	//²»Îª¿ÕµÄ³¢ÊÔ»ñÈ¡comnmandMaxSize µÄ½ÚµãÊı¾İ£¬Í³¼ÆĞèÒªµÄbuffer¿Õ¼ä£¬
-	//³¢ÊÔ¸ù¾İÉÏÃæµÄbuffer¿Õ¼ä½øĞĞ·ÖÅä
-	//·ÖÅä³É¹¦µÄ»°½øĞĞcopy£¬È»ºó½øĞĞÏÂÒ»´Îquery
-	//´ıÍ¶µİ¶ÓÁĞ£¬Î´/µÈ´ıÆ´´ÕÏûÏ¢µÄ¶ÓÁĞ
+	//å¾…æŠ•é€’é˜Ÿåˆ—ï¼Œæœª/ç­‰å¾…æ‹¼å‡‘æ¶ˆæ¯çš„é˜Ÿåˆ—  C++17    ä¸´æ—¶sql buffer  bufferé•¿åº¦   å‘½ä»¤ä¸ªæ•°
+	//æ£€æŸ¥m_messageListæ˜¯å¦ä¸ºç©ºï¼Œ
+	//ä¸ºç©ºçš„ç½®æ ‡å¿—ä½é€€å‡º
+	//ä¸ä¸ºç©ºçš„å°è¯•è·å–comnmandMaxSize çš„èŠ‚ç‚¹æ•°æ®ï¼Œç»Ÿè®¡éœ€è¦çš„bufferç©ºé—´ï¼Œ
+	//å°è¯•æ ¹æ®ä¸Šé¢çš„bufferç©ºé—´è¿›è¡Œåˆ†é…
+	//åˆ†é…æˆåŠŸçš„è¯è¿›è¡Œcopyï¼Œç„¶åè¿›è¡Œä¸‹ä¸€æ¬¡query
+	//å¾…æŠ•é€’é˜Ÿåˆ—ï¼Œæœª/ç­‰å¾…æ‹¼å‡‘æ¶ˆæ¯çš„é˜Ÿåˆ—
 	SAFELIST<std::shared_ptr<SQLWriteTypeSW>>m_messageList;
 
-	std::shared_ptr<LOG> m_log{};
+	std::shared_ptr<ASYNCLOG> m_log{};
 
 	 
 
@@ -168,7 +168,7 @@ private:
 	void setConnectFail();
 
 
-	//ÅúÁ¿·¢ËÍÃüÁî
+	//æ‰¹é‡å‘é€å‘½ä»¤
 	void query();
 
 

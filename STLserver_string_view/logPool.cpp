@@ -1,4 +1,4 @@
-#include "logPool.h"
+﻿#include "logPool.h"
 
 LOGPOOL::LOGPOOL(const char * logFileName, std::shared_ptr<IOcontextPool> ioPool, bool& success, const int overTime, const int bufferSize, const int bufferNum):
 	m_logFileName(logFileName),m_ioPool(ioPool),m_overTime(overTime),m_bufferSize(bufferSize),m_bufferNum(bufferNum)
@@ -19,7 +19,7 @@ LOGPOOL::LOGPOOL(const char * logFileName, std::shared_ptr<IOcontextPool> ioPool
 
 
 
-std::shared_ptr<LOG> LOGPOOL::getLogNext()
+std::shared_ptr<ASYNCLOG> LOGPOOL::getLogNext()
 {
 	//std::lock_guard<std::mutex>l1{ m_logMutex };
 	m_logMutex.lock();
@@ -41,7 +41,7 @@ bool LOGPOOL::readyReadyList()
 		bool result{};
 		for (int i = 0; i != m_bufferNum; ++i)
 		{
-			m_logPool.emplace_back(std::make_shared<LOG>((m_logFileName + std::to_string(i)).c_str(), m_ioPool, result , m_overTime + i, m_bufferSize));
+			m_logPool.emplace_back(std::make_shared<ASYNCLOG>((m_logFileName + std::to_string(i)).c_str(), m_ioPool, result , m_overTime + i, m_bufferSize));
 			if (!result)
 				return false;
 		}

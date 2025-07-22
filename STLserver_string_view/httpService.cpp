@@ -4,7 +4,7 @@
 
 
 
-HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> log, const std::string &doc_root,
+HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string &doc_root,
 	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
@@ -1883,7 +1883,7 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 void HTTPSERVICE::clean()
 {
 	//cout << "start clean\n";
-	m_log->writeLog(__FUNCTION__, __LINE__, "clean ",m_serviceNum);
+	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
 	m_hasClean.store(true);
 
 	m_sessionLen = 0;
@@ -2353,7 +2353,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	std::vector<std::pair<const char*, const char*>>::const_iterator dataBufferVecBegin{}, dataBufferVecEnd{};
 
 	//使用引用指向，减少反复解引用的消耗
-	LOG& reflog{ *m_log };
+	ASYNCLOG& reflog{ *m_log };
 	ReadBuffer& refBuffer{ *m_buffer };
 	MYREQVIEW& refMyReView{ refBuffer.getView() };
 

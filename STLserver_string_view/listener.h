@@ -1,9 +1,8 @@
-#pragma once
+ï»¿#pragma once
 
 
 #include "httpService.h"
 #include "FixedHttpServicePool.h"
-#include "LOG.h"
 #include "fixedTemplateSafeList.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
@@ -60,29 +59,29 @@ private:
 
 	std::shared_ptr<std::function<void()>>m_startcheckTime{};
 
-	std::unique_ptr<boost::asio::steady_timer> m_timeOutTimer{};       //  Õâ¸öÓÃÓÚ¼ì²é³¬Ê±£¬²»ÒªÂÒÓÃ
+	std::unique_ptr<boost::asio::steady_timer> m_timeOutTimer{};       //  è¿™ä¸ªç”¨äºæ£€æŸ¥è¶…æ—¶ï¼Œä¸è¦ä¹±ç”¨
 
 	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
 
 
-	std::shared_ptr<LOG> m_log{};
+	std::shared_ptr<ASYNCLOG> m_log{};
 
 	std::shared_ptr<LOGPOOL> m_logPool{};
 
-	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   Ö÷Êı¾İ¿âĞ´ÈëÁ¬½Ó³Ø
-	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   Ö÷Êı¾İ¿â¶ÁÈ¡Á¬½Ó³Ø
+	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   ä¸»æ•°æ®åº“å†™å…¥è¿æ¥æ± 
+	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   ä¸»æ•°æ®åº“è¯»å–è¿æ¥æ± 
 
-	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   Ö÷redisĞ´ÈëÁ¬½Ó³Ø
-	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   Ö÷redis¶ÁÈ¡Á¬½Ó³Ø
+	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   ä¸»rediså†™å…¥è¿æ¥æ± 
+	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   ä¸»redisè¯»å–è¿æ¥æ± 
 
-	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //Ê±¼äÂÖ¶¨Ê±Æ÷
+	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //æ—¶é—´è½®å®šæ—¶å™¨
 
 
 	int m_socketNum{};
 
 	int m_timeOut{};
 
-	//Ê±¼äÂÖ¼ì²é¼ä¸ô
+	//æ—¶é—´è½®æ£€æŸ¥é—´éš”
 	unsigned int m_checkTurn{};
 
 private:

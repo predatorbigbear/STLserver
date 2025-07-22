@@ -3,7 +3,7 @@
 
 #include "publicHeader.h"
 #include "readBuffer.h"
-#include "LOG.h"
+#include "ASYNCLOG.h"
 #include "multiSQLREADSW.h"
 #include "sqlCommand.h"
 #include "mysql/mysql.h"
@@ -22,7 +22,7 @@
 
 struct HTTPSERVICE
 {
-	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<LOG> log, const std::string &doc_root,
+	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string &doc_root,
 		std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
@@ -60,7 +60,7 @@ private:
 
 	std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>>m_clearFunction{};
 
-	std::shared_ptr<LOG> m_log{};
+	std::shared_ptr<ASYNCLOG> m_log{};
 
 	std::shared_ptr<HTTPSERVICE> *mySelfIter{};
 

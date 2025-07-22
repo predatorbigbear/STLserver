@@ -1,6 +1,6 @@
 ﻿#include "multiRedisRead.h"
 
-MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<LOG> log,
+MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log,
 	std::shared_ptr<std::function<void()>> unlockFun,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::string& redisIP, const unsigned int redisPort,

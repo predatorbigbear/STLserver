@@ -5,7 +5,7 @@
 
 #include "mysql/mysql.h"
 #include "mysql/mysqld_error.h"
-#include "LOG.h"
+#include "ASYNCLOG.h"
 //#include "fastSafeList.h"
 #include "concurrentqueue.h"
 #include "errorMessage.h"
@@ -64,7 +64,7 @@ struct MULTISQLREADSW
 
 
 	MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>>unlockFun, const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize, std::shared_ptr<LOG> log,const unsigned int bufferSize);
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize, std::shared_ptr<ASYNCLOG> log,const unsigned int bufferSize);
 
 
 	//默认开启释放MYSQL_RES操作，需要多次查询mysql时可以置为false，复用结果
@@ -197,7 +197,7 @@ private:
 	*/
 
 
-	std::shared_ptr<LOG> m_log{};
+	std::shared_ptr<ASYNCLOG> m_log{};
 	/////////////////////////////////////////////////////////
 
 	MYSQL_FIELD *fd;    //字段列数组

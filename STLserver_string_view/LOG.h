@@ -4,7 +4,6 @@
 
 #include <boost/asio/steady_timer.hpp>
 
-
 #include "IOcontextPool.h"
 #include <cstdio>
 #include <time.h>
@@ -60,26 +59,20 @@ struct LOG
 private:
 	std::ofstream m_file;
 
-
 	int m_overTime{};                                                             //定时触发时间
-	std::shared_ptr<boost::asio::steady_timer>m_timer{};
+	std::unique_ptr<boost::asio::steady_timer>m_timer{};
 	bool m_hasLog{ false };
 
 	std::mutex m_logMutex;
 	time_t m_time_seconds{};
-	struct tm m_ptm{};
+	struct tm *m_ptm{};
 	char m_date[19]{ ' ' };
-	int m_num{};
-	int m_temp{};
-	int m_temp1{};
 	std::unique_ptr<char[]>m_Buffer{};
 	int m_bufferSize{};
 	int m_nowSize{};
 	static constexpr int m_dataSize{ 19 };
 	char *m_ch{};
-	bool m_check{ false };
 
-	const int m_delNum{ 1000000000 };
 
 private:
 	void StartCheckLog();                                                         //开启循环处理日志函数
@@ -104,7 +97,7 @@ private:
 	LOG& operator<<(const T(&arr)[N])
 	{
 		// TODO: 在此处插入 return 语句
-		for (m_num = 0; m_num != N; ++m_num)
+		for (int m_num = 0; m_num != N; ++m_num)
 		{
 			*this << arr[m_num];
 		}

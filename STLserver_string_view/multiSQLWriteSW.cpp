@@ -1,7 +1,7 @@
-#include "multiSQLWriteSW.h"
+ï»¿#include "multiSQLWriteSW.h"
 
 MULTISQLWRITESW::MULTISQLWRITESW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>> unlockFun, const std::string & SQLHOST, 
-	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize ,std::shared_ptr<LOG> log)
+	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize ,std::shared_ptr<ASYNCLOG> log)
 	:m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB), m_unlockFun(unlockFun), m_commandMaxSize(commandMaxSize), m_log(log)
 {
 	if (SQLHOST.empty())
@@ -69,14 +69,14 @@ bool MULTISQLWRITESW::insertSQLRequest(std::shared_ptr<SQLWriteTypeSW> sqlReques
 		std::vector<std::string_view>::const_iterator souceBegin{ sourceVec.cbegin() }, souceEnd{ sourceVec.cend() };
 		char *messageIter{};
 
-		//¼ÆËãĞèÒªµÄ×Ü³¤¶È
+		//è®¡ç®—éœ€è¦çš„æ€»é•¿åº¦
 		int totalLen{ std::accumulate(souceBegin,souceEnd,0,[](auto &sum,const std::string_view &sw)
 		{
 			return sum += sw.size();
 		}) };
 
 
-		//ÊÔÍ¼·ÖÅäºÏÊÊµÄbuffer³¤¶È
+		//è¯•å›¾åˆ†é…åˆé€‚çš„bufferé•¿åº¦
 		if (totalLen > m_messageBufferMaxSize)
 		{
 			try
@@ -98,7 +98,7 @@ bool MULTISQLWRITESW::insertSQLRequest(std::shared_ptr<SQLWriteTypeSW> sqlReques
 
 
 
-		//copyÉú³Éµ½·¢ËÍ×Ö·û´®bufferÖĞ
+		//copyç”Ÿæˆåˆ°å‘é€å­—ç¬¦ä¸²bufferä¸­
 
 		souceBegin = sourceVec.cbegin();
 
@@ -138,7 +138,7 @@ bool MULTISQLWRITESW::insertSQLRequest(std::shared_ptr<SQLWriteTypeSW> sqlReques
 		m_commandCurrentSize = 0;
 		
 
-		//½øÈë·¢ËÍº¯Êı
+		//è¿›å…¥å‘é€å‡½æ•°
 
 		query();
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -278,14 +278,14 @@ void MULTISQLWRITESW::setConnectFail()
 
 
 
-// ³É¹¦ÁË Ö®ºó¼ì²ém_messageListÊÇ·ñÎª¿Õ£¬³¢ÊÔ½øĞĞÆ´½Ó
+// æˆåŠŸäº† ä¹‹åæ£€æŸ¥m_messageListæ˜¯å¦ä¸ºç©ºï¼Œå°è¯•è¿›è¡Œæ‹¼æ¥
 void MULTISQLWRITESW::query()
 {
 	m_status = mysql_real_query_nonblocking(m_mysql, m_sendMessage, m_sendLen);
 	m_timer->expires_after(std::chrono::microseconds(100));
 	m_timer->async_wait([this](const boost::system::error_code &err)
 	{
-		if (err)   //»Øµ÷º¯Êı´¦Àí
+		if (err)   //å›è°ƒå‡½æ•°å¤„ç†
 		{
 
 		}
@@ -296,16 +296,16 @@ void MULTISQLWRITESW::query()
 			case NET_ASYNC_NOT_READY:
 				query();
 				break;
-			case NET_ASYNC_ERROR:              // »Øµ÷º¯Êı´¦Àí
-				//½«´ı»ñÈ¡½á¹ûÒÔ¼°´ı²åÈë¶ÓÁĞ½øĞĞ´¦Àí£¬·µ»Ø´íÎó£¬È»ºóÇå¿Õ£¬ÖØÁ¬   Ê×ÏÈ½«ÒÑÁ¬½ÓÖÃÎ»false 
-				//Èç¹ûÊÇ´íÎóµÄ²éÑ¯»á±¨´í
+			case NET_ASYNC_ERROR:              // å›è°ƒå‡½æ•°å¤„ç†
+				//å°†å¾…è·å–ç»“æœä»¥åŠå¾…æ’å…¥é˜Ÿåˆ—è¿›è¡Œå¤„ç†ï¼Œè¿”å›é”™è¯¯ï¼Œç„¶åæ¸…ç©ºï¼Œé‡è¿   é¦–å…ˆå°†å·²è¿æ¥ç½®ä½false 
+				//å¦‚æœæ˜¯é”™è¯¯çš„æŸ¥è¯¢ä¼šæŠ¥é”™
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
 				//handleAsyncError();
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:
 				break;
 
-				//³É¹¦ÁË ¼ÌĞø´¦Àí
+				//æˆåŠŸäº† ç»§ç»­å¤„ç†
 			case NET_ASYNC_COMPLETE:
 				readyMessage();
 				//store();
@@ -322,19 +322,19 @@ void MULTISQLWRITESW::query()
 
 
 
-//ÉèÖÃÒ»¸öwhileÑ­»·À´ÅĞ¶Ï
-//¼ÓËøÊ×ÏÈÖ±½Ó³¢ÊÔÈ¡commandSize¸öÔªËØ£¬Èç¹û¶ÓÁĞÎª¿Õ£¬ÔòÍË³ö£¬ÉèÖÃ´¦Àí×´Ì¬Îª·ñ
-//Èç¹û»ñÈ¡µ½ÔªËØ£¬Ôò±éÀú¼ÆËãĞèÒªµÄ¿Õ¼äÎª¶àÉÙ
-//³¢ÊÔ·ÖÅä¿Õ¼ä£¬·ÖÅäÊ§°ÜÔòcontinue´¦Àí
-//³É¹¦Ôòcopy×éºÏ£¬½øÈë·¢ËÍÃüÁî½×¶ÎÑ­»·
+//è®¾ç½®ä¸€ä¸ªwhileå¾ªç¯æ¥åˆ¤æ–­
+//åŠ é”é¦–å…ˆç›´æ¥å°è¯•å–commandSizeä¸ªå…ƒç´ ï¼Œå¦‚æœé˜Ÿåˆ—ä¸ºç©ºï¼Œåˆ™é€€å‡ºï¼Œè®¾ç½®å¤„ç†çŠ¶æ€ä¸ºå¦
+//å¦‚æœè·å–åˆ°å…ƒç´ ï¼Œåˆ™éå†è®¡ç®—éœ€è¦çš„ç©ºé—´ä¸ºå¤šå°‘
+//å°è¯•åˆ†é…ç©ºé—´ï¼Œåˆ†é…å¤±è´¥åˆ™continueå¤„ç†
+//æˆåŠŸåˆ™copyç»„åˆï¼Œè¿›å…¥å‘é€å‘½ä»¤é˜¶æ®µå¾ªç¯
 void MULTISQLWRITESW::readyMessage()
 {
-	//ÏÈ½«ĞèÒªÓÃµ½µÄ¹Ø¼ü±äÁ¿¸´Î»£¬ÔÙ³¢ÊÔÉú³ÉĞÂµÄÇëÇóÏûÏ¢
+	//å…ˆå°†éœ€è¦ç”¨åˆ°çš„å…³é”®å˜é‡å¤ä½ï¼Œå†å°è¯•ç”Ÿæˆæ–°çš„è¯·æ±‚æ¶ˆæ¯
 	std::shared_ptr<SQLWriteTypeSW> sqlRequest;
 	std::vector<std::string_view>::const_iterator souceBegin, souceEnd;
 	char *messageIter{};
 
-	//¼ÆËã±¾´ÎËùĞèÒªµÄ¿Õ¼ä´óĞ¡
+	//è®¡ç®—æœ¬æ¬¡æ‰€éœ€è¦çš„ç©ºé—´å¤§å°
 	int totalLen{}, everyLen{}, index{}, divisor{ 10 }, temp{}, thisStrLen{};
 
 	while (true)
@@ -343,7 +343,7 @@ void MULTISQLWRITESW::readyMessage()
 		m_waitMessageListEnd = m_waitMessageList.get() + m_commandMaxSize;
 
 
-		//´Óm_messageListÖĞ»ñÈ¡ÔªËØµ½m_waitMessageListÖĞ
+		//ä»m_messageListä¸­è·å–å…ƒç´ åˆ°m_waitMessageListä¸­
 		m_messageList.lock();
 		std::forward_list<std::shared_ptr<SQLWriteTypeSW>> &flist{ m_messageList.listSelf() };
 		if (flist.empty())
@@ -366,7 +366,7 @@ void MULTISQLWRITESW::readyMessage()
 		m_messageList.unlock();
 
 
-		//³¢ÊÔ¼ÆËã×ÜÃüÁî¸öÊı  ÃüÁî×Ö·û´®ËùĞèÒª×Ü³¤¶È,²»ÓÃ¼ì²é·Ç¿ÕÎÊÌâ
+		//å°è¯•è®¡ç®—æ€»å‘½ä»¤ä¸ªæ•°  å‘½ä»¤å­—ç¬¦ä¸²æ‰€éœ€è¦æ€»é•¿åº¦,ä¸ç”¨æ£€æŸ¥éç©ºé—®é¢˜
 		m_waitMessageListEnd = m_waitMessageListBegin;
 		m_waitMessageListBegin = m_waitMessageList.get();
 		totalLen = 0;
@@ -390,8 +390,8 @@ void MULTISQLWRITESW::readyMessage()
 		//////////////////////////////////////////////////////////////////
 
 		
-		//¼ÆËã×Ü³¤¶ÈÍê±Ï£¬³¢ÊÔ½øĞĞ·ÖÅä¿Õ¼ä
-		//·ÖÅäÊ§°ÜÊ±ºò¼ÇµÃ±éÀú´¦Àí£¬·µ»Ø´íÎó
+		//è®¡ç®—æ€»é•¿åº¦å®Œæ¯•ï¼Œå°è¯•è¿›è¡Œåˆ†é…ç©ºé—´
+		//åˆ†é…å¤±è´¥æ—¶å€™è®°å¾—éå†å¤„ç†ï¼Œè¿”å›é”™è¯¯
 		if (totalLen > m_messageBufferMaxSize)
 		{
 			try
@@ -417,7 +417,7 @@ void MULTISQLWRITESW::readyMessage()
 
 
 		
-		/////////Éú³ÉÇëÇóÃüÁî×Ö·û´®
+		/////////ç”Ÿæˆè¯·æ±‚å‘½ä»¤å­—ç¬¦ä¸²
 
 		m_waitMessageListBegin = m_waitMessageList.get();
 		messageIter = m_messageBuffer.get();
@@ -441,12 +441,12 @@ void MULTISQLWRITESW::readyMessage()
 			*messageIter++ = ';';
 
 
-			//¿½±´Íê±ÏÖ®ºó¿ÉÒÔÍ¨Öª»ØÊÕ£¬¼õÉÙ¼ÆÊı
+			//æ‹·è´å®Œæ¯•ä¹‹åå¯ä»¥é€šçŸ¥å›æ”¶ï¼Œå‡å°‘è®¡æ•°
 		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
 
 
 
-		////   ×¼±¸·¢ËÍ
+		////   å‡†å¤‡å‘é€
 
 		m_sendMessage = m_messageBuffer.get(), m_sendLen = m_messageBufferNowSize;
 
@@ -463,7 +463,7 @@ void MULTISQLWRITESW::readyMessage()
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
-		//½øÈë·¢ËÍº¯Êı
+		//è¿›å…¥å‘é€å‡½æ•°
 
 		query();
 

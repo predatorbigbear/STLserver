@@ -1,10 +1,10 @@
-#pragma once
+ï»¿#pragma once
 
 
 #include "spinLock.h"
 #include "readBuffer.h"
 #include "httpService.h"
-#include "LOG.h"
+#include "ASYNCLOG.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
 #include "multiRedisReadPool.h"
@@ -54,15 +54,15 @@ private:
 	unsigned int m_beginSize{};
 	std::shared_ptr<std::function<void()>> m_reAccept{};
 
-	std::shared_ptr<LOG> m_log{};
+	std::shared_ptr<ASYNCLOG> m_log{};
 	std::shared_ptr<LOGPOOL>m_logPool{};
 	std::shared_ptr<IOcontextPool> m_ioPool{};
 
-	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   Ö÷Êı¾İ¿âĞ´ÈëÁ¬½Ó³Ø
-	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   Ö÷Êı¾İ¿â¶ÁÈ¡Á¬½Ó³Ø
+	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   ä¸»æ•°æ®åº“å†™å…¥è¿æ¥æ± 
+	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   ä¸»æ•°æ®åº“è¯»å–è¿æ¥æ± 
 
-	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   Ö÷redisĞ´ÈëÁ¬½Ó³Ø
-	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   Ö÷redis¶ÁÈ¡Á¬½Ó³Ø
+	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   ä¸»rediså†™å…¥è¿æ¥æ± 
+	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   ä¸»redisè¯»å–è¿æ¥æ± 
 
 	bool m_startAccept{ true };
 

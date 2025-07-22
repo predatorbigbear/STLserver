@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 
-#include "LOG.h"
+#include "ASYNCLOG.h"
 #include "STLtreeFast.h"
 #include "httpResponse.h"
 #include "regexFunction.h"
