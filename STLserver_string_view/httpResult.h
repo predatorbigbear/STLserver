@@ -233,7 +233,7 @@ struct HTTPRESULT
 
 	const std::string_view getReferer();
 
-	const std::vector<std::string_view> getSetCookie();
+	const std::vector<std::string_view> &getSetCookie();
 
 	const std::string_view getTE();
 

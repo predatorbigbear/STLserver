@@ -567,7 +567,7 @@ const std::string_view HTTPRESULT::getReferer()
 	return m_Referer;
 }
 
-const std::vector<std::string_view> HTTPRESULT::getSetCookie()
+const std::vector<std::string_view>& HTTPRESULT::getSetCookie()
 {
 	return m_Set_Cookie;
 }
