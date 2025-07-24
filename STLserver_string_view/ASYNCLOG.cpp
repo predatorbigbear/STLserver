@@ -1,7 +1,7 @@
 ﻿#include "ASYNCLOG.h"
 
 
-ASYNCLOG::ASYNCLOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &result ,const int overTime , const int bufferSize ):
+ASYNCLOG::ASYNCLOG(const char* logFileName, std::shared_ptr<IOcontextPool> ioPool, bool& result, const int overTime, const int bufferSize) :
 	m_overTime(overTime), m_bufferSize(bufferSize * 10), m_messageList(100), m_checkSize(bufferSize * 2)
 {
 	try
@@ -19,7 +19,7 @@ ASYNCLOG::ASYNCLOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPoo
 		m_timer.reset(new boost::asio::steady_timer(*ioPool->getIoNext()));
 
 		std::error_code err{};
-		if (std::filesystem::exists(logFileName,err))
+		if (std::filesystem::exists(logFileName, err))
 		{
 			m_file.open(logFileName, std::ios::out);
 			if (!m_file)
@@ -40,11 +40,11 @@ ASYNCLOG::ASYNCLOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPoo
 			throw std::runtime_error("can not open " + std::string(logFileName));
 
 		m_asyncFile.reset(new boost::asio::posix::stream_descriptor(*ioPool->getIoNext(), static_cast<__gnu_cxx::stdio_filebuf<char>*>(m_file.rdbuf())->fd()));
-		
+
 		result = true;
 		StartCheckLog();
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		std::cout << e.what() << "  ,please restart server\n";
 		result = false;
@@ -56,7 +56,7 @@ ASYNCLOG::ASYNCLOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPoo
 void ASYNCLOG::StartCheckLog()
 {
 	m_timer->expires_after(std::chrono::seconds(m_overTime));
-	m_timer->async_wait([this](const boost::system::error_code &err)
+	m_timer->async_wait([this](const boost::system::error_code& err)
 	{
 		if (err)
 		{
@@ -200,7 +200,7 @@ void ASYNCLOG::makeReadyTime()
 
 
 
-ASYNCLOG& ASYNCLOG::operator<<(const char * log)
+ASYNCLOG& ASYNCLOG::operator<<(const char* log)
 {
 	// TODO: 在此处插入 return 语句
 	if (log)
@@ -231,7 +231,7 @@ ASYNCLOG& ASYNCLOG::operator<<(const char * log)
 
 
 
-ASYNCLOG& ASYNCLOG::operator<<(const std::string &log)
+ASYNCLOG& ASYNCLOG::operator<<(const std::string& log)
 {
 	// TODO: 在此处插入 return 语句
 	if (!log.empty())
@@ -614,7 +614,7 @@ ASYNCLOG& ASYNCLOG::operator<<(const int  num)
 					++m_nowSize;
 				}
 			}
-			
+
 		}
 	}
 	return *this;
@@ -803,7 +803,7 @@ ASYNCLOG& ASYNCLOG::operator<<(const unsigned int  num)
 		{
 			m_ch = m_Buffer.get();
 			m_temp = num;
-			
+
 
 			m_num = m_temp / 1000000000;
 			if (m_check)
@@ -964,7 +964,7 @@ ASYNCLOG& ASYNCLOG::operator<<(const unsigned int  num)
 					++m_nowSize;
 				}
 			}
-			
+
 		}
 	}
 	return *this;
@@ -993,7 +993,7 @@ ASYNCLOG& ASYNCLOG::operator<<(const char ch)
 			m_ch = m_Buffer.get();
 			*m_ch++ = ch;
 			++m_nowSize;
-		
+
 		}
 	}
 	return *this;
@@ -1010,7 +1010,7 @@ ASYNCLOG& ASYNCLOG::operator<<(const std::string_view log)
 		{
 			std::copy(log.cbegin(), log.cend(), m_Buffer.get() + m_nowSize + m_beginSize);
 			m_nowSize += m_num;
-			
+
 		}
 		else
 		{
@@ -1024,13 +1024,12 @@ ASYNCLOG& ASYNCLOG::operator<<(const std::string_view log)
 			{
 				std::copy(log.cbegin(), log.cend(), m_Buffer.get());
 				m_nowSize += m_num;
-				
+
 			}
 		}
 	}
 	return *this;
 }
-
 
 
 

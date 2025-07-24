@@ -2346,6 +2346,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	static const std::string Referer{ "referer" };
 	static const std::string Upgrade{ "upgrade" };
 	static const std::string User_Agent{ "user-agent" };
+	static const std::string Set_Cookie{ "set-cookie" };
 	static const std::string Via{ "via" };
 	static const std::string Warning{ "warning" };
 	static const std::string TE{ "te" };
@@ -4179,6 +4180,19 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setUser_Agent(finalWordBegin, finalWordEnd);
+
+				}
+
+				break;
+			case 'S':
+			case 's':
+				//Set-Cookie
+				//可能有多个的情况出现
+				if (std::equal(finalHeadBegin, finalHeadEnd, Set_Cookie.cbegin(), Set_Cookie.cend(),
+					std::bind(std::equal_to<>(), std::bind(::tolower, std::placeholders::_1), std::placeholders::_2)))
+				{
+
+					m_httpresult.setSetCookie(finalWordBegin, finalWordEnd);
 
 				}
 

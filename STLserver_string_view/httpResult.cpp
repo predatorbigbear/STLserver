@@ -4,6 +4,7 @@ HTTPRESULT::HTTPRESULT()
 {
 	m_headerPtr.reset(new std::string_view*[all_len]);
 	m_headerbegin = m_headerEnd = m_headerPtr.get();
+	m_Set_Cookie.reserve(50);
 }
 
 void HTTPRESULT::resetheader()
@@ -16,6 +17,7 @@ void HTTPRESULT::resetheader()
 		});
 		m_headerEnd = m_headerbegin ;
 	}
+	m_Set_Cookie.clear();
 }
 
 const bool HTTPRESULT::isMethodEmpty()
@@ -156,6 +158,11 @@ const bool HTTPRESULT::isRangeEmpty()
 const bool HTTPRESULT::isRefererEmpty()
 {
 	return m_Referer.empty();
+}
+
+const bool HTTPRESULT::isSetCookieEmpty()
+{
+	return m_Set_Cookie.empty();
 }
 
 const bool HTTPRESULT::isTEEmpty()
@@ -367,6 +374,11 @@ void HTTPRESULT::setReferer(const char* begin, const char* end)
 	*m_headerEnd++ = &m_Referer;
 }
 
+void HTTPRESULT::setSetCookie(const char* begin, const char* end)
+{
+	m_Set_Cookie.emplace_back(std::string_view(begin, std::distance(begin, end)));
+}
+
 void HTTPRESULT::setTE(const char* begin, const char* end)
 {
 	m_TE = std::string_view(begin, std::distance(begin, end));
@@ -553,6 +565,11 @@ const std::string_view HTTPRESULT::getRange()
 const std::string_view HTTPRESULT::getReferer()
 {
 	return m_Referer;
+}
+
+const std::vector<std::string_view> HTTPRESULT::getSetCookie()
+{
+	return m_Set_Cookie;
 }
 
 const std::string_view HTTPRESULT::getTE()

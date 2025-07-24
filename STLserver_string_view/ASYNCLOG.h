@@ -22,7 +22,7 @@
 // 发送给无锁队列的为string_view，不作拷贝，根据一个临界值大小来保证数据不被覆写
 struct ASYNCLOG
 {
-	ASYNCLOG(const char *logFileName , std::shared_ptr<IOcontextPool> ioPool ,bool &result , const int overTime=60,const int bufferSize=20480);                                         //构造函数
+	ASYNCLOG(const char* logFileName, std::shared_ptr<IOcontextPool> ioPool, bool& result, const int overTime = 60, const int bufferSize = 20480);                                         //构造函数
 
 
 	template<typename T, size_t N, typename ...ARGS>
@@ -76,12 +76,12 @@ private:
 
 	int m_overTime{};                                                             //定时触发时间
 	std::unique_ptr<boost::asio::steady_timer>m_timer{};
-	
+
 	std::atomic<bool>m_write{ false };                                            //是否开启异步写入操作
 
 	std::mutex m_logMutex;
 	time_t m_time_seconds{};
-	struct tm *m_ptm{};
+	struct tm* m_ptm{};
 	char m_date[19]{ ' ' };
 	int m_num{};
 	int m_temp{};
@@ -92,7 +92,7 @@ private:
 	unsigned int m_nowSize{};                                 //本次写入内容长度
 	const unsigned int m_checkSize{};                         //需要进行写入检查的临界值
 	static constexpr int m_dataSize{ 19 };
-	char *m_ch{};
+	char* m_ch{};
 	bool m_check{ false };
 
 
@@ -107,9 +107,9 @@ private:
 
 	void makeReadyTime();
 
-	ASYNCLOG& operator<<(const char *log);
+	ASYNCLOG& operator<<(const char* log);
 
-	ASYNCLOG& operator<<(const std::string &log);
+	ASYNCLOG& operator<<(const std::string& log);
 
 	ASYNCLOG& operator<<(const int num);
 
@@ -157,14 +157,14 @@ private:
 			m_nowSize = 0;
 			startWrite();
 		}
-		
+
 		m_logMutex.unlock();
 	}
 
 	template<typename T, size_t N>
 	void sendLog(const T(&arr)[N])
 	{
-		*this << arr << '\n';	
+		*this << arr << '\n';
 		if (m_nowSize >= m_checkSize)
 		{
 			m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
@@ -175,7 +175,6 @@ private:
 		m_logMutex.unlock();
 	}
 };
-
 
 
 

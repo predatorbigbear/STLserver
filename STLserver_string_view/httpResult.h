@@ -6,7 +6,7 @@
 #include<memory>
 #include<cstring>
 #include<string>
-
+#include<vector>
 
 //目前target version字段不在这里存储
 struct HTTPRESULT
@@ -75,6 +75,8 @@ struct HTTPRESULT
 	const bool isRangeEmpty();
 
 	const bool isRefererEmpty();
+
+	const bool isSetCookieEmpty();
 
 	const bool isTEEmpty();
 
@@ -153,6 +155,8 @@ struct HTTPRESULT
 
 	void setReferer(const char *begin,const char *end);
 
+	void setSetCookie(const char* begin, const char* end);
+
 	void setTE(const char *begin,const char *end);
 
 	void setUpgrade(const char *begin,const char *end);
@@ -229,6 +233,8 @@ struct HTTPRESULT
 
 	const std::string_view getReferer();
 
+	const std::vector<std::string_view> getSetCookie();
+
 	const std::string_view getTE();
 
 	const std::string_view getUpgrade();
@@ -299,9 +305,11 @@ private:
 	std::string_view m_Body{};
 	std::string_view m_Transfer_Encoding{};
 	std::string_view m_para{};
+	//因为Set_Cookie可能有多个，所以用vector单独装起来
+	std::vector<std::string_view>m_Set_Cookie{}; 
 
 
-	//记录每个string_view是否为空的状态
+	//记录每个string_view是否为空的状态，Set-Cookie在这里找不到，直接调用上面的get方法获取
 	std::unique_ptr<std::string_view*[]>m_headerPtr{};
 
 	std::string_view** m_headerbegin{};
