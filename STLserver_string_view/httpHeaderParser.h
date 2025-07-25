@@ -8,6 +8,8 @@
 #include<map>
 #include<ctime>
 #include<numeric>
+#include<charconv>
+#include<system_error>
 
 //做个高性能http头部零拷贝解析模块
 // 这个模块将实现所有http 头部解析处理，需要的可以从这里调用使用
@@ -2006,4 +2008,116 @@ struct Pragma_PARSER
 private:
 	bool isNoCache{ false };
 
+};
+
+
+
+
+struct Accept_PARSER
+{
+	Accept_PARSER() = default;
+
+	void init()
+	{
+		acceptVec.clear();
+	}
+
+	const bool parseFast(const char* strbegin, const char* strEnd)
+	{
+		if (!strbegin || !strEnd || std::distance(strEnd, strbegin) > 0)
+			return false;
+
+		const char* typeBegin{}, * typeEnd{}, * qBegin{}, * qEnd{}, * doubleBegin, * doubleEnd{};
+		double result;
+
+		while (strbegin != strEnd)
+		{
+			typeBegin = std::find_if(strbegin, strEnd, std::bind(std::not_equal_to<>(), std::placeholders::_1, ' '));
+
+			if (typeBegin == strEnd)
+				return true;
+
+			typeEnd = std::find_if(typeBegin + 1, strEnd,
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ';'), std::bind(std::equal_to<>(), std::placeholders::_1, ',')));
+			if (typeEnd == strEnd)
+			{
+				acceptVec.emplace_back(std::make_pair(std::string_view(typeBegin, std::distance(typeBegin, typeEnd)), 1.0));
+				return true;
+			}
+
+			if (*typeEnd == ',')
+			{
+				acceptVec.emplace_back(std::make_pair(std::string_view(typeBegin, std::distance(typeBegin, typeEnd)), 1.0));
+				strbegin = typeEnd + 1;
+				continue;
+			}
+			else
+			{
+				qBegin = std::find(typeEnd + 1, strEnd, 'q');
+				if (qBegin == strEnd)
+				{
+					acceptVec.emplace_back(std::make_pair(std::string_view(typeBegin, std::distance(typeBegin, typeEnd)), 1.0));
+					return true;
+				}
+
+				doubleBegin = std::find(qBegin + 1, strEnd, '0');
+				if (doubleBegin == strEnd)
+				{
+					acceptVec.emplace_back(std::make_pair(std::string_view(typeBegin, std::distance(typeBegin, typeEnd)), 1.0));
+					return true;
+				}
+
+				doubleEnd = std::find_if(doubleBegin + 1, strEnd,
+					std::bind(std::logical_and<bool>(),
+						std::bind(std::logical_not<bool>(), std::bind(isdigit, std::placeholders::_1)),
+						std::bind(std::not_equal_to<>(), std::placeholders::_1, '.')));
+
+				auto [ptr, ec] = std::from_chars(
+					doubleBegin,
+					doubleEnd,
+					result
+				);
+
+				if (ec != std::errc())
+					return false;
+
+				acceptVec.emplace_back(std::make_pair(std::string_view(typeBegin, std::distance(typeBegin, typeEnd)), result));
+
+				if (doubleEnd == strEnd)
+					return true;
+
+				typeBegin = std::find(doubleEnd, strEnd, ',');
+
+				if (typeBegin == strEnd)
+					return true;
+
+				strbegin = typeBegin + 1;
+			}
+		}
+
+		return true;
+	}
+
+	const bool parseFast(const std::string& str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	const bool parseFast(const std::string_view str)
+	{
+		if (str.empty())
+			return false;
+		return parseFast(str.data(), str.data() + str.size());
+	}
+
+	const std::vector<std::pair<std::string_view, double>>& getAccept()
+	{
+		return acceptVec;
+	}
+
+
+private:
+	std::vector<std::pair<std::string_view, double>> acceptVec;
 };
