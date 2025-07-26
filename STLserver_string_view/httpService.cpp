@@ -252,6 +252,10 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
+	case INTERFACE::testInsertHttpHeader:
+		testInsertHttpHeader();
+		break;
+
 
 		//默认，不匹配任何接口情况
 	default:
@@ -1332,6 +1336,101 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 	}
 
 }
+
+
+//接口/23 将动态http头部以及内容直接写入发送缓冲区测试函数，省去一次拷贝开销
+//可以搜索if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)进行了解实现细节
+//当需要插入多条http头部值时，前面的http值结束时需要加入\r\n，最后一个不需要
+//当不确定需要多大的空间时，可以将需要的空间值设置大一点，
+//在插入数据前保存当前指针位置，在插入完成后比对指针位置长度，然后将剩余长度内容用空格填充即可
+//提供给需要极限qps的场景下使用
+void HTTPSERVICE::testInsertHttpHeader()
+{
+	STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+	st1.reset();
+
+	if (!st1.clear())
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+	if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, STATICSTRING::test, STATICSTRING::test + STATICSTRING::testLen))
+		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+
+	static unsigned int dateLen{ 34 };
+	char* sendBuffer{};
+	unsigned int sendLen{};
+
+	static std::function<void(char*&)>timeStampFun{ [this](char*& bufferBegin)
+	{
+		if (!bufferBegin)
+			return;
+
+		std::copy(STATICSTRING::Date, STATICSTRING::Date + STATICSTRING::DateLen, bufferBegin);
+		bufferBegin += STATICSTRING::DateLen;
+
+		*bufferBegin++ = ':';
+
+		//设置Date值   
+
+		m_sessionTime = std::chrono::system_clock::to_time_t(m_time);
+
+		//复用m_tmGMT生成CST时间
+		m_tmGMT = localtime(&m_sessionTime);
+
+		// Mon, 13 Sep 2021 11:07:54 CST
+
+		m_tmGMT->tm_year += 1900;
+
+		std::copy(STATICSTRING::tm_wday[m_tmGMT->tm_wday], STATICSTRING::tm_wday[m_tmGMT->tm_wday] + STATICSTRING::tm_wdayLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_wdayLen;
+
+		*bufferBegin++ = ',';
+		*bufferBegin++ = ' ';
+
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_mday], STATICSTRING::tm_sec[m_tmGMT->tm_mday] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ' ';
+
+		std::copy(STATICSTRING::tm_mon[m_tmGMT->tm_mon], STATICSTRING::tm_mon[m_tmGMT->tm_mon] + STATICSTRING::tm_monLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_monLen;
+
+		*bufferBegin++ = ' ';
+
+		*bufferBegin++ = m_tmGMT->tm_year / 1000 + '0';
+		*bufferBegin++ = m_tmGMT->tm_year / 100 % 10 + '0';
+		*bufferBegin++ = m_tmGMT->tm_year / 10 % 10 + '0';
+		*bufferBegin++ = m_tmGMT->tm_year % 10 + '0';
+
+		*bufferBegin++ = ' ';
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_hour], STATICSTRING::tm_sec[m_tmGMT->tm_hour] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ':';
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_min], STATICSTRING::tm_sec[m_tmGMT->tm_min] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ':';
+
+		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_sec], STATICSTRING::tm_sec[m_tmGMT->tm_sec] + STATICSTRING::tm_secLen, bufferBegin);
+		bufferBegin += STATICSTRING::tm_secLen;
+
+		*bufferBegin++ = ' ';
+
+		std::copy(STATICSTRING::CST, STATICSTRING::CST + STATICSTRING::CSTLen, bufferBegin);
+		bufferBegin += STATICSTRING::CSTLen;
+
+	} };
+
+
+	makeSendJson<TRANSFORMTYPE, CUSTOMTAG>(st1, timeStampFun, dateLen);
+
+}
+
 
 
 

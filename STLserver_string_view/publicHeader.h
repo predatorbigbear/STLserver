@@ -289,7 +289,9 @@ enum INTERFACE
 
 	testmultiSqlReadParseBosySW = 21,
 
-	testmultiSqlReadUpdateSW = 22
+	testmultiSqlReadUpdateSW = 22,
+
+	testInsertHttpHeader =23
 };
 
 enum HTTPHEADER

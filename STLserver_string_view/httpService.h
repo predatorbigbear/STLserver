@@ -580,6 +580,10 @@ private:
 	void handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em);
 
 
+	// 将动态http头部以及内容直接写入发送缓冲区测试函数，省去一次拷贝开销
+	void testInsertHttpHeader();
+
+
 
 
 

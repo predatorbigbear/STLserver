@@ -1723,6 +1723,7 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 			resultPtr = newResultPtr = iterBegin - MAKEJSON::newLineLen - finalStringLen - needLength;
 			resultLen = std::distance(newResultPtr, iterEnd);
 
+
 			////////////////////////////////////////////////////////////////////////////////////////////////
 
 			std::copy(MAKEJSON::httpFront, MAKEJSON::httpFront + MAKEJSON::httpFrontLen, newResultPtr);
@@ -1783,6 +1784,7 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 			if (jsonResultLen > 9)
 				*newResultPtr++ = jsonResultLen / 10 % 10 + '0';
 			*newResultPtr++ = jsonResultLen % 10 + '0';
+
 
 
 			if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)
