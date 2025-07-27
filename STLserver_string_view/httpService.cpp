@@ -42,8 +42,6 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 		if(!serviceNum)
 			throw std::runtime_error("serviceNum is 0");
 
-		m_timer.reset(new boost::asio::steady_timer(*m_ioc));
-
 		m_buffer.reset(new ReadBuffer(m_ioc, bufNum));
 
 		m_verifyData.reset(new const char*[VerifyDataPos::maxBufferSize]);
@@ -255,6 +253,7 @@ void HTTPSERVICE::switchPOSTInterface()
 	case INTERFACE::testInsertHttpHeader:
 		testInsertHttpHeader();
 		break;
+
 
 
 		//默认，不匹配任何接口情况
@@ -1338,6 +1337,7 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 }
 
 
+
 //接口/23 将动态http头部以及内容直接写入发送缓冲区测试函数，省去一次拷贝开销
 //可以搜索if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)进行了解实现细节
 //当需要插入多条http头部值时，前面的http值结束时需要加入\r\n，最后一个不需要
@@ -1430,9 +1430,6 @@ void HTTPSERVICE::testInsertHttpHeader()
 	makeSendJson<TRANSFORMTYPE, CUSTOMTAG>(st1, timeStampFun, dateLen);
 
 }
-
-
-
 
 
 
