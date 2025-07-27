@@ -35,7 +35,7 @@ struct HTTPSERVICE
 
 	std::shared_ptr<HTTPSERVICE> *&getListIter();
 
-	bool checkTimeOut();
+	bool checkTimeOut(std::chrono::_V2::system_clock::time_point& currentTime);
 
 	void clean();
 

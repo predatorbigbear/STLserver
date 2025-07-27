@@ -94,9 +94,9 @@ std::shared_ptr<HTTPSERVICE> *&HTTPSERVICE::getListIter()
 
 
 
-bool HTTPSERVICE::checkTimeOut()
+bool HTTPSERVICE::checkTimeOut(std::chrono::_V2::system_clock::time_point &currentTime)
 {
-	if (!m_hasClean.load() && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - m_time).count() >= m_timeOut)
+	if (!m_hasClean.load() && std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_time).count() >= m_timeOut)
 	{
 		return true;
 	}

@@ -35,6 +35,18 @@
 //每一个解析类均提供const char*    std::string   以及  std::string_view 版本，方便使用 
 //所有解析类都不会设置析构函数，请配置对象池使用，避免反复创建
 
+struct HOST_PARSER;
+struct Transfer_Encoding_PARSER;
+struct Connection_PARSER;
+struct Content_Length_PARSER;
+struct Content_Type_PARSER;
+struct Cookie_PARSER;
+struct Date_PARSER;
+struct Age_PARSER;
+struct Cache_Control_‌PARSER;
+struct Pragma_PARSER;
+struct Accept_PARSER;
+
 
 
 

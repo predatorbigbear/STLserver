@@ -3,7 +3,7 @@
 
 #include<memory>
 #include<functional>
-
+#include<chrono>
 
 
 
@@ -133,9 +133,10 @@ struct FIXEDTEMPLATESAFELIST
 		m_listMutex.lock();
 		if (m_checkList && m_checkEnd != m_checkList.get())
 		{
+			m_currentTime = std::chrono::high_resolution_clock::now();
 			for (m_tempIter = m_checkBegin; m_tempIter != m_checkEnd; ++m_tempIter)
 			{
-				if ((*m_tempIter)->checkTimeOut())
+				if ((*m_tempIter)->checkTimeOut(m_currentTime))
 					(*m_tempIter)->clean();
 			}
 		}
@@ -162,6 +163,7 @@ private:
 
 	bool m_hasReady{ false };
 	std::shared_ptr<std::function<void()>>m_startcheckTime{};
+	std::chrono::_V2::system_clock::time_point m_currentTime{};            //比对时间
 
 };
 
