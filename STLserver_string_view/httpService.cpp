@@ -46,7 +46,6 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 		m_verifyData.reset(new const char*[VerifyDataPos::maxBufferSize]);
 
-
 		m_SessionID.reset(new char[128]);
 
 		m_sessionMemory = 128;
@@ -94,7 +93,7 @@ std::shared_ptr<HTTPSERVICE> *&HTTPSERVICE::getListIter()
 
 
 
-bool HTTPSERVICE::checkTimeOut(std::chrono::_V2::system_clock::time_point &currentTime)
+bool HTTPSERVICE::checkTimeOut(std::chrono::_V2::system_clock::time_point currentTime)
 {
 	if (!m_hasClean.load() && std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_time).count() >= m_timeOut)
 	{

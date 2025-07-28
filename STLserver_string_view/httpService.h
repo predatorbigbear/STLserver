@@ -35,7 +35,8 @@ struct HTTPSERVICE
 
 	std::shared_ptr<HTTPSERVICE> *&getListIter();
 
-	bool checkTimeOut(std::chrono::_V2::system_clock::time_point& currentTime);
+	//64位系统下，不超过8字节的传值更高效
+	bool checkTimeOut(std::chrono::_V2::system_clock::time_point currentTime);
 
 	void clean();
 
