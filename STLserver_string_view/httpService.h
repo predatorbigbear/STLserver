@@ -102,13 +102,16 @@ private:
 
 	返回结果string_view
 	每个结果的词语个数
+	是否进行拷贝数据操作,默认为false,需要拷贝数据时设置为true
+
+	内存池指针
 
 	回调函数
 	*/
 	// redis类型
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
-		std::function<void(bool, enum ERRORMESSAGE)>>;
+		std::function<void(bool, enum ERRORMESSAGE)>,bool, MEMORYPOOL<> *>;
 
 
 

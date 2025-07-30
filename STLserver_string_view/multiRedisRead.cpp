@@ -38,7 +38,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 
 	m_outRangeBuffer.reset(new char[m_outRangeMaxSize]);
 
-	
+
 
 	m_waitMessageList.reset(new std::shared_ptr<redisResultTypeSW>[m_commandMaxSize]);
 	m_waitMessageListMaxSize = m_commandMaxSize;
@@ -470,6 +470,7 @@ bool MULTIREDISREAD::parse(const int size)
 		while (iterBegin != iterEnd)
 		{
 			iterFind = iterBegin;
+			redisResultTypeSW& thisRequest{ **waitMessageListBegin };
 			switch (*iterFind)
 			{
 			case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING):
@@ -497,8 +498,8 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(nullptr, 0));
-								std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(nullptr, 0));
+								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
 							{
@@ -520,9 +521,9 @@ bool MULTIREDISREAD::parse(const int size)
 							else
 							{
 								if (commandTotalSize == 1)
-									std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::NO_KEY);
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::NO_KEY);
 								else
-									std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
 							}
 
 							jumpNode = false;
@@ -590,8 +591,8 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, len));
-								std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
 							{
@@ -612,9 +613,9 @@ bool MULTIREDISREAD::parse(const int size)
 							else
 							{
 								if (commandTotalSize == 1)
-									std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
 								else
-									std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
 							}
 
 							jumpNode = false;
@@ -668,8 +669,8 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
-						std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
 					{
@@ -689,7 +690,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -727,8 +728,8 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(errorBegin, errorEnd - errorBegin));
-						std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(errorBegin, errorEnd - errorBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
 					{
@@ -748,7 +749,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -786,8 +787,8 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, iterStrEnd - iterStrBegin));
-						std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, iterStrEnd - iterStrBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
 					{
@@ -807,7 +808,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -987,12 +988,11 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (!jumpNode)
 				{
-					std::vector<std::string_view>& vec = std::get<4>(**waitMessageListBegin).get();
+					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
 					try
 					{
-						for (auto const sw : m_arrayResult)
-							vec.emplace_back(sw);
-						std::get<5>(**waitMessageListBegin).get().emplace_back(m_arrayResult.size());
+						vec.swap(m_arrayResult);
+						std::get<5>(thisRequest).get().emplace_back(vec.size());
 					}
 					catch (const std::exception& e)
 					{
@@ -1012,7 +1012,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -1036,10 +1036,11 @@ bool MULTIREDISREAD::parse(const int size)
 	else      //接收数据回环情况
 	{
 
-
+		
 		while (!jump)
 		{
 			iterFind = iterBegin;
+			redisResultTypeSW& thisRequest{ **waitMessageListBegin };
 			switch (*iterFind)
 			{
 			case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING):
@@ -1090,7 +1091,7 @@ bool MULTIREDISREAD::parse(const int size)
 							{
 								try
 								{
-									std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+									std::get<5>(thisRequest).get().emplace_back(0);
 								}
 								catch (const std::exception& e)
 								{
@@ -1111,9 +1112,9 @@ bool MULTIREDISREAD::parse(const int size)
 								else
 								{
 									if (commandTotalSize == 1)
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::NO_KEY);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::NO_KEY);
 									else
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
 								}
 
 								jumpNode = false;
@@ -1150,7 +1151,7 @@ bool MULTIREDISREAD::parse(const int size)
 							{
 								try
 								{
-									std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+									std::get<5>(thisRequest).get().emplace_back(0);
 								}
 								catch (const std::exception& e)
 								{
@@ -1171,9 +1172,9 @@ bool MULTIREDISREAD::parse(const int size)
 								else
 								{
 									if (commandTotalSize == 1)
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::NO_KEY);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::NO_KEY);
 									else
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
 								}
 
 								jumpNode = false;
@@ -1333,8 +1334,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 										try
 										{
-											std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
-											std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+											std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+											std::get<5>(thisRequest).get().emplace_back(1);
 										}
 										catch (const std::exception& e)
 										{
@@ -1345,7 +1346,7 @@ bool MULTIREDISREAD::parse(const int size)
 									{
 										try
 										{
-											std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+											std::get<5>(thisRequest).get().emplace_back(0);
 										}
 										catch (const std::exception& e)
 										{
@@ -1357,8 +1358,8 @@ bool MULTIREDISREAD::parse(const int size)
 								{
 									try
 									{
-										std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, len));
-										std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+										std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+										std::get<5>(thisRequest).get().emplace_back(1);
 									}
 									catch (const std::exception& e)
 									{
@@ -1380,9 +1381,9 @@ bool MULTIREDISREAD::parse(const int size)
 								else
 								{
 									if (commandTotalSize == 1)
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
 									else
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
 								}
 
 								jumpNode = false;
@@ -1451,8 +1452,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 										try
 										{
-											std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
-											std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+											std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+											std::get<5>(thisRequest).get().emplace_back(1);
 										}
 										catch (const std::exception& e)
 										{
@@ -1463,7 +1464,7 @@ bool MULTIREDISREAD::parse(const int size)
 									{
 										try
 										{
-											std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+											std::get<5>(thisRequest).get().emplace_back(0);
 										}
 										catch (const std::exception& e)
 										{
@@ -1475,8 +1476,8 @@ bool MULTIREDISREAD::parse(const int size)
 								{
 									try
 									{
-										std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, len));
-										std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+										std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+										std::get<5>(thisRequest).get().emplace_back(1);
 									}
 									catch (const std::exception& e)
 									{
@@ -1498,9 +1499,9 @@ bool MULTIREDISREAD::parse(const int size)
 								else
 								{
 									if (commandTotalSize == 1)
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
 									else
-										std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
 								}
 
 								jumpNode = false;
@@ -1630,8 +1631,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 							try
 							{
-								std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
-								std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
 							{
@@ -1642,7 +1643,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+								std::get<5>(thisRequest).get().emplace_back(0);
 							}
 							catch (const std::exception& e)
 							{
@@ -1654,8 +1655,8 @@ bool MULTIREDISREAD::parse(const int size)
 					{
 						try
 						{
-							std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterLenBegin, len));
-							std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+							std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, len));
+							std::get<5>(thisRequest).get().emplace_back(1);
 						}
 						catch (const std::exception& e)
 						{
@@ -1676,7 +1677,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -1787,8 +1788,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 							try
 							{
-								std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
-								std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
 							{
@@ -1799,7 +1800,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+								std::get<5>(thisRequest).get().emplace_back(0);
 							}
 							catch (const std::exception& e)
 							{
@@ -1813,8 +1814,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 						try
 						{
-							std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(errorBegin, len));
-							std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+							std::get<4>(thisRequest).get().emplace_back(std::string_view(errorBegin, len));
+							std::get<5>(thisRequest).get().emplace_back(1);
 						}
 						catch (const std::exception& e)
 						{
@@ -1835,7 +1836,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -1945,8 +1946,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 							try
 							{
-								std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
-								std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
 							{
@@ -1957,7 +1958,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+								std::get<5>(thisRequest).get().emplace_back(0);
 							}
 							catch (const std::exception& e)
 							{
@@ -1971,8 +1972,8 @@ bool MULTIREDISREAD::parse(const int size)
 
 						try
 						{
-							std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, len));
-							std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+							std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+							std::get<5>(thisRequest).get().emplace_back(1);
 						}
 						catch (const std::exception& e)
 						{
@@ -1993,7 +1994,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -2457,12 +2458,11 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (!jumpNode)
 				{
-					std::vector<std::string_view>& vec = std::get<4>(**waitMessageListBegin).get();
+					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
 					try
-					{
-						for (auto const sw : m_arrayResult)
-							vec.emplace_back(sw);
-						std::get<5>(**waitMessageListBegin).get().emplace_back(m_arrayResult.size());
+					{	
+						vec.swap(m_arrayResult);
+						std::get<5>(thisRequest).get().emplace_back(vec.size());
 					}
 					catch (const std::exception& e)
 					{
@@ -2482,7 +2482,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -2513,6 +2513,7 @@ bool MULTIREDISREAD::parse(const int size)
 		while (iterBegin != iterEnd)
 		{
 			iterFind = iterBegin;
+			redisResultTypeSW& thisRequest{ **waitMessageListBegin };
 			switch (*iterFind)
 			{
 			case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING):
@@ -2540,7 +2541,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<5>(**waitMessageListBegin).get().emplace_back(0);
+								std::get<5>(thisRequest).get().emplace_back(0);
 							}
 							catch (const std::exception& e)
 							{
@@ -2560,7 +2561,7 @@ bool MULTIREDISREAD::parse(const int size)
 							}
 							else
 							{
-								std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+								std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 							}
 
 							jumpNode = false;
@@ -2628,8 +2629,8 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, len));
-								std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
 							{
@@ -2649,7 +2650,7 @@ bool MULTIREDISREAD::parse(const int size)
 							}
 							else
 							{
-								std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+								std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 							}
 
 							jumpNode = false;
@@ -2703,8 +2704,8 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
-						std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
 					{
@@ -2724,7 +2725,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -2762,8 +2763,8 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(errorBegin, errorEnd - errorBegin));
-						std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(errorBegin, errorEnd - errorBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
 					{
@@ -2783,7 +2784,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -2821,8 +2822,8 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(**waitMessageListBegin).get().emplace_back(std::string_view(iterStrBegin, iterStrEnd - iterStrBegin));
-						std::get<5>(**waitMessageListBegin).get().emplace_back(1);
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, iterStrEnd - iterStrBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
 					{
@@ -2842,7 +2843,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
@@ -3022,12 +3023,11 @@ bool MULTIREDISREAD::parse(const int size)
 
 				if (!jumpNode)
 				{
-					std::vector<std::string_view>& vec = std::get<4>(**waitMessageListBegin).get();
+					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
 					try
 					{
-						for (auto const sw : m_arrayResult)
-							vec.emplace_back(sw);
-						std::get<5>(**waitMessageListBegin).get().emplace_back(m_arrayResult.size());
+						vec.swap(m_arrayResult);
+						std::get<5>(thisRequest).get().emplace_back(vec.size());
 					}
 					catch (const std::exception& e)
 					{
@@ -3047,7 +3047,7 @@ bool MULTIREDISREAD::parse(const int size)
 					}
 					else
 					{
-						std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
 					}
 
 					jumpNode = false;
