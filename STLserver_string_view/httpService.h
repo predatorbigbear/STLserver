@@ -36,7 +36,7 @@ struct HTTPSERVICE
 	std::shared_ptr<HTTPSERVICE> *&getListIter();
 
 	//64位系统下，不超过8字节的传值更高效
-	bool checkTimeOut(std::chrono::_V2::system_clock::time_point currentTime);
+	bool checkTimeOut();
 
 	void clean();
 
@@ -71,7 +71,8 @@ private:
 
 	std::chrono::_V2::system_clock::time_point m_time{ std::chrono::high_resolution_clock::now() };
 
-	std::atomic<bool>m_hasClean{ false };
+	std::atomic<bool>m_hasRecv{ false };                  //是否接收过数据
+	std::atomic<bool>m_hasClean{ false };                 //是否启动过清理
 
 
 	using resultType = std::tuple<const char**, unsigned int, unsigned int, std::shared_ptr<MYSQL_RES*>, unsigned int, std::shared_ptr<unsigned int[]>, unsigned int,
@@ -745,7 +746,7 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 			//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 			if (err != boost::asio::error::operation_aborted)
 			{
-				m_hasClean.store(false);
+				
 			}
 			
 			//发生错误时等待超时回收，clean函数内会对内存池进行重置

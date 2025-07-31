@@ -75,6 +75,7 @@ void HTTPSERVICE::setReady(const int index, std::shared_ptr<std::function<void(s
 	m_index = index;
 	m_clearFunction = clearFunction;
 	m_mySelf = other;
+	m_hasClean.store(false);
 
 	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
 
@@ -93,13 +94,17 @@ std::shared_ptr<HTTPSERVICE> *&HTTPSERVICE::getListIter()
 
 
 
-bool HTTPSERVICE::checkTimeOut(std::chrono::_V2::system_clock::time_point currentTime)
+bool HTTPSERVICE::checkTimeOut()
 {
-	if (!m_hasClean.load() && std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_time).count() >= m_timeOut)
+	if (!m_hasRecv.load())
 	{
 		return true;
 	}
-	return false;
+	else
+	{
+		m_hasRecv.store(false);
+		return false;
+	}
 }
 
 
@@ -1371,6 +1376,7 @@ void HTTPSERVICE::testInsertHttpHeader()
 		*bufferBegin++ = ':';
 
 		//设置Date值   
+		m_time = std::chrono::high_resolution_clock::now();
 
 		m_sessionTime = std::chrono::system_clock::to_time_t(m_time);
 
@@ -2001,33 +2007,36 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 void HTTPSERVICE::clean()
 {
 	//cout << "start clean\n";
-	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
-	m_hasClean.store(true);
-
-	m_sessionLen = 0;
-	m_startPos = 0;
-	m_firstTime = 0;
-
-	for (auto& st : m_STLtreeFastVec)
+	if (!m_hasClean.load())
 	{
-		st.reset();
+		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
+		m_hasClean.store(true);
+
+		m_sessionLen = 0;
+		m_startPos = 0;
+		m_firstTime = 0;
+
+		for (auto& st : m_STLtreeFastVec)
+		{
+			st.reset();
+		}
+
+		m_maxReadLen = m_defaultReadLen;
+		recoverMemory();
+
+		//将所有存储MYSQL_RES*的vector进行一次清理
+		for (auto ptr : m_multiSqlRequestSWVec)
+		{
+			m_multiSqlReadSWMaster->FreeResult(std::get<2>(*ptr));
+		}
+
+
+		ec = {};
+		m_buffer->getSock()->shutdown(boost::asio::socket_base::shutdown_send, ec);
+
+		//等待异步shutdown完成
+		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
 	}
-
-	m_maxReadLen = m_defaultReadLen;
-	recoverMemory();
-
-	//将所有存储MYSQL_RES*的vector进行一次清理
-	for (auto ptr : m_multiSqlRequestSWVec)
-	{
-		m_multiSqlReadSWMaster->FreeResult(std::get<2>(*ptr));
-	}
-
-
-	ec = {};
-	m_buffer->getSock()->shutdown(boost::asio::socket_base::shutdown_send, ec);
-
-	//等待异步shutdown完成
-	m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
 }
 
 
@@ -2115,7 +2124,7 @@ void HTTPSERVICE::cleanData()
 				//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 				if (err != boost::asio::error::operation_aborted)
 				{
-					m_hasClean.store(false);
+					
 				}
 			}
 			else
@@ -2263,8 +2272,6 @@ void HTTPSERVICE::prepare()
 
 void HTTPSERVICE::startRead()
 {
-	m_time = std::chrono::high_resolution_clock::now();
-	m_hasClean.store(false);
 
 	//如果Connection则发送http 响应后继续接收新消息，否则停止接收，等待回收到对象池
 	if (keep_alive)
@@ -2276,13 +2283,15 @@ void HTTPSERVICE::startRead()
 				if (err != boost::asio::error::operation_aborted)
 				{
 					//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
-					m_hasClean.store(false);
+					
 				}
 			}
 			else
 			{
-				
-				m_hasClean.store(true);
+				if (!m_hasRecv.load())
+				{
+					m_hasRecv.store(true);
+				}
 				if (size > 0)
 				{
 					std::string_view message{ m_readBuffer + m_startPos, size };
