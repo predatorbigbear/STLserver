@@ -85,10 +85,16 @@ void HTTPSERVICE::setReady(const int index, std::shared_ptr<std::function<void(s
 
 
 
-std::shared_ptr<HTTPSERVICE> *&HTTPSERVICE::getListIter()
+std::shared_ptr<HTTPSERVICE> *HTTPSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
-	return mySelfIter;
+	return mySelfIter.load();
+}
+
+void HTTPSERVICE::setListIter(std::shared_ptr<HTTPSERVICE>* iter)
+{
+	if (iter)
+		mySelfIter.store(iter);
 }
 
 

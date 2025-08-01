@@ -33,7 +33,11 @@ struct HTTPSERVICE
 
 	void setReady(const int index, std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>>clearFunction, std::shared_ptr<HTTPSERVICE> other);
 
-	std::shared_ptr<HTTPSERVICE> *&getListIter();
+	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
+	std::shared_ptr<HTTPSERVICE> *getListIter();
+
+	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
+	void setListIter(std::shared_ptr<HTTPSERVICE>* iter);
 
 	//64位系统下，不超过8字节的传值更高效
 	bool checkTimeOut();
@@ -61,7 +65,7 @@ private:
 
 	std::shared_ptr<ASYNCLOG> m_log{};
 
-	std::shared_ptr<HTTPSERVICE> *mySelfIter{};
+	std::atomic<std::shared_ptr<HTTPSERVICE>*>mySelfIter{};
 
 	std::shared_ptr<HTTPSERVICE> m_mySelf{};
 

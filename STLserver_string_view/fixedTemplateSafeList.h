@@ -63,13 +63,13 @@ struct FIXEDTEMPLATESAFELIST
 			{
 				--m_checkBegin;
 				*m_checkBegin = buffer;
-				buffer->getListIter() = m_checkBegin;
+				buffer->setListIter(m_checkBegin);
 			}
 			else if (m_checkEnd != m_checkMax)   
 			{
 				//如果末尾位置不是空间最大值位置
 				*m_checkEnd = buffer;
-				buffer->getListIter() = m_checkEnd;
+				buffer->setListIter(m_checkEnd);
 				++m_checkEnd;
 			}
 			else
@@ -106,7 +106,7 @@ struct FIXEDTEMPLATESAFELIST
 			else
 			{
 				//改变末尾元素类中记录的指针位置到当前位置
-				(*(m_checkEnd - 1))->getListIter() = iter;
+				(*(m_checkEnd - 1))->setListIter(iter);
 				*iter = *(m_checkEnd - 1);
 				--m_checkEnd;
 			}
