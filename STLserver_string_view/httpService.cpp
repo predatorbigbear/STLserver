@@ -10,10 +10,12 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const unsigned int timeOut, bool & success, const unsigned int serviceNum, const unsigned int bufNum
+	const unsigned int timeOut, bool & success, const unsigned int serviceNum,
+	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> & cleanFun,
+	const unsigned int bufNum
 	)
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
-	m_multiSqlReadSWMaster(multiSqlReadSWMaster),m_fileMap(fileMap),
+	m_multiSqlReadSWMaster(multiSqlReadSWMaster),m_fileMap(fileMap), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster),m_multiRedisWriteMaster(multiRedisWriteMaster),m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
 {
@@ -68,12 +70,9 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 
 
-void HTTPSERVICE::setReady(const int index, std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>> clearFunction , std::shared_ptr<HTTPSERVICE> other)
+void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE> &other)
 {
 	//m_buffer->getSock()->set_option(boost::asio::ip::tcp::no_delay(true), m_err);
-	m_buffer->getSock()->set_option(boost::asio::socket_base::keep_alive(true), ec);     https://www.cnblogs.com/xiao-tao/p/9718017.html
-	m_index = index;
-	m_clearFunction = clearFunction;
 	m_mySelf = other;
 	m_hasClean.store(false);
 
@@ -2097,7 +2096,6 @@ void HTTPSERVICE::closeLoop()
 
 void HTTPSERVICE::resetSocket()
 {
-	boost::system::error_code ec;
 	m_buffer->getSock().reset(new boost::asio::ip::tcp::socket(*m_ioc));
 	m_buffer->getSock()->set_option(boost::asio::socket_base::keep_alive(true), ec);
 

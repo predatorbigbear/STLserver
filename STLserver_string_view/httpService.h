@@ -28,10 +28,12 @@ struct HTTPSERVICE
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 		std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const unsigned int timeOut, bool & success, const unsigned int serviceNum, const unsigned int bufNum = 4096
+		const unsigned int timeOut, bool & success, const unsigned int serviceNum,
+		const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> & cleanFun,
+		const unsigned int bufNum = 4096
 		);
 
-	void setReady(const int index, std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>>clearFunction, std::shared_ptr<HTTPSERVICE> other);
+	void setReady(std::shared_ptr<HTTPSERVICE> &other);
 
 	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
 	std::shared_ptr<HTTPSERVICE> *getListIter();
@@ -57,11 +59,9 @@ private:
 
 	std::shared_ptr<io_context> m_ioc{};
 
-	int m_index;
-
 	int m_len{};
 
-	std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>>m_clearFunction{};
+	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> m_clearFunction{};
 
 	std::shared_ptr<ASYNCLOG> m_log{};
 

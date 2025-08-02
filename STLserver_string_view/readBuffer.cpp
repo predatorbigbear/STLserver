@@ -9,6 +9,8 @@ ReadBuffer::ReadBuffer(std::shared_ptr<boost::asio::io_context> ioc, const unsig
 		if(!bufNum)
 			throw std::runtime_error("bufNum is 0");
 		m_sock.reset(new boost::asio::ip::tcp::socket(*ioc));
+		m_sock->set_option(boost::asio::socket_base::keep_alive(true), m_err);
+	    //https://www.cnblogs.com/xiao-tao/p/9718017.html
 		m_readBuffer.reset(new char[bufNum]);
 	}
 	catch (const std::exception &e)

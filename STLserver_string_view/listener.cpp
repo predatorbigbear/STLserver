@@ -24,7 +24,7 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 		m_log = m_logPool->getLogNext();
 
 		m_startFunction.reset(new std::function<void()>(std::bind(&listener::reAccept, this)));
-		m_clearFunction.reset(new std::function<void(std::shared_ptr<HTTPSERVICE>)>(std::bind(&listener::getBackHTTPSERVICE, this, std::placeholders::_1)));
+		m_clearFunction.reset(new std::function<void(std::shared_ptr<HTTPSERVICE>&)>(std::bind(&listener::getBackHTTPSERVICE, this, std::placeholders::_1)));
 		m_timeOutTimer.reset(new boost::asio::steady_timer(*(m_ioPool->getIoNext())));
         // ulimit -a
 
@@ -32,7 +32,7 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 		m_httpServicePool.reset(new FixedHTTPSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
 			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileMap,
-			m_timeOut,
+			m_timeOut, m_clearFunction,
 			m_socketNum));
 		if (!m_httpServicePool->ready())
 		{
@@ -234,7 +234,7 @@ void listener::handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp, c
 		{
 			if (m_httpServiceList->insert(httpServiceTemp))
 			{
-				httpServiceTemp->setReady(temp, m_clearFunction, httpServiceTemp);
+				httpServiceTemp->setReady(httpServiceTemp);
 			}
 			else
 			{
@@ -247,7 +247,7 @@ void listener::handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp, c
 }
 
 
-void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> tempHs)
+void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs)
 {
 	if (tempHs )
 	{

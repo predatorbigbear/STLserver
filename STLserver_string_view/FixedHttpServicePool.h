@@ -20,7 +20,7 @@ struct FixedHTTPSERVICEPOOL
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	    std::shared_ptr<std::function<void()>>reAccept, std::shared_ptr<LOGPOOL> logPool, std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const unsigned int timeOut,
+		const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 		int beginSize = 200);
 
 	void getNextBuffer(std::shared_ptr<HTTPSERVICE> &outBuffer);
@@ -34,6 +34,8 @@ struct FixedHTTPSERVICEPOOL
 
 
 private:
+	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>  m_cleanFun{};
+
 	std::shared_ptr<io_context> m_ioc{};
 
 	SpinLock m_listMutex;

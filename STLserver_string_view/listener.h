@@ -39,8 +39,6 @@ private:
 	int m_sendSize{};
 
 	int m_size{};
-
-	int temp{};
 	
 
 	std::atomic<bool> m_startAccept{ true };
@@ -53,7 +51,7 @@ private:
 
 	std::unique_ptr<FIXEDTEMPLATESAFELIST<std::shared_ptr<HTTPSERVICE>>> m_httpServiceList{};
 
-	std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>)>>m_clearFunction{};
+	std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>  m_clearFunction{};
 
 	std::shared_ptr<std::function<void()>>m_startFunction{};
 
@@ -99,7 +97,7 @@ private:
 
 	void handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp,const boost::system::error_code &err);
 
-	void getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> tempHs);
+	void getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs);
 
 	void restartAccept();
 
