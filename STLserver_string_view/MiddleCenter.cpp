@@ -55,10 +55,11 @@ void MiddleCenter::setLog(const char * logFileName, std::shared_ptr<IOcontextPoo
 
 
 
+
 void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress,
 	const std::string &doc_root,
 	std::vector<std::string>&& fileVec, 
-	const int socketNum, const int timeOut)
+	const int socketNum, const int timeOut, const bool isHttp , const char* cert , const char* privateKey )
 {
 	//std::lock_guard<std::mutex>l1{ m_mutex };
 	m_mutex.lock();
@@ -75,6 +76,17 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 			throw std::runtime_error("doc_root is invaild");
 		if(!fs::exists(doc_root))
 			throw std::runtime_error("doc_root is invaild path");
+
+		//https情况
+		if (!isHttp)
+		{
+			if (!cert || !fs::exists(cert))
+				throw std::runtime_error("cert is invaild path");
+			if (!privateKey || !fs::exists(privateKey))
+				throw std::runtime_error("privateKey is invaild path");
+		}
+
+
 		m_fileVec = fileVec;
 		m_fileMap.reset(new std::unordered_map<std::string_view, std::string>{});
 		if (!m_fileVec.empty())
@@ -137,7 +149,7 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 				m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
 				m_multiSqlWriteSWPoolMaster,tcpAddress, doc_root, m_logPool,
 				m_fileMap,
-				socketNum, timeOut, m_checkSecond, m_timeWheel
+				socketNum, timeOut, m_checkSecond, m_timeWheel, isHttp, cert, privateKey
 				));
 			m_hasSetListener = true;
 		}

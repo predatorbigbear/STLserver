@@ -11,6 +11,9 @@
 #include "multiSqlWriteSWPool.h"
 #include "STLTimeWheel.h"
 
+
+#include <boost/asio/ssl.hpp>
+
 #include<atomic>
 
 // 
@@ -23,7 +26,8 @@ struct listener
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 		const std::string &tcpAddress, const std::string &doc_root , std::shared_ptr<LOGPOOL> logPool ,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel
+		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
+		const bool isHttp = true, const char* cert = nullptr, const char* privateKey = nullptr
 		);
 
 
@@ -40,6 +44,10 @@ private:
 
 	int m_size{};
 	
+	//是否为http  true为http  false为https
+	const bool m_isHttp{};
+
+	std::unique_ptr<boost::asio::ssl::context>m_sslSontext{};
 
 	std::atomic<bool> m_startAccept{ true };
 	

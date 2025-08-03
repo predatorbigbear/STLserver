@@ -7,13 +7,14 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	const std::string &tcpAddress, const std::string &doc_root, std::shared_ptr<LOGPOOL> logPool,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel
+	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
+	const bool isHttp , const char* cert , const char* privateKey 
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
 	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileMap(fileMap),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
-	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
+	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_isHttp(isHttp)
 {
 	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 && checkSecond && m_timeWheel
 		&& m_multiSqlReadSWPoolMaster 
@@ -22,6 +23,18 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 	{
 		m_logPool = logPool;
 		m_log = m_logPool->getLogNext();
+
+		//https情况
+		if (!isHttp)
+		{
+			m_sslSontext.reset(new boost::asio::ssl::context(boost::asio::ssl::context::sslv23));
+			m_sslSontext->set_options(
+				boost::asio::ssl::context::default_workarounds
+				| boost::asio::ssl::context::no_sslv2
+				| boost::asio::ssl::context::single_dh_use);
+			m_sslSontext->use_certificate_chain_file(cert);
+			m_sslSontext->use_private_key_file(privateKey, boost::asio::ssl::context::pem);
+		}
 
 		m_startFunction.reset(new std::function<void()>(std::bind(&listener::reAccept, this)));
 		m_clearFunction.reset(new std::function<void(std::shared_ptr<HTTPSERVICE>&)>(std::bind(&listener::getBackHTTPSERVICE, this, std::placeholders::_1)));

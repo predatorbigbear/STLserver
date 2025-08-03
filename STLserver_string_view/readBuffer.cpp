@@ -43,6 +43,11 @@ std::shared_ptr<boost::asio::ip::tcp::socket>& ReadBuffer::getSock()
 	return m_sock;
 }
 
+std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>& ReadBuffer::getSSLSock()
+{
+	return m_sslSock;
+}
+
 boost::system::error_code & ReadBuffer::getErrCode()
 {
 	// TODO: 在此处插入 return 语句

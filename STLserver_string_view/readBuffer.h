@@ -3,12 +3,13 @@
 
 
 #include <boost/asio.hpp>
-
+#include <boost/asio/ssl.hpp>
 
 
 #include "MyReqView.h"
 #include<memory>
 #include<iostream>
+
 
 
 struct ReadBuffer
@@ -23,6 +24,8 @@ struct ReadBuffer
 	MYREQVIEW& getView();
 
 	std::shared_ptr<boost::asio::ip::tcp::socket>& getSock();
+
+	std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>& getSSLSock();
 
 	boost::system::error_code& getErrCode();
 
@@ -43,6 +46,7 @@ struct ReadBuffer
 	std::string_view fileName();
 
 private:
+	std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> m_sslSock{};
 	std::shared_ptr<boost::asio::ip::tcp::socket> m_sock{};
 	std::unique_ptr<char[]> m_readBuffer{};
 	size_t m_bodyLen{};

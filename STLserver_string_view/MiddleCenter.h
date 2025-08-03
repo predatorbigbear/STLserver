@@ -27,9 +27,18 @@ struct MiddleCenter
 	// 默认网页文件目录
 	// http处理池内元素个数
 	// 超时时间
+
+	//isHttp默认为true，表示http   false表示https
+	//cert为证书文件
+	//privateKey为私钥文件
 	void setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress, const std::string &doc_root ,
 		std::vector<std::string> &&fileVec,
-		const int socketNum , const int timeOut);
+		const int socketNum , const int timeOut,const bool isHttp = true, const char *cert = nullptr, const char *privateKey = nullptr);
+
+
+
+
+
 
 	// 是否是主redis，
 	// 连接redis的连接数
