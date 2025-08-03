@@ -15,6 +15,7 @@
 #include "multiSQLWriteSW.h"
 #include "STLTimeWheel.h"
 #include "httpResult.h"
+#include "commonStruct.h"
 
 
 #include<ctype.h>

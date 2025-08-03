@@ -19,6 +19,7 @@
 #include<exception>
 #include<atomic>
 #include<memory>
+#include "commonStruct.h"
 
 
 //查找多个时的返回结果
@@ -68,7 +69,8 @@ struct MULTISQLREADSW
 
 
 	//默认开启释放MYSQL_RES操作，需要多次查询mysql时可以置为false，复用结果
-	bool insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlRequest, const bool freeRes = true);
+	template<typename T= SQLFREE>
+	bool insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlRequest);
 
 
 	//用来释放MYSQL_RES*
@@ -268,3 +270,128 @@ private:
 	//处理sql执行过程中插入错误问题
 	void handleSqlMemoryError();
 };
+
+
+//默认开启释放MYSQL_RES操作，需要多次查询mysql时将模板参数类型设置为类型即可，复用结果
+template<typename T>
+inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlRequest)
+{
+	if (!sqlRequest)
+		return false;
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+
+	if (std::get<0>(thisRequest).get().empty() || std::get<6>(thisRequest).get().empty() ||
+		std::accumulate(std::get<6>(thisRequest).get().cbegin(), std::get<6>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size() ||
+		std::any_of(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), [](auto const sw)
+	{
+		return sw.empty() || std::find(sw.cbegin(), sw.cend(), ';') != sw.cend();
+	}) || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize)
+		return false;
+
+
+	if constexpr (std::is_same_v<T, SQLFREE>)
+	{
+		std::vector<MYSQL_RES*>& vec{ std::get<2>(thisRequest).get() };
+
+		if (!vec.empty())
+		{
+			for (auto res : vec)
+			{
+				mysql_free_result(res);
+			}
+			vec.clear();
+		}
+	}
+
+
+	if (!m_hasConnect.load())
+	{
+		return false;
+	}
+	if (!m_queryStatus.load())
+	{
+		m_queryStatus.store(true);
+
+		m_sendLen = std::accumulate(std::get<0>(*sqlRequest).get().cbegin(), std::get<0>(*sqlRequest).get().cend(), 0, [](auto& sum, auto const sw)
+		{
+			return sum += sw.size();
+		});
+
+		try
+		{
+			if (m_messageBufferMaxSize < m_sendLen)
+			{
+				m_messageBuffer.reset(new char[m_sendLen]);
+				m_messageBufferMaxSize = m_sendLen;
+			}
+		}
+		catch (const std::bad_alloc& e)
+		{
+			m_queryStatus.store(false);
+			return false;
+		}
+
+
+		char* buffer{ m_messageBuffer.get() };
+		int index{ 0 };
+		std::vector<unsigned int>::const_iterator sqlNumIter{ std::get<6>(thisRequest).get().cbegin() };
+		m_posbegin = m_posBuffer.get();
+		*m_posbegin++ = buffer;
+		for (auto sw : std::get<0>(thisRequest).get())
+		{
+			std::copy(sw.cbegin(), sw.cend(), buffer);
+			buffer += sw.size();
+			if (++index == *sqlNumIter)
+			{
+				index = 0;
+				++sqlNumIter;
+				*buffer++ = ';';
+				*m_posbegin++ = buffer;
+			}
+		}
+
+		m_messageBufferNowSize = m_sendLen;
+		m_waitMessageListNowSize = 1;
+		*(m_waitMessageList.get()) = sqlRequest;
+		m_commandNowSize = std::get<1>(thisRequest);
+		m_sendMessage = m_messageBuffer.get();
+		m_posbegin = m_posBuffer.get();
+
+		readyQuery();
+
+		//进入处理函数
+		firstQuery();
+
+		return true;
+	}
+	else
+	{
+		//如果正在执行状态
+		//则尝试插入待插入队列之中
+
+		if (!m_messageList.try_enqueue(std::shared_ptr<resultTypeSW>(sqlRequest)))
+			return false;
+
+		return true;
+	}
+
+
+	////////////////////////////////////////////////////////////////////////////////////////////
+
+	//首先判断是否已经连接，
+	//未连接直接判断失败，因为未连接下目前会进行清空操作
+	//
+	//判断执行状态，
+	//如果没有执行，则尝试将该次请求拼凑起来，默认调用者中间带有;。已经处理好
+	//如果在执行，则直接插入等待插入队列之中
+
+	//如果没有在执行状态
+	//首先统计所需要的字符串总长度，如果不够，进行分配，生成本次请求的字符串
+	//然后将本次的请求尝试插入待获取结果队列里面
+
+	//如果正在执行状态
+	//则尝试插入待插入队列之中
+}
+

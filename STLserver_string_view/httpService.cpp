@@ -770,7 +770,7 @@ void HTTPSERVICE::testmultiSqlReadParseBosySW()
 
 	//command是每次进行的命令必须进行清除的，多条命令中间需要加;分隔开  
 	// rowField和result在多次查询时可以复用不清空
-	//另外需要多次查询时可以将insertSqlRequest第二个参数置为false，以保存之前的MYSQL_RES不被释放，这样就可以继续进行零拷贝处理
+	//另外需要多次查询时可以将insertSqlRequest传入模板类型置为非SQLFREE类型，以保存之前的MYSQL_RES不被释放，这样就可以继续进行零拷贝处理
 	command.clear();
 	rowField.clear();
 	result.clear();
