@@ -6,3 +6,15 @@ struct SQLFREE
 {
 
 };
+
+
+struct HTTPSERVER
+{
+
+};
+
+
+struct HTTPSSERVER
+{
+
+};

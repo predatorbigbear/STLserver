@@ -4,19 +4,19 @@
 
 
 
-HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string &doc_root,
+HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
 	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const unsigned int timeOut, bool & success, const unsigned int serviceNum,
-	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> & cleanFun,
+	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
+	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 	const unsigned int bufNum
-	)
+)
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
-	m_multiSqlReadSWMaster(multiSqlReadSWMaster),m_fileMap(fileMap), m_clearFunction(cleanFun),
-	m_multiRedisReadMaster(multiRedisReadMaster),m_multiRedisWriteMaster(multiRedisWriteMaster),m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
+	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileMap(fileMap), m_clearFunction(cleanFun),
+	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
 {
 	try
@@ -25,7 +25,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 			throw std::runtime_error("io_context is nullptr");
 		if (!log)
 			throw std::runtime_error("log is nullptr");
-		if(!timeOut)
+		if (!timeOut)
 			throw std::runtime_error("timeOut is invaild");
 		if (!multiSqlReadSWMaster)
 			throw std::runtime_error("multiSqlReadSWMaster is nullptr");
@@ -37,16 +37,16 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 			throw std::runtime_error("multiSqlWriteSWMaster is nullptr");
 		if (m_doc_root.empty())
 			throw std::runtime_error("doc_root is empty");
-		if(!m_timeWheel)
+		if (!m_timeWheel)
 			throw std::runtime_error("timeWheel is nullptr");
-		if(!bufNum)
+		if (!bufNum)
 			throw std::runtime_error("bufNum is 0");
-		if(!serviceNum)
+		if (!serviceNum)
 			throw std::runtime_error("serviceNum is 0");
 
 		m_buffer.reset(new ReadBuffer(m_ioc, bufNum));
 
-		m_verifyData.reset(new const char*[VerifyDataPos::maxBufferSize]);
+		m_verifyData.reset(new const char* [VerifyDataPos::maxBufferSize]);
 
 		m_SessionID.reset(new char[128]);
 
@@ -60,7 +60,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 		success = true;
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		success = false;
 		cout << e.what() << "  ,please restart server\n";
@@ -70,7 +70,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 
 
-void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE> &other)
+void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE>& other)
 {
 	//m_buffer->getSock()->set_option(boost::asio::ip::tcp::no_delay(true), m_err);
 	m_mySelf = other;
@@ -84,7 +84,7 @@ void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE> &other)
 
 
 
-std::shared_ptr<HTTPSERVICE> *HTTPSERVICE::getListIter()
+std::shared_ptr<HTTPSERVICE>* HTTPSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
 	return mySelfIter.load();
@@ -128,7 +128,7 @@ void HTTPSERVICE::run()
 
 void HTTPSERVICE::checkMethod()
 {
-	ReadBuffer &refBuffer{ *m_buffer };
+	ReadBuffer& refBuffer{ *m_buffer };
 	switch (refBuffer.getView().method())
 	{
 	case METHOD::POST:
@@ -161,7 +161,7 @@ void HTTPSERVICE::checkMethod()
 
 void HTTPSERVICE::switchPOSTInterface()
 {
-	ReadBuffer &refBuffer{ *m_buffer };
+	ReadBuffer& refBuffer{ *m_buffer };
 	int index{ -1 }, num{ 1 };
 
 	switch (std::accumulate(std::make_reverse_iterator(refBuffer.getView().target().cend()), std::make_reverse_iterator(refBuffer.getView().target().cbegin() + 1), 0, [&index, &num](auto& sum, auto const ch)
@@ -288,7 +288,7 @@ void HTTPSERVICE::testBody()
 	const char** BodyBuffer{ m_buffer->bodyPara() };
 
 	std::string_view testView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
-	std::string_view parameterView{ *(BodyBuffer+2),*(BodyBuffer + 3) - *(BodyBuffer+2) };
+	std::string_view parameterView{ *(BodyBuffer + 2),*(BodyBuffer + 3) - *(BodyBuffer + 2) };
 	std::string_view numberView{ *(BodyBuffer + 4),*(BodyBuffer + 5) - *(BodyBuffer + 4) };
 
 	static const std::string_view test{ "test" }, parameter{ "parameter" }, number{ "number" };
@@ -314,7 +314,7 @@ void HTTPSERVICE::testBody()
 
 	//启用json转码处理
 	makeSendJson<TRANSFORMTYPE>(st1);
-	
+
 }
 
 
@@ -358,7 +358,7 @@ void HTTPSERVICE::testRandomBody()
 
 		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(para.cbegin(), m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
 		{
-			const char **para{ m_buffer->bodyPara() };
+			const char** para{ m_buffer->bodyPara() };
 			std::string_view testStr{}, parameterStr{}, numberStr{};
 			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test))
 			{
@@ -389,7 +389,7 @@ void HTTPSERVICE::testRandomBody()
 
 
 
-	else if(!m_httpresult.isBodyEmpty())
+	else if (!m_httpresult.isBodyEmpty())
 	{
 		std::string_view bodyView{ m_httpresult.getBody() };
 		if (!UrlDecodeWithTransChinese(bodyView.cbegin(), bodyView.size(), m_len))
@@ -399,23 +399,23 @@ void HTTPSERVICE::testRandomBody()
 
 		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(bodyView.cbegin(), m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
 		{
-			const char **para{ m_buffer->bodyPara() };
+			const char** para{ m_buffer->bodyPara() };
 			std::string_view testStr{}, parameterStr{}, numberStr{};
 			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test))
 			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test), 
+				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test),
 					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::test + 1)));
 				testStr.swap(sw);
 			}
 			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter))
 			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter), 
+				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter),
 					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter + 1)));
 				parameterStr.swap(sw);
 			}
 			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number))
 			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number), 
+				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number),
 					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::number + 1)));
 				numberStr.swap(sw);
 			}
@@ -476,9 +476,9 @@ void HTTPSERVICE::testPingPong()
 	}
 	else
 	{
-		STLtreeFast &st1{ m_STLtreeFastVec[0] };
+		STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
-		char *sendBuffer{};
+		char* sendBuffer{};
 		unsigned int sendLen{};
 
 		if (st1.make_pingPongResppnse(sendBuffer, sendLen, nullptr, 0,
@@ -487,15 +487,15 @@ void HTTPSERVICE::testPingPong()
 			bodyView.cbegin(), bodyView.cend(),
 			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
 			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen,
-			MAKEJSON::Connection, MAKEJSON::Connection+ MAKEJSON::ConnectionLen,
-			keep_alive? MAKEJSON::keepAlive: MAKEJSON::httpClose, keep_alive ? MAKEJSON::keepAlive+ MAKEJSON::keepAliveLen: MAKEJSON::httpClose+ MAKEJSON::httpCloseLen
-			))
+			MAKEJSON::Connection, MAKEJSON::Connection + MAKEJSON::ConnectionLen,
+			keep_alive ? MAKEJSON::keepAlive : MAKEJSON::httpClose, keep_alive ? MAKEJSON::keepAlive + MAKEJSON::keepAliveLen : MAKEJSON::httpClose + MAKEJSON::httpCloseLen
+		))
 		{
 			startWrite(sendBuffer, sendLen);
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);	
+			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 		}
 	}
 }
@@ -511,8 +511,8 @@ void HTTPSERVICE::testPingPongJson()
 		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
 		return;
 	}
-	
-	STLtreeFast &st1{ m_STLtreeFastVec[0] };
+
+	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
 	// 使用前先clear
 	if (!st1.clear())
@@ -543,20 +543,20 @@ void HTTPSERVICE::testPingPongJson()
 void HTTPSERVICE::testmultiSqlReadSW()
 {
 
-	std::shared_ptr<resultTypeSW> &sqlRequest{ m_multiSqlRequestSWVec[0] };
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
 
 	resultTypeSW& thisRequest{ *sqlRequest };
 
-	std::vector<std::string_view> &command{ std::get<0>(thisRequest).get() };
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
 
-	std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
 
-	std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
 	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
 
-	
-	command.clear(); 
+
+	command.clear();
 	rowField.clear();
 	result.clear();
 	sqlNum.clear();
@@ -567,18 +567,18 @@ void HTTPSERVICE::testmultiSqlReadSW()
 		command.emplace_back(std::string_view(SQLCOMMAND::testSqlReadMemory, SQLCOMMAND::testSqlReadMemoryLen));
 
 		//
-		std::get<1>(thisRequest) = 1;     
+		std::get<1>(thisRequest) = 1;
 		sqlNum.emplace_back(1);
 		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
-	
+
 }
 
 
@@ -589,13 +589,13 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 	if (result)
 	{
 
-		std::shared_ptr<resultTypeSW> &sqlRequest{ m_multiSqlRequestSWVec[0] };
+		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
 
 		resultTypeSW& thisRequest{ *sqlRequest };
 
-		std::vector<unsigned int> &rowField{ std::get<3>(thisRequest).get() };
+		std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
 
-		std::vector<std::string_view> &result{ std::get<4>(thisRequest).get() };
+		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
 		std::vector<unsigned int>::const_iterator rowFieldIter;
 		int sum{};
@@ -621,15 +621,15 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 		else
 		{
 			//比对rowField的每两项数据的总乘积是否等于result的个数
-			for (rowFieldIter = rowField.cbegin(); rowFieldIter != rowField.cend(); rowFieldIter+=2)
+			for (rowFieldIter = rowField.cbegin(); rowFieldIter != rowField.cend(); rowFieldIter += 2)
 			{
 				sum += (*rowFieldIter) * (*(rowFieldIter + 1));
 			}
-			
+
 			//结果数量不匹配，自己处理
 			if (sum != result.size())
 			{
-			
+
 				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
@@ -657,7 +657,7 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 
 				if (!st4.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-		
+
 
 				do
 				{
@@ -711,19 +711,19 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 					begin += 2;
-					
+
 				} while (begin != end);
 
 				if (!st1.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st4))
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 				makeSendJson(st1);
-			
+
 
 			}
-			
+
 		}
-		
+
 	}
 	else
 	{
@@ -749,7 +749,7 @@ void HTTPSERVICE::testmultiSqlReadParseBosySW()
 	std::string_view nameView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) }, ageView{ *(BodyBuffer + 2),*(BodyBuffer + 3) - *(BodyBuffer + 2) };
 
 	//可以在这里对数据做一些校验，校验通过后插入sql查询语句
-	
+
 	//可以直接在这里构建静态string_view语句，不用再翻文件找了
 	static const std::string_view query1{ "select name,age,book from table1 where name='" };
 	static const std::string_view query2{ "' or age=" };
@@ -816,7 +816,7 @@ void HTTPSERVICE::testmultiSqlReadUpdateSW()
 
 	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
-	std::vector<unsigned int>& sqlNum { std::get<6>(thisRequest).get() };
+	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
 
 	command.clear();
 	rowField.clear();
@@ -892,7 +892,7 @@ void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
 		else if (!(rowField.size() % 2))
 		{
 			//执行结束，自己根据result中的字符串提示进行相关后续处理
-			
+
 			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 		}
 		else
@@ -919,19 +919,19 @@ void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
 void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 {
 
-	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
 
-	std::vector<std::string_view> &command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int> &commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view> &resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int> &resultNumVec{ std::get<5>(thisRequest).get() };
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
 
 
 	command.clear();            //插入命令string_view                   
 	commandSize.clear();        //插入每条命令的string_view个数，redis客户端会在生成发送给redis-server的命令时才进行数据的copy，减少性能开销
 	resultVec.clear();          //返回string_view结果的vector集，如果处理结果在一次调用之后就能完成，则可以直接使用该string_view
-	                            //否则应该调用内存池申请内存块保存string_view的结果
+	//否则应该调用内存池申请内存块保存string_view的结果
 	resultNumVec.clear();       //返回每条命令的string_view个数的vector集
 	try
 	{
@@ -975,7 +975,7 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
@@ -988,13 +988,13 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
 {
 
-	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 
 	redisResultTypeSW& thisRequest{ *redisRequest };
-	std::vector<std::string_view> &resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int> &resultNumVec{ std::get<5>(thisRequest).get() };
-	
-	
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
 	if (result)
 	{
 		if (!resultVec.empty())
@@ -1024,7 +1024,7 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 	{
 		if (em == ERRORMESSAGE::REDIS_ERROR)
 		{
-			STLtreeFast &st1{ m_STLtreeFastVec[0] };
+			STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
 			if (!resultVec.empty())
 			{
@@ -1033,7 +1033,7 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 				if (!st1.clear())
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-				if(!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
 					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 				makeSendJson(st1);
@@ -1066,7 +1066,7 @@ void HTTPSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
 
 	std::string_view keyView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
 
-	if(keyView.empty())
+	if (keyView.empty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
@@ -1107,13 +1107,13 @@ void HTTPSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
 
 void HTTPSERVICE::testMultiRedisReadINTERGER()
 {
-	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
 
-	std::vector<std::string_view> &command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int> &commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view> &resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int> &resultNumVec{ std::get<5>(thisRequest).get() };
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
 
 
 	command.clear();
@@ -1133,7 +1133,7 @@ void HTTPSERVICE::testMultiRedisReadINTERGER()
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
@@ -1143,9 +1143,9 @@ void HTTPSERVICE::testMultiRedisReadINTERGER()
 
 void HTTPSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
 {
-	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
-	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
-	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::vector<std::string_view>& resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(*redisRequest).get() };
 
 
 	if (result)
@@ -1179,7 +1179,7 @@ void HTTPSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
 	{
 		if (em == ERRORMESSAGE::REDIS_ERROR)
 		{
-			STLtreeFast &st1{ m_STLtreeFastVec[0] };
+			STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
 			if (!resultVec.empty())
 			{
@@ -1206,13 +1206,13 @@ void HTTPSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
 //测试redis返回ARRAY结果集的接口
 void HTTPSERVICE::testMultiRedisReadARRAY()
 {
-	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
 
-	std::vector<std::string_view> &command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int> &commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view> &resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int> &resultNumVec{ std::get<5>(thisRequest).get() };
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
 
 
 	command.clear();
@@ -1235,7 +1235,7 @@ void HTTPSERVICE::testMultiRedisReadARRAY()
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 	}
@@ -1245,9 +1245,9 @@ void HTTPSERVICE::testMultiRedisReadARRAY()
 
 void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 {
-	std::shared_ptr<redisResultTypeSW> &redisRequest{ m_multiRedisRequestSWVec[0] };
-	std::vector<std::string_view> &resultVec{ std::get<4>(*redisRequest).get() };
-	std::vector<unsigned int> &resultNumVec{ std::get<5>(*redisRequest).get() };
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+	std::vector<std::string_view>& resultVec{ std::get<4>(*redisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(*redisRequest).get() };
 
 
 	if (result)
@@ -1273,7 +1273,7 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 			if (!st2.push_back(st1))
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-			
+
 			if (!st1.clear())
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
@@ -1309,7 +1309,7 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 
 			if (!st1.put_child(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, st2))
 				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			
+
 
 			makeSendJson(st1);
 		}
@@ -1322,7 +1322,7 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 	{
 		if (em == ERRORMESSAGE::REDIS_ERROR)
 		{
-			STLtreeFast &st1{ m_STLtreeFastVec[0] };
+			STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
 			if (!resultVec.empty())
 			{
@@ -1468,7 +1468,7 @@ void HTTPSERVICE::testBusiness()
 void HTTPSERVICE::readyParseMultiPartFormData()
 {
 	m_boundaryLen = boundaryEnd - boundaryBegin + 4;
-	char *buffer{ m_MemoryPool.getMemory<char*>(m_boundaryLen) }, *iter{};
+	char* buffer{ m_MemoryPool.getMemory<char*>(m_boundaryLen) }, * iter{};
 
 	if (!buffer)
 		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
@@ -1495,7 +1495,7 @@ void HTTPSERVICE::readyParseMultiPartFormData()
 
 void HTTPSERVICE::testMultiPartFormData()
 {
-	STLtreeFast &st1{ m_STLtreeFastVec[0] };
+	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
 	if (!st1.clear())
 		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
@@ -1510,7 +1510,7 @@ void HTTPSERVICE::testMultiPartFormData()
 
 void HTTPSERVICE::testSuccessUpload()
 {
-	STLtreeFast &st1{ m_STLtreeFastVec[0] };
+	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
 	if (!st1.clear())
 		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
@@ -1539,18 +1539,18 @@ void HTTPSERVICE::readyParseChunkData()
 //测试json生成函数
 void HTTPSERVICE::testMakeJson()
 {
-	if(m_httpresult.isBodyEmpty())
+	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 	std::string_view bodyView{ m_httpresult.getBody() };
 	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	const char **BodyBuffer{ m_buffer->bodyPara() };
+	const char** BodyBuffer{ m_buffer->bodyPara() };
 
 	std::string_view jsonTypeView{ *(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType),*(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType) };
 
-	STLtreeFast &st1{ m_STLtreeFastVec[0] }, &st2{ m_STLtreeFastVec[1] };
+	STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] };
 
 	st1.reset();
 	st2.reset();
@@ -1561,14 +1561,14 @@ void HTTPSERVICE::testMakeJson()
 	if (!st2.clear())
 		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
-	static const char *key1Str{ "key1" }, *value1Str{ "value1" }, *key2Str{ "key2" }, *value2Str{ "value2" }, *value3Str{ "value3" }, *key3Str{ "key3" }, *nullStr{ "null" };
+	static const char* key1Str{ "key1" }, * value1Str{ "value1" }, * key2Str{ "key2" }, * value2Str{ "value2" }, * value3Str{ "value3" }, * key3Str{ "key3" }, * nullStr{ "null" };
 
 	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
 		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
 
-	bool success{ false }, innerSuccess{false};
+	bool success{ false }, innerSuccess{ false };
 
-	char *newbuffer{};
+	char* newbuffer{};
 
 	int needLen{};
 
@@ -1641,7 +1641,7 @@ void HTTPSERVICE::testMakeJson()
 			}
 			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
 			{
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str+ value1StrLen))
+				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
 					break;
 				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
 					break;
@@ -1741,14 +1741,14 @@ void HTTPSERVICE::testCompareWorkFlow()
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	ReadBuffer &refBuffer{ *m_buffer };
+	ReadBuffer& refBuffer{ *m_buffer };
 
 	std::string_view bodyView{ m_httpresult.getBody() };
 	//解释获取body中的参数stringlen  必须存在此项参数
 	if (!praseBody(bodyView.cbegin(), bodyView.size(), refBuffer.bodyPara(), STATICSTRING::stringlen, STATICSTRING::stringlenLen))
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
-	const char **BodyBuffer{ refBuffer.bodyPara() };
+	const char** BodyBuffer{ refBuffer.bodyPara() };
 
 	std::string_view numberView{ *(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen),*(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen) };
 
@@ -1760,18 +1760,18 @@ void HTTPSERVICE::testCompareWorkFlow()
 			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
 
 		int index{ -1 }, num{ 1 };
-		number = std::accumulate(std::make_reverse_iterator(numberView.cend()), std::make_reverse_iterator(numberView.cbegin()), 0, [&index, &num](auto &sum, const char ch)
+		number = std::accumulate(std::make_reverse_iterator(numberView.cend()), std::make_reverse_iterator(numberView.cbegin()), 0, [&index, &num](auto& sum, const char ch)
 		{
 			if (++index)num *= 10;
-			return sum += (ch - '0')*num;
+			return sum += (ch - '0') * num;
 		});
 	}
 
 	static unsigned int dateLen{ 29 };
-	char *sendBuffer{};
+	char* sendBuffer{};
 	unsigned int sendLen{};
 
-	static std::function<void(char*&)>compareFun{ [this](char *&bufferBegin)
+	static std::function<void(char*&)>compareFun{ [this](char*& bufferBegin)
 	{
 		if (!bufferBegin)
 			return;
@@ -1842,10 +1842,10 @@ void HTTPSERVICE::testCompareWorkFlow()
 	if (make_compareWithWorkFlowResPonse<CUSTOMTAG>(sendBuffer, sendLen, compareFun, STATICSTRING::DateLen + 1 + dateLen, finalVersionBegin, finalVersionEnd, MAKEJSON::http200,
 		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
 		number,
-		MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, STATICSTRING::textplainUtf8, STATICSTRING::textplainUtf8+ STATICSTRING::textplainUtf8Len,
+		MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, STATICSTRING::textplainUtf8, STATICSTRING::textplainUtf8 + STATICSTRING::textplainUtf8Len,
 		MAKEJSON::Connection, MAKEJSON::Connection + MAKEJSON::ConnectionLen, STATICSTRING::Keep_Alive, STATICSTRING::Keep_Alive + STATICSTRING::Keep_AliveLen))
 	{
-		 startWrite(sendBuffer, sendLen);
+		startWrite(sendBuffer, sendLen);
 	}
 	else
 	{
@@ -2121,19 +2121,19 @@ void HTTPSERVICE::cleanData()
 {
 	if (m_availableLen)
 	{
-		m_buffer->getSock()->async_read_some(boost::asio::buffer(m_readBuffer, m_availableLen >= m_maxReadLen ? m_maxReadLen: m_availableLen), [this](const boost::system::error_code &err, std::size_t size)
+		m_buffer->getSock()->async_read_some(boost::asio::buffer(m_readBuffer, m_availableLen >= m_maxReadLen ? m_maxReadLen : m_availableLen), [this](const boost::system::error_code& err, std::size_t size)
 		{
 			if (err)
 			{
 				//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 				if (err != boost::asio::error::operation_aborted)
 				{
-					
+
 				}
 			}
 			else
 			{
-				m_availableLen -= size;
+				m_availableLen = m_buffer->getSock()->available();
 				cleanData();
 			}
 		});
@@ -2152,7 +2152,7 @@ void HTTPSERVICE::cleanData()
 
 void HTTPSERVICE::prepare()
 {
-	m_httpHeaderMap.reset(new const char*[HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN]);
+	m_httpHeaderMap.reset(new const char* [HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN]);
 	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
 
 	/*
@@ -2257,15 +2257,15 @@ void HTTPSERVICE::prepare()
 	{
 		m_STLtreeFastVec.emplace_back(STLtreeFast(&m_MemoryPool));
 	}
-	
 
-	
+
+
 
 	i = -1, j = -1, z = -1;
 	while (++i != 3)
 	{
 		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));
-		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr,false, &m_MemoryPool));
+		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, false, &m_MemoryPool));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
@@ -2287,7 +2287,7 @@ void HTTPSERVICE::startRead()
 				if (err != boost::asio::error::operation_aborted)
 				{
 					//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
-					
+
 				}
 			}
 			else
@@ -2313,9 +2313,9 @@ void HTTPSERVICE::startRead()
 
 //发生异常时还原置位，开启新的监听
 //m_startPos 集中在外层设置，表示下次的起始读取位置
-void HTTPSERVICE::parseReadData(const char *source, const int size)
+void HTTPSERVICE::parseReadData(const char* source, const int size)
 {
-	ReadBuffer &refBuffer{ *m_buffer };
+	ReadBuffer& refBuffer{ *m_buffer };
 
 	m_parseStatus = parseHttp(source, size);
 
@@ -2368,7 +2368,7 @@ void HTTPSERVICE::parseReadData(const char *source, const int size)
 			break;
 		}
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		m_parseStatus = PARSERESULT::complete;
 		m_startPos = 0;
@@ -2492,7 +2492,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 	case PARSERESULT::check_messageComplete:
 	case PARSERESULT::invaild:
 	case PARSERESULT::complete:
-		if(isHttp)
+		if (isHttp)
 			hostPort = 80;         //默认http  host端口
 		else
 			hostPort = 443;        //默认http  host端口
@@ -2831,7 +2831,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
+
 
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3090,7 +3090,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-	
+
 
 
 		refMyReView.setTarget(finalTargetBegin, finalTargetEnd - finalTargetBegin);
@@ -3233,7 +3233,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 				dataBufferVec.clear();
 			}
-			
+
 
 			m_httpresult.setpara(finalParaBegin, finalParaEnd);
 		}
@@ -3376,7 +3376,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
+
 
 		if (!std::equal(finalHttpBegin, finalHttpEnd, HTTPStr.cbegin(), HTTPStr.cend()))
 		{
@@ -3516,10 +3516,10 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
 
 
-		if(*finalVersionBegin!='1' || *(finalVersionBegin+1)!='.')
+
+		if (*finalVersionBegin != '1' || *(finalVersionBegin + 1) != '.')
 		{
 			reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "find_versionEnd !equal http11 HTTP11");
 			return PARSERESULT::invaild;
@@ -3652,7 +3652,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
+
 
 
 		len = distance(finalLineBegin, finalLineEnd);
@@ -3772,7 +3772,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
+
 
 
 		iterFindBegin = headEnd + 1;
@@ -3927,7 +3927,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
+
 
 	set_httpHeader:
 
@@ -3962,8 +3962,8 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 				}
 
 				m_httpresult.setVia(finalWordBegin, finalWordEnd);
-				
-				
+
+
 			}
 
 			break;
@@ -4002,7 +4002,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setFrom(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4021,7 +4021,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setHost(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4067,7 +4067,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setAccept(finalWordBegin, finalWordEnd);
-			
+
 
 				}
 
@@ -4086,7 +4086,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setCookie(finalWordBegin, finalWordEnd);
-		
+
 
 				}
 
@@ -4103,9 +4103,9 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 						reflog.writeLog(__FUNCTION__, __LINE__, m_message, m_parseStatus, "m_ExpectBegin is not nullptr");
 						return PARSERESULT::invaild;
 					}
-					
+
 					m_httpresult.setExpect(finalWordBegin, finalWordEnd);
-			
+
 
 				}
 
@@ -4124,7 +4124,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setPragma(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4153,7 +4153,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setReferer(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4172,7 +4172,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setUpgrade(finalWordBegin, finalWordEnd);
-			
+
 
 				}
 
@@ -4191,7 +4191,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setWarning(finalWordBegin, finalWordEnd);
-											
+
 
 				}
 
@@ -4220,7 +4220,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setIf_Match(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4266,7 +4266,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setConnection(finalWordBegin, finalWordEnd);
-		
+
 
 				}
 
@@ -4325,7 +4325,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setContent_Type(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4344,7 +4344,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setMax_Forwards(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4372,7 +4372,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setAccept_Ranges(finalWordBegin, finalWordEnd);
-						
+
 
 				}
 
@@ -4391,7 +4391,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setAuthorization(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4410,7 +4410,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setCache_Control(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4429,7 +4429,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setIf_None_Match(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4457,7 +4457,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setAccept_Charset(finalWordBegin, finalWordEnd);
-				
+
 
 				}
 
@@ -4477,7 +4477,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setContent_Length(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4524,7 +4524,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setAccept_Language(finalWordBegin, finalWordEnd);
-			
+
 
 				}
 
@@ -4617,7 +4617,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 					}
 
 					m_httpresult.setProxy_Authorization(finalWordBegin, finalWordEnd);
-					
+
 
 				}
 
@@ -4634,7 +4634,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			break;
 		}
-		
+
 
 		//////////////////////////////////////////////////////////////////
 	before_findSecondLineEnd:
@@ -4734,7 +4734,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 			dataBufferVec.clear();
 		}
-		
+
 
 		len = std::distance(finalLineBegin, finalLineEnd);
 	}
@@ -4750,7 +4750,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 
 check_len:
 	//在这里进入解析http  header字段函数
-	if(!parseHttpHeader())
+	if (!parseHttpHeader())
 		return PARSERESULT::invaild;
 
 
@@ -4794,7 +4794,7 @@ check_len:
 			}
 			else
 			{
-				
+
 				char* newReadBuffer{ m_MemoryPool.getMemory<char*>(m_bodyLen) };
 				if (!newReadBuffer)
 				{
@@ -5598,17 +5598,17 @@ bool HTTPSERVICE::parseHttpHeader()
 	static const std::string gzip{ "gzip" }, chunked{ "chunked" }, compress{ "compress" }, deflate{ "deflate" }, identity{ "identity" };
 	static const std::string keepalive{ "keep-alive" }, closeStr{ "close" };
 	static const std::string Expect100_continue{ "100-continue" };
-	static const std::string json{ "json" }, xml{ "xml" }, x_www_form_urlencoded{ "x-www-form-urlencoded" }, multipart_form_data{"form-data"};
-	
+	static const std::string json{ "json" }, xml{ "xml" }, x_www_form_urlencoded{ "x-www-form-urlencoded" }, multipart_form_data{ "form-data" };
+
 	//字段解析基本完成，比workflow还多解析了字段
 	//可以去看workflow的http_parser.c 中的__check_message_header函数比对，后面再加上Content-Type解析吧，
-	
+
 
 
 	//解析Host字段内容
 	if (m_httpresult.isHostEmpty())
 	{
-		if(isHttp11)
+		if (isHttp11)
 			return false;
 	}
 	else
@@ -5622,7 +5622,7 @@ bool HTTPSERVICE::parseHttpHeader()
 			iter1Begin = strBegin;
 			//斜杠（/）属于 URI 路径部分，‌禁止出现在 Host 值中
 			iter1End = std::find_if(iter1Begin, strEnd,
-				std::bind(std::logical_or<bool>(),std::bind(std::equal_to<>(),std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '/')));
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ':'), std::bind(std::equal_to<>(), std::placeholders::_1, '/')));
 			//判断请求的目标服务标识是否为空  比如:80  没有前面的网址信息  HTTP / 1.0：允许缺失
 			if (iter1Begin == iter1End)
 			{
@@ -5632,7 +5632,7 @@ bool HTTPSERVICE::parseHttpHeader()
 			if (iter1End != strEnd)
 			{
 				//斜杠（/）属于 URI 路径部分，‌禁止出现在 Host 值中
-				if(*iter1End =='/')
+				if (*iter1End == '/')
 					return false;
 				iter2Begin = iter1End + 1;
 				iter2End = strEnd;
@@ -5691,13 +5691,13 @@ bool HTTPSERVICE::parseHttpHeader()
 				break;
 
 			iter1End = std::find_if(iter1Begin + 1, strEnd,
-				std::bind(std::logical_or<bool>(),std::bind(std::equal_to<>(),std::placeholders::_1,' '),
+				std::bind(std::logical_or<bool>(), std::bind(std::equal_to<>(), std::placeholders::_1, ' '),
 					std::bind(std::equal_to<>(), std::placeholders::_1, ',')));
 
 			switch (std::distance(iter1Begin, iter1End))
 			{
 			case 4:
-				if(!std::equal(iter1Begin, iter1End, gzip.cbegin(), gzip.cend()))
+				if (!std::equal(iter1Begin, iter1End, gzip.cbegin(), gzip.cend()))
 					return false;
 				hasGzip = true;
 				break;
@@ -5705,12 +5705,12 @@ bool HTTPSERVICE::parseHttpHeader()
 				switch (*iter1Begin)
 				{
 				case 'c':
-					if(!std::equal(iter1Begin +1, iter1End, chunked.cbegin()+1, chunked.cend()))
+					if (!std::equal(iter1Begin + 1, iter1End, chunked.cbegin() + 1, chunked.cend()))
 						return false;
 					hasChunk = true;
 					break;
 				case 'd':
-					if(!std::equal(iter1Begin + 1, iter1End, deflate.cbegin() + 1, deflate.cend()))
+					if (!std::equal(iter1Begin + 1, iter1End, deflate.cbegin() + 1, deflate.cend()))
 						return false;
 					hasDeflate = true;
 					break;
@@ -5751,7 +5751,7 @@ bool HTTPSERVICE::parseHttpHeader()
 				++iter1End;
 				if (iter1End == strEnd)
 					break;
-				if(*iter1End !=' ')
+				if (*iter1End != ' ')
 					return false;
 				strBegin = iter1End;
 				continue;
@@ -5767,7 +5767,7 @@ bool HTTPSERVICE::parseHttpHeader()
 
 		}
 	}
-	
+
 
 	//解析Connection,目前仅处理close 和 keep-alive
 	//因为代理控制指令和非标准扩展指令都是自定义的
@@ -5806,7 +5806,7 @@ bool HTTPSERVICE::parseHttpHeader()
 
 			if (iter1End == strEnd)
 				break;
-			
+
 			iter1End = std::find_if(iter1End + 1, strEnd, std::bind(::islower, std::placeholders::_1));
 			if (iter1End == strEnd)
 				break;
@@ -5822,7 +5822,7 @@ after_parse_Connection:
 	if (!m_httpresult.isExpectEmpty())
 	{
 		std::string_view ExpectView{ m_httpresult.getExpect() };
-		if(std::equal(ExpectView.cbegin(), ExpectView.cend(), Expect100_continue.cbegin(), Expect100_continue.cend()))
+		if (std::equal(ExpectView.cbegin(), ExpectView.cend(), Expect100_continue.cbegin(), Expect100_continue.cend()))
 			expect_continue = true;
 	}
 
@@ -5875,7 +5875,7 @@ after_parse_Connection:
 					std::bind(std::equal_to<>(), std::placeholders::_1, ',')));
 
 
-		
+
 			switch (std::distance(iter1Begin, iter1End))
 			{
 			case 3:
@@ -5916,41 +5916,3 @@ after_parse_Content_Type:
 
 	return true;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

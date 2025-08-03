@@ -186,83 +186,22 @@ void listener::listenAcceptor()
 	}
 	else
 	{
-		restartAccept();
-	}
-}
-
-
-// 这里采用了对象池的操作，对象池在获取和归还对象的时候需要进行加锁操作。原本打算是对象池在对象不足的时候按需要进行分配新的对象，
-// 但是从实际开发的角度来看，虽然在内存充足的情况下，对象可以接近无限地
-//分配新的，但是应该认识到一点：带宽、数据库这些资源是有限的，用户连接多了，应该合理限制单机承载人数才可以确保用户使用体验，
-// 否则如果一个网页体验大打折扣是没有意义的。因此目前的使用方式是对象池在
-//初始化时一次性设定最大对象数量，一次性初始化好，当监听取不到新的socket资源时，就暂停监听，
-// 利用回调函数通知对象池于下次对象归还时再通知开启监听。在没有对象可取的情况下再去尝试获取是没有任何意义的，
-//因此在没有对象时，暂停监听，为归还让出锁资源，在下次归还时再重新监听。
-
-//事实上尽快获取到对象的办法还包括在对象短缺的时候发送通知给所有处理类缩短超时时间，当然这点看有没有必要做
-
-
-void listener::startAccept()
-{
-	try
-	{
-		std::shared_ptr<HTTPSERVICE> httpServiceTemp{  };
-		m_httpServicePool->getNextBuffer(httpServiceTemp);
-
-		if (httpServiceTemp && httpServiceTemp->m_buffer && httpServiceTemp->m_buffer->getSock())
+		if (m_isHttp)
 		{
-			m_acceptor->async_accept(*(httpServiceTemp->m_buffer->getSock()), [this, httpServiceTemp](const boost::system::error_code &err)
-			{
-				handleStartAccept(httpServiceTemp, err);
-			});
+			restartAccept<HTTPSERVER>();
 		}
 		else
 		{
-			m_log->writeLog(__FILE__, __LINE__, "notifySocketPool  ");
-			notifySocketPool();
+			restartAccept<HTTPSSERVER>();
 		}
-	}
-	catch (const std::exception &e)
-	{
-		//m_log->writeLog(__FILE__, __LINE__, e.what());
-		m_log->writeLog(__FILE__, __LINE__, "restartAccept  ");
-		restartAccept();
 	}
 }
 
 
 
-
-void listener::handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp, const boost::system::error_code &err)
+void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE>& tempHs)
 {
-
-	
-	if (err)
-	{
-		m_log->writeLog(__FILE__, __LINE__, err.value(), err.message());
-	}
-	else
-	{
-		if (httpServiceTemp)
-		{
-			if (m_httpServiceList->insert(httpServiceTemp))
-			{
-				httpServiceTemp->setReady(httpServiceTemp);
-			}
-			else
-			{
-				m_log->writeLog(__FILE__, __LINE__, "!httpServiceTemp");
-				m_httpServicePool->getBackElem(httpServiceTemp);
-			}
-		}
-		restartAccept();
-	}
-}
-
-
-void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs)
-{
-	if (tempHs )
+	if (tempHs)
 	{
 		m_httpServiceList->pop(tempHs->getListIter());
 		m_httpServicePool->getBackElem(tempHs);
@@ -270,14 +209,6 @@ void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs)
 }
 
 
-void listener::restartAccept()
-{
-	if (m_startAccept.load())
-	{
-		startAccept();
-	}
-
-}
 
 
 void listener::notifySocketPool()
@@ -299,7 +230,14 @@ void listener::startRun()
 void listener::reAccept()
 {
 	m_startAccept.store(true);
-	restartAccept();
+	if (m_isHttp)
+	{
+		restartAccept<HTTPSERVER>();
+	}
+	else
+	{
+		restartAccept<HTTPSSERVER>();
+	}
 }
 
 
