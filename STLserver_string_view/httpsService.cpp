@@ -2321,7 +2321,10 @@ void HTTPSSERVICE::startRead()
 			}
 			else
 			{
-				m_hasRecv.store(true);
+				if (!m_hasRecv.load())
+				{
+					m_hasRecv.store(true);
+				}
 				if (size > 0)
 				{
 					std::string_view message{ m_readBuffer + m_startPos, size };
