@@ -1,17 +1,17 @@
-﻿#include "httpService.h"
+﻿#include "httpsService.h"
 
 
 
 
 
-HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
+HTTPSSERVICE::HTTPSSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
 	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
-	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
+	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSSERVICE>&)>>& cleanFun,
 	const unsigned int bufNum
 )
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
@@ -48,7 +48,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 		m_verifyData.reset(new const char* [VerifyDataPos::maxBufferSize]);
 
-		m_business = std::bind(&HTTPSERVICE::sendOK, this);
+		m_business = std::bind(&HTTPSSERVICE::sendOK, this);
 
 		prepare();
 
@@ -64,7 +64,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 
 
-void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE>& other)
+void HTTPSSERVICE::setReady(std::shared_ptr<HTTPSSERVICE>& other)
 {
 	
 	m_mySelf = other;
@@ -78,13 +78,14 @@ void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE>& other)
 
 
 
-std::shared_ptr<HTTPSERVICE>* HTTPSERVICE::getListIter()
+std::shared_ptr<HTTPSSERVICE>* HTTPSSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
 	return mySelfIter.load();
 }
 
-void HTTPSERVICE::setListIter(std::shared_ptr<HTTPSERVICE>* iter)
+
+void HTTPSSERVICE::setListIter(std::shared_ptr<HTTPSSERVICE>* iter)
 {
 	if (iter)
 		mySelfIter.store(iter);
@@ -93,7 +94,7 @@ void HTTPSERVICE::setListIter(std::shared_ptr<HTTPSERVICE>* iter)
 
 
 
-bool HTTPSERVICE::checkTimeOut()
+bool HTTPSSERVICE::checkTimeOut()
 {
 	if (!m_hasRecv.load())
 	{
@@ -109,18 +110,18 @@ bool HTTPSERVICE::checkTimeOut()
 
 
 
-void HTTPSERVICE::run()
+void HTTPSSERVICE::run()
 {
 	m_readBuffer = m_buffer->getBuffer();
 	m_startPos = 0;
 	m_maxReadLen = m_defaultReadLen;
-	startRead();
+	handShake();
 }
 
 
 
 
-void HTTPSERVICE::checkMethod()
+void HTTPSSERVICE::checkMethod()
 {
 	ReadBuffer& refBuffer{ *m_buffer };
 	switch (refBuffer.getView().method())
@@ -153,7 +154,7 @@ void HTTPSERVICE::checkMethod()
 
 
 
-void HTTPSERVICE::switchPOSTInterface()
+void HTTPSSERVICE::switchPOSTInterface()
 {
 	ReadBuffer& refBuffer{ *m_buffer };
 	int index{ -1 }, num{ 1 };
@@ -270,7 +271,7 @@ void HTTPSERVICE::switchPOSTInterface()
 
 
 
-void HTTPSERVICE::testBody()
+void HTTPSSERVICE::testBody()
 {
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -340,7 +341,7 @@ Host: 192.168.80.128:8085\r\n\r\n
 
 
 
-void HTTPSERVICE::testRandomBody()
+void HTTPSSERVICE::testRandomBody()
 {
 	if (!m_httpresult.isparaEmpty())
 	{
@@ -434,7 +435,7 @@ void HTTPSERVICE::testRandomBody()
 //读取文件接口
 //读取存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile
 //读取不存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile1
-void HTTPSERVICE::testGet()
+void HTTPSSERVICE::testGet()
 {
 	if (m_buffer->getView().target().empty() || m_buffer->getView().target().size() < 2)
 		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
@@ -461,7 +462,7 @@ void HTTPSERVICE::testGet()
 
 
 
-void HTTPSERVICE::testPingPong()
+void HTTPSSERVICE::testPingPong()
 {
 	std::string_view bodyView{ m_httpresult.getBody() };
 	if (bodyView.empty())
@@ -496,7 +497,7 @@ void HTTPSERVICE::testPingPong()
 
 
 
-void HTTPSERVICE::testPingPongJson()
+void HTTPSSERVICE::testPingPongJson()
 {
 	std::string_view bodyView{ m_httpresult.getBody() };
 
@@ -534,7 +535,7 @@ void HTTPSERVICE::testPingPongJson()
 //testmultiSqlReadParseBosySW();
 //   联合sql string_view版本 测试update  insert  delete以及多命令执行函数
 // testmultiSqlReadUpdateSW();
-void HTTPSERVICE::testmultiSqlReadSW()
+void HTTPSSERVICE::testmultiSqlReadSW()
 {
 
 	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
@@ -563,7 +564,7 @@ void HTTPSERVICE::testmultiSqlReadSW()
 		//
 		std::get<1>(thisRequest) = 1;
 		sqlNum.emplace_back(1);
-		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<5>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
@@ -578,7 +579,7 @@ void HTTPSERVICE::testmultiSqlReadSW()
 
 
 
-void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
+void HTTPSSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 {
 	if (result)
 	{
@@ -728,7 +729,7 @@ void HTTPSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 
 
 //从body中解析参数执行sql查询的测试函数
-void HTTPSERVICE::testmultiSqlReadParseBosySW()
+void HTTPSSERVICE::testmultiSqlReadParseBosySW()
 {
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -784,7 +785,7 @@ void HTTPSERVICE::testmultiSqlReadParseBosySW()
 		//执行命令数为1
 		std::get<1>(thisRequest) = 1;
 		sqlNum.emplace_back(5);
-		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<5>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
@@ -798,7 +799,7 @@ void HTTPSERVICE::testmultiSqlReadParseBosySW()
 
 
 //处理联合sql string_view版本 测试update   insert执行，delete自己可以写一条测试，需要多条操作可以参考这里
-void HTTPSERVICE::testmultiSqlReadUpdateSW()
+void HTTPSSERVICE::testmultiSqlReadUpdateSW()
 {
 	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
 
@@ -833,7 +834,7 @@ void HTTPSERVICE::testmultiSqlReadUpdateSW()
 		std::get<1>(thisRequest) = 2;
 		sqlNum.emplace_back(1);
 		sqlNum.emplace_back(1);
-		std::get<5>(thisRequest) = std::bind(&HTTPSERVICE::handlemultiSqlReadUpdateSW, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<5>(thisRequest) = std::bind(&HTTPSSERVICE::handlemultiSqlReadUpdateSW, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
@@ -847,7 +848,7 @@ void HTTPSERVICE::testmultiSqlReadUpdateSW()
 
 
 //处理联合sql string_view版本 测试update函数的回调函数
-void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
+void HTTPSSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
 {
 	if (result)
 	{
@@ -910,7 +911,7 @@ void HTTPSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
 //测试从body中解析参数进行redis查询可以查看testMultiRedisParseBodyReadLOT_SIZE_STRING接口
 //测试从redis中读取int值可以查看testMultiRedisReadINTERGER接口
 //测试从redis中读取ARRAY结果集的可以查看testMultiRedisReadARRAY接口
-void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
+void HTTPSSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 {
 
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
@@ -950,7 +951,7 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 		//std::get<1>(thisRequest) = 3;
 		//std::get<3>(thisRequest) = 3; 
 		//此时resultVec中的结果会有3个string_view，resultNumVec会有3个1，表明每条命令的string_view个数各为1
-		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadLOT_SIZE_STRING, this, std::placeholders::_1, std::placeholders::_2);
 		//获取到结果后执行的回调函数
 
 
@@ -979,7 +980,7 @@ void HTTPSERVICE::testMultiRedisReadLOT_SIZE_STRING()
 
 
 //这里返回，另外使用一个新发送函数
-void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
+void HTTPSSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
 {
 
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
@@ -1047,7 +1048,7 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 //POST /8 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:7\r\n\r\nkey=foo
 // POST /8 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:6\r\n\r\nkey=fo
 //  联合redis string_view版本 从body中解析参数进行查询KEY测试函数
-void HTTPSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
+void HTTPSSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
 {
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -1084,7 +1085,7 @@ void HTTPSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
 
 		std::get<1>(thisRequest) = 1;
 		std::get<3>(thisRequest) = 1;
-		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadLOT_SIZE_STRING, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
@@ -1099,7 +1100,7 @@ void HTTPSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
 
 //POST /5 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:0\r\n\r\n
 
-void HTTPSERVICE::testMultiRedisReadINTERGER()
+void HTTPSSERVICE::testMultiRedisReadINTERGER()
 {
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -1122,7 +1123,7 @@ void HTTPSERVICE::testMultiRedisReadINTERGER()
 
 		std::get<1>(thisRequest) = 1;
 		std::get<3>(thisRequest) = 1;
-		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiRedisReadINTERGER, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadINTERGER, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
@@ -1135,7 +1136,7 @@ void HTTPSERVICE::testMultiRedisReadINTERGER()
 
 
 
-void HTTPSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
+void HTTPSSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
 {
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	std::vector<std::string_view>& resultVec{ std::get<4>(*redisRequest).get() };
@@ -1198,7 +1199,7 @@ void HTTPSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
 
 
 //测试redis返回ARRAY结果集的接口
-void HTTPSERVICE::testMultiRedisReadARRAY()
+void HTTPSSERVICE::testMultiRedisReadARRAY()
 {
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -1224,7 +1225,7 @@ void HTTPSERVICE::testMultiRedisReadARRAY()
 
 		std::get<1>(thisRequest) = 1;
 		std::get<3>(thisRequest) = 1;
-		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handleMultiRedisReadARRAY, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadARRAY, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
@@ -1237,7 +1238,7 @@ void HTTPSERVICE::testMultiRedisReadARRAY()
 
 
 
-void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
+void HTTPSSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 {
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	std::vector<std::string_view>& resultVec{ std::get<4>(*redisRequest).get() };
@@ -1347,7 +1348,7 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 //当不确定需要多大的空间时，可以将需要的空间值设置大一点，
 //在插入数据前保存当前指针位置，在插入完成后比对指针位置长度，然后将剩余长度内容用空格填充即可
 //提供给需要极限qps的场景下使用
-void HTTPSERVICE::testInsertHttpHeader()
+void HTTPSSERVICE::testInsertHttpHeader()
 {
 	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
@@ -1440,7 +1441,7 @@ void HTTPSERVICE::testInsertHttpHeader()
 
 
 
-void HTTPSERVICE::testFirstTime()
+void HTTPSSERVICE::testFirstTime()
 {
 	m_firstTime = std::chrono::system_clock::to_time_t(std::chrono::high_resolution_clock::now());
 
@@ -1452,14 +1453,14 @@ void HTTPSERVICE::testFirstTime()
 
 
 
-void HTTPSERVICE::testBusiness()
+void HTTPSSERVICE::testBusiness()
 {
 	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
 
-void HTTPSERVICE::readyParseMultiPartFormData()
+void HTTPSSERVICE::readyParseMultiPartFormData()
 {
 	m_boundaryLen = boundaryEnd - boundaryBegin + 4;
 	char* buffer{ m_MemoryPool.getMemory<char*>(m_boundaryLen) }, * iter{};
@@ -1487,7 +1488,7 @@ void HTTPSERVICE::readyParseMultiPartFormData()
 
 
 
-void HTTPSERVICE::testMultiPartFormData()
+void HTTPSSERVICE::testMultiPartFormData()
 {
 	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
@@ -1502,7 +1503,7 @@ void HTTPSERVICE::testMultiPartFormData()
 
 
 
-void HTTPSERVICE::testSuccessUpload()
+void HTTPSSERVICE::testSuccessUpload()
 {
 	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
@@ -1517,7 +1518,7 @@ void HTTPSERVICE::testSuccessUpload()
 
 
 
-void HTTPSERVICE::readyParseChunkData()
+void HTTPSSERVICE::readyParseChunkData()
 {
 	m_parseStatus = PARSERESULT::begin_checkChunkData;
 
@@ -1531,7 +1532,7 @@ void HTTPSERVICE::readyParseChunkData()
 //  
 
 //测试json生成函数
-void HTTPSERVICE::testMakeJson()
+void HTTPSSERVICE::testMakeJson()
 {
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -1730,7 +1731,7 @@ void HTTPSERVICE::testMakeJson()
 
 
 
-void HTTPSERVICE::testCompareWorkFlow()
+void HTTPSSERVICE::testCompareWorkFlow()
 {
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -1850,7 +1851,7 @@ void HTTPSERVICE::testCompareWorkFlow()
 
 
 
-void HTTPSERVICE::resetVerifyData()
+void HTTPSSERVICE::resetVerifyData()
 {
 	std::fill(m_verifyData.get(), m_verifyData.get() + VerifyDataPos::maxBufferSize, nullptr);
 }
@@ -1933,7 +1934,7 @@ char**+4，（char**+4+7*2）   依次类推
 */
 
 
-void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
+void HTTPSSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 {
 	switch (em)
 	{
@@ -2003,7 +2004,7 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 
 
 
-void HTTPSERVICE::clean()
+void HTTPSSERVICE::clean()
 {
 	//cout << "start clean\n";
 	if (!m_hasClean.load())
@@ -2026,56 +2027,73 @@ void HTTPSERVICE::clean()
 		}
 
 
-		ec = {};
-		m_buffer->getSock()->shutdown(boost::asio::socket_base::shutdown_both, ec);
-
-		//等待异步shutdown完成
-		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+		sslShutdownLoop();
 	}
 }
 
 
 
-void HTTPSERVICE::shutdownLoop()
+void HTTPSSERVICE::sslShutdownLoop()
+{
+	ec = {};
+	m_buffer->getSSLSock()->async_shutdown([this](const boost::system::error_code& err)
+	{
+		if (err != boost::asio::error::eof &&
+			err != boost::asio::ssl::error::stream_truncated)
+		{
+			m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+		}
+		else
+		{
+			ec = {};
+			m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+			m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+		}
+	});
+}
+
+
+
+void HTTPSSERVICE::shutdownLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
-		m_buffer->getSock()->shutdown(boost::asio::socket_base::shutdown_both, ec);
+		m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
 		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
 	}
 	else
 	{
-		m_buffer->getSock()->cancel(ec);
+		m_buffer->getSSLSock()->lowest_layer().cancel(ec);
 		//等待异步cancel完成
 		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
 	}
 }
 
 
-void HTTPSERVICE::cancelLoop()
+void HTTPSSERVICE::cancelLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
-		m_buffer->getSock()->cancel(ec);
+		m_buffer->getSSLSock()->lowest_layer().cancel(ec);
 		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
 	}
 	else
 	{
-		m_buffer->getSock()->close(ec);
+		m_buffer->getSSLSock()->lowest_layer().close(ec);
 		//等待异步cancel完成
 		m_timeWheel->insert([this]() {closeLoop(); }, 5);
 	}
 
 }
 
-void HTTPSERVICE::closeLoop()
+void HTTPSSERVICE::closeLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
-		m_buffer->getSock()->close(ec);
+		m_buffer->getSSLSock()->lowest_layer().close(ec);
 		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
 	}
 	else
@@ -2084,7 +2102,7 @@ void HTTPSERVICE::closeLoop()
 	}
 }
 
-void HTTPSERVICE::resetSocket()
+void HTTPSSERVICE::resetSocket()
 {
 	m_buffer->getSock().reset(new boost::asio::ip::tcp::socket(*m_ioc));
 	m_buffer->getSock()->set_option(boost::asio::socket_base::keep_alive(true), ec);
@@ -2093,25 +2111,25 @@ void HTTPSERVICE::resetSocket()
 }
 
 
-void HTTPSERVICE::recoverMemory()
+void HTTPSSERVICE::recoverMemory()
 {
 	m_httpresult.resetheader();
 	m_MemoryPool.prepare();
 }
 
 
-void HTTPSERVICE::sendOK()
+void HTTPSSERVICE::sendOK()
 {
 	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
 
-void HTTPSERVICE::cleanData()
+void HTTPSSERVICE::cleanData()
 {
 	if (m_availableLen)
 	{
-		m_buffer->getSock()->async_read_some(boost::asio::buffer(m_readBuffer, m_availableLen >= m_maxReadLen ? m_maxReadLen : m_availableLen), [this](const boost::system::error_code& err, std::size_t size)
+		m_buffer->getSSLSock()->async_read_some(boost::asio::buffer(m_readBuffer, m_availableLen >= m_maxReadLen ? m_maxReadLen : m_availableLen), [this](const boost::system::error_code& err, std::size_t size)
 		{
 			if (err)
 			{
@@ -2140,7 +2158,7 @@ void HTTPSERVICE::cleanData()
 
 
 
-void HTTPSERVICE::prepare()
+void HTTPSSERVICE::prepare()
 {
 	m_httpHeaderMap.reset(new const char* [HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN]);
 	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
@@ -2262,15 +2280,36 @@ void HTTPSERVICE::prepare()
 }
 
 
+void HTTPSSERVICE::handShake()
+{
+	m_buffer->getSSLSock()->async_handshake(boost::asio::ssl::stream_base::server,
+		[this](const boost::system::error_code& err)
+	{
+		if (err)
+		{
+			if (err != boost::asio::error::operation_aborted)
+			{
+				//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
+
+			}
+		}
+		else
+		{
+			startRead();
+		}
+	});
+}
 
 
-void HTTPSERVICE::startRead()
+
+
+void HTTPSSERVICE::startRead()
 {
 
 	//如果Connection则发送http 响应后继续接收新消息，否则停止接收，等待回收到对象池
 	if (keep_alive)
 	{
-		m_buffer->getSock()->async_read_some(boost::asio::buffer(m_readBuffer + m_startPos, m_maxReadLen - m_startPos), [this](const boost::system::error_code& err, std::size_t size)
+		m_buffer->getSSLSock()->async_read_some(boost::asio::buffer(m_readBuffer + m_startPos, m_maxReadLen - m_startPos), [this](const boost::system::error_code& err, std::size_t size)
 		{
 			if (err)
 			{
@@ -2303,7 +2342,7 @@ void HTTPSERVICE::startRead()
 
 //发生异常时还原置位，开启新的监听
 //m_startPos 集中在外层设置，表示下次的起始读取位置
-void HTTPSERVICE::parseReadData(const char* source, const int size)
+void HTTPSSERVICE::parseReadData(const char* source, const int size)
 {
 	ReadBuffer& refBuffer{ *m_buffer };
 
@@ -2383,7 +2422,7 @@ void HTTPSERVICE::parseReadData(const char* source, const int size)
 //在解析处理过程中对target、Query para以及body进行url转码处理，后续无需在转码处理，搜素UrlDecodeWithTransChinese函数即可定位处理代码
 //UrlDecodeWithTransChinese可以在一次循环内同时转换url转义字符和中文字符转换
 
-int HTTPSERVICE::parseHttp(const char* source, const int size)
+int HTTPSSERVICE::parseHttp(const char* source, const int size)
 {
 #define MAXMETHODLEN 7
 #define MAXTARGETBEGINLEN 2
@@ -5577,7 +5616,7 @@ check_messageComplete:
 
 
 //解析http header字段内容
-bool HTTPSERVICE::parseHttpHeader()
+bool HTTPSSERVICE::parseHttpHeader()
 {
 	//HTTP/1.1：‌必须存在Host字段‌，缺失则返回400 Bad Request错误‌1；
 	//HTTP / 1.0：允许缺失（旧协议无强制要求）‌
