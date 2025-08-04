@@ -199,13 +199,6 @@ private:
 
 	/////////////////////////////////////////
 
-	std::unique_ptr<char[]> m_SessionID;
-
-	int m_sessionMemory{};
-
-	int m_sessionLen{};
-	//根据sessionID是否为empty判断处理cookie时应该执行的操作
-
 
 	char *m_readBuffer{};
 

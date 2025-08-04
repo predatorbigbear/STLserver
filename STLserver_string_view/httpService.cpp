@@ -48,12 +48,6 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 		m_verifyData.reset(new const char* [VerifyDataPos::maxBufferSize]);
 
-		m_SessionID.reset(new char[128]);
-
-		m_sessionMemory = 128;
-
-		m_sessionLen = 0;
-
 		m_business = std::bind(&HTTPSERVICE::sendOK, this);
 
 		prepare();
@@ -72,7 +66,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE>& other)
 {
-	//m_buffer->getSock()->set_option(boost::asio::ip::tcp::no_delay(true), m_err);
+	
 	m_mySelf = other;
 	m_hasClean.store(false);
 
@@ -2014,17 +2008,13 @@ void HTTPSERVICE::clean()
 	//cout << "start clean\n";
 	if (!m_hasClean.load())
 	{
-		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
 		m_hasClean.store(true);
+		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
+		
 
-		m_sessionLen = 0;
 		m_startPos = 0;
 		m_firstTime = 0;
 
-		for (auto& st : m_STLtreeFastVec)
-		{
-			st.reset();
-		}
 
 		m_maxReadLen = m_defaultReadLen;
 		recoverMemory();
