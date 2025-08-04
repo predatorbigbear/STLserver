@@ -2141,7 +2141,7 @@ void HTTPSSERVICE::cleanData()
 			}
 			else
 			{
-				m_availableLen = m_buffer->getSock()->available();
+				m_availableLen = m_buffer->getSSLSock()->lowest_layer().available();
 				cleanData();
 			}
 		});
@@ -2377,7 +2377,7 @@ void HTTPSSERVICE::parseReadData(const char* source, const int size)
 			m_startPos = 0;
 			m_readBuffer = refBuffer.getBuffer();
 			m_maxReadLen = m_defaultReadLen;
-			m_availableLen = refBuffer.getSock()->available();
+			m_availableLen = refBuffer.getSSLSock()->lowest_layer().available();
 			m_sendBuffer = HTTPRESPONSEREADY::http11invaild, m_sendLen = HTTPRESPONSEREADY::http11invaildLen;
 			cleanData();
 			break;
@@ -2403,7 +2403,7 @@ void HTTPSSERVICE::parseReadData(const char* source, const int size)
 		m_startPos = 0;
 		m_readBuffer = refBuffer.getBuffer();
 		m_maxReadLen = m_defaultReadLen;
-		m_availableLen = refBuffer.getSock()->available();
+		m_availableLen = refBuffer.getSSLSock()->lowest_layer().available();
 		m_sendBuffer = HTTPRESPONSEREADY::httpSTDException, m_sendLen = HTTPRESPONSEREADY::httpSTDExceptionLen;
 		cleanData();
 	}
