@@ -263,19 +263,7 @@ enum INTERFACE
 
 	testMultiRedisParseBodyReadLOT_SIZE_STRING = 8,
 
-	testGetPublicKey = 9,
-
-	testGetClientPublicKey = 10,
-
-	testGetEncryptKey = 11,
-
 	testFirstTime = 12,
-
-	testEncryptLogin = 13,
-
-	testBusiness = 14,
-
-	testLogout = 15,
 
 	testMultiPartFormData = 16,
 

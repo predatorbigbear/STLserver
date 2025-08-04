@@ -1767,7 +1767,7 @@ void HTTPSERVICE::testCompareWorkFlow()
 		});
 	}
 
-	static unsigned int dateLen{ 29 };
+	static unsigned int dateLen{ 34 };
 	char *sendBuffer{};
 	unsigned int sendLen{};
 
@@ -5608,11 +5608,13 @@ bool HTTPSERVICE::parseHttpHeader()
 	//解析Host字段内容
 	if (m_httpresult.isHostEmpty())
 	{
+		m_HostNameBegin = m_HostNameEnd = m_HostPortBegin = m_HostPortEnd = nullptr;
 		if(isHttp11)
 			return false;
 	}
 	else
 	{
+		m_HostNameBegin = m_HostNameEnd = m_HostPortBegin = m_HostPortEnd = nullptr;
 		std::string_view HostView{ m_httpresult.getHost() };
 		strBegin = HostView.cbegin();
 		strEnd = HostView.cend();
@@ -5666,7 +5668,7 @@ bool HTTPSERVICE::parseHttpHeader()
 			//HTTP/1.1强制要求请求必须包含Host字段，缺失或值为空均为非法
 			if (isHttp11)
 				return false;
-			m_HostNameBegin = m_HostNameEnd = nullptr;
+			m_HostNameBegin = m_HostNameEnd = m_HostPortBegin = m_HostPortEnd = nullptr;
 		}
 	}
 
