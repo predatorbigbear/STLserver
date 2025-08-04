@@ -1,13 +1,14 @@
-﻿#include "listener.h"
+﻿#include "httpslistener.h"
 
 
-listener::listener(std::shared_ptr<IOcontextPool> ioPool,
+HTTPSlistener::HTTPSlistener(std::shared_ptr<IOcontextPool> ioPool,
 	std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster,
 	std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	const std::string &tcpAddress, const std::string &doc_root, std::shared_ptr<LOGPOOL> logPool,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel
+	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
+	const char* cert, const char* privateKey
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
 	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileMap(fileMap),
@@ -23,13 +24,23 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 		m_logPool = logPool;
 		m_log = m_logPool->getLogNext();
 
-		m_startFunction.reset(new std::function<void()>(std::bind(&listener::reAccept, this)));
-		m_clearFunction.reset(new std::function<void(std::shared_ptr<HTTPSERVICE>&)>(std::bind(&listener::getBackHTTPSERVICE, this, std::placeholders::_1)));
+		m_startFunction.reset(new std::function<void()>(std::bind(&HTTPSlistener::reAccept, this)));
+		m_clearFunction.reset(new std::function<void(std::shared_ptr<HTTPSSERVICE>&)>(std::bind(&HTTPSlistener::getBackHTTPSERVICE, this, std::placeholders::_1)));
 		m_timeOutTimer.reset(new boost::asio::steady_timer(*(m_ioPool->getIoNext())));
         // ulimit -a
 
+		m_sslContext.reset(new boost::asio::ssl::context(boost::asio::ssl::context::sslv23));
+		m_sslContext->set_options(
+			boost::asio::ssl::context::default_workarounds
+			| boost::asio::ssl::context::no_sslv2
+			| boost::asio::ssl::context::single_dh_use);
+		m_sslContext->use_certificate_chain_file(cert);
+		m_sslContext->use_private_key_file(privateKey, boost::asio::ssl::context::pem);
+
+		//m_sslContext->set_password_callback(std::bind(&server::get_password, this));
 		
-		m_httpServicePool.reset(new FixedHTTPSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
+		
+		m_httpServicePool.reset(new FixedHTTPSSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
 			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileMap,
 			m_timeOut, m_clearFunction,
@@ -44,8 +55,8 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 		if (m_timeOut % checkSecond)
 			++m_checkTurn;
 
-		m_startcheckTime.reset(new std::function<void()>(std::bind(&listener::checkTimeOut, this)));
-		m_httpServiceList.reset(new FIXEDTEMPLATESAFELIST<std::shared_ptr<HTTPSERVICE>>(m_startcheckTime, m_socketNum));
+		m_startcheckTime.reset(new std::function<void()>(std::bind(&HTTPSlistener::checkTimeOut, this)));
+		m_httpServiceList.reset(new FIXEDTEMPLATESAFELIST<std::shared_ptr<HTTPSSERVICE>>(m_startcheckTime, m_socketNum));
 		if (!m_httpServiceList->ready())
 		{
 			std::cout << "Fail to start m_httpServiceList\n";
@@ -64,7 +75,7 @@ listener::listener(std::shared_ptr<IOcontextPool> ioPool,
 
 
 
-void listener::resetEndpoint()
+void HTTPSlistener::resetEndpoint()
 {
 	try
 	{
@@ -111,7 +122,7 @@ void listener::resetEndpoint()
 
 
 
-void listener::resetAcceptor()
+void HTTPSlistener::resetAcceptor()
 {
 	try
 	{
@@ -127,7 +138,7 @@ void listener::resetAcceptor()
 
 
 
-void listener::openAcceptor()
+void HTTPSlistener::openAcceptor()
 {
 	error_code err;
 	m_acceptor->open(m_endpoint->protocol(), err);
@@ -145,7 +156,7 @@ void listener::openAcceptor()
 
 
 
-void listener::bindAcceptor()
+void HTTPSlistener::bindAcceptor()
 {
 	error_code err;
 	m_acceptor->bind(*m_endpoint,err);
@@ -162,7 +173,7 @@ void listener::bindAcceptor()
 
 
 
-void listener::listenAcceptor()
+void HTTPSlistener::listenAcceptor()
 {
 	error_code err;
 	m_acceptor->listen(numeric_limits<int>::max(), err);
@@ -189,11 +200,11 @@ void listener::listenAcceptor()
 //事实上尽快获取到对象的办法还包括在对象短缺的时候发送通知给所有处理类缩短超时时间，当然这点看有没有必要做
 
 
-void listener::startAccept()
+void HTTPSlistener::startAccept()
 {
 	try
 	{
-		std::shared_ptr<HTTPSERVICE> httpServiceTemp{  };
+		std::shared_ptr<HTTPSSERVICE> httpServiceTemp{  };
 		m_httpServicePool->getNextBuffer(httpServiceTemp);
 
 		if (httpServiceTemp && httpServiceTemp->m_buffer && httpServiceTemp->m_buffer->getSock())
@@ -220,7 +231,7 @@ void listener::startAccept()
 
 
 
-void listener::handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp, const boost::system::error_code &err)
+void HTTPSlistener::handleStartAccept(std::shared_ptr<HTTPSSERVICE> httpServiceTemp, const boost::system::error_code &err)
 {
 
 	
@@ -234,6 +245,8 @@ void listener::handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp, c
 		{
 			if (m_httpServiceList->insert(httpServiceTemp))
 			{
+				httpServiceTemp->m_buffer->getSSLSock().
+					reset(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(std::move(*httpServiceTemp->m_buffer->getSock()), *m_sslContext));
 				httpServiceTemp->setReady(httpServiceTemp);
 			}
 			else
@@ -247,7 +260,7 @@ void listener::handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp, c
 }
 
 
-void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs)
+void HTTPSlistener::getBackHTTPSERVICE(std::shared_ptr<HTTPSSERVICE> &tempHs)
 {
 	if (tempHs )
 	{
@@ -257,7 +270,7 @@ void listener::getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs)
 }
 
 
-void listener::restartAccept()
+void HTTPSlistener::restartAccept()
 {
 	if (m_startAccept.load())
 	{
@@ -267,7 +280,7 @@ void listener::restartAccept()
 }
 
 
-void listener::notifySocketPool()
+void HTTPSlistener::notifySocketPool()
 {
 	m_startAccept.store(false);
 	m_httpServicePool->setNotifyAccept();
@@ -275,7 +288,7 @@ void listener::notifySocketPool()
 
 
 
-void listener::startRun()
+void HTTPSlistener::startRun()
 {
 	std::cout << "start listener\n";
 	resetEndpoint();
@@ -283,14 +296,14 @@ void listener::startRun()
 }
 
 
-void listener::reAccept()
+void HTTPSlistener::reAccept()
 {
 	m_startAccept.store(true);
 	restartAccept();
 }
 
 
-void listener::checkTimeOut()
+void HTTPSlistener::checkTimeOut()
 {
 	static std::function<void()>socketTimeOut{ [this]() {m_httpServiceList->check(); } };
 	//在插入时间轮定时器失败的情况下，用listen层的定时器进行处理，双重保险

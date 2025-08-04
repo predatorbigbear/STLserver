@@ -59,7 +59,8 @@ void MiddleCenter::setLog(const char * logFileName, std::shared_ptr<IOcontextPoo
 void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress,
 	const std::string &doc_root,
 	std::vector<std::string>&& fileVec, 
-	const int socketNum, const int timeOut, const bool isHttp , const char* cert , const char* privateKey )
+	const int socketNum, const int timeOut,
+	const bool isHttp , const char* cert , const char* privateKey )
 {
 	//std::lock_guard<std::mutex>l1{ m_mutex };
 	m_mutex.lock();
@@ -145,12 +146,14 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 
 		if (!m_hasSetListener && m_logPool)
 		{
-			m_listener.reset(new listener(ioPool, m_multiSqlReadSWPoolMaster,
-				m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
-				m_multiSqlWriteSWPoolMaster,tcpAddress, doc_root, m_logPool,
-				m_fileMap,
-				socketNum, timeOut, m_checkSecond, m_timeWheel, isHttp, cert, privateKey
-				));
+			if (isHttp)
+			{
+				m_listener.reset(new listener(ioPool, m_multiSqlReadSWPoolMaster,
+					m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
+					m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
+					m_fileMap,
+					socketNum, timeOut, m_checkSecond, m_timeWheel));
+			}
 			m_hasSetListener = true;
 		}
 		m_mutex.unlock();

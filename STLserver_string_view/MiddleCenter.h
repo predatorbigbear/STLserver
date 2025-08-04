@@ -33,7 +33,8 @@ struct MiddleCenter
 	//privateKey为私钥文件
 	void setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress, const std::string &doc_root ,
 		std::vector<std::string> &&fileVec,
-		const int socketNum , const int timeOut,const bool isHttp = true, const char *cert = nullptr, const char *privateKey = nullptr);
+		const int socketNum , const int timeOut,
+		const bool isHttp = true, const char* cert = nullptr, const char* privateKey = nullptr);
 
 
 

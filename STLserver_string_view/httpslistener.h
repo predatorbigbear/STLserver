@@ -1,8 +1,10 @@
 ﻿#pragma once
 
 
-#include "httpService.h"
-#include "FixedHttpServicePool.h"
+#include <boost/asio/ssl.hpp>
+
+#include "httpsService.h"
+#include "FixedHttpsServicePool.h"
 #include "fixedTemplateSafeList.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
@@ -17,15 +19,16 @@
 
 // 
 
-struct listener 
+struct HTTPSlistener 
 {
-	listener(std::shared_ptr<IOcontextPool> ioPool,
+	HTTPSlistener(std::shared_ptr<IOcontextPool> ioPool,
 		std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster,
 		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 		const std::string &tcpAddress, const std::string &doc_root , std::shared_ptr<LOGPOOL> logPool ,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel
+		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
+		const char *cert , const char *privateKey
 		);
 
 
@@ -46,13 +49,15 @@ private:
 	
 	
 	std::shared_ptr<IOcontextPool> m_ioPool{};
+
+	std::unique_ptr<boost::asio::ssl::context> m_sslContext{};
 	
 	
-	std::unique_ptr<FixedHTTPSERVICEPOOL> m_httpServicePool{};
+	std::unique_ptr<FixedHTTPSSERVICEPOOL> m_httpServicePool{};
 
-	std::unique_ptr<FIXEDTEMPLATESAFELIST<std::shared_ptr<HTTPSERVICE>>> m_httpServiceList{};
+	std::unique_ptr<FIXEDTEMPLATESAFELIST<std::shared_ptr<HTTPSSERVICE>>> m_httpServiceList{};
 
-	std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>  m_clearFunction{};
+	std::shared_ptr<std::function<void(std::shared_ptr<HTTPSSERVICE>&)>>  m_clearFunction{};
 
 	std::shared_ptr<std::function<void()>>m_startFunction{};
 
@@ -96,9 +101,9 @@ private:
 
 	void startAccept();
 
-	void handleStartAccept(std::shared_ptr<HTTPSERVICE> httpServiceTemp,const boost::system::error_code &err);
+	void handleStartAccept(std::shared_ptr<HTTPSSERVICE> httpServiceTemp,const boost::system::error_code &err);
 
-	void getBackHTTPSERVICE(std::shared_ptr<HTTPSERVICE> &tempHs);
+	void getBackHTTPSERVICE(std::shared_ptr<HTTPSSERVICE> &tempHs);
 
 	void restartAccept();
 
