@@ -5614,7 +5614,6 @@ bool HTTPSERVICE::parseHttpHeader()
 	}
 	else
 	{
-		*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 		std::string_view HostView{ m_httpresult.getHost() };
 		strBegin = HostView.cbegin();
 		strEnd = HostView.cend();
@@ -5628,6 +5627,7 @@ bool HTTPSERVICE::parseHttpHeader()
 			//判断请求的目标服务标识是否为空  比如:80  没有前面的网址信息  HTTP / 1.0：允许缺失
 			if (iter1Begin == iter1End)
 			{
+				*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 				if (isHttp11)
 					return false;
 			}
@@ -5635,24 +5635,36 @@ bool HTTPSERVICE::parseHttpHeader()
 			{
 				//斜杠（/）属于 URI 路径部分，‌禁止出现在 Host 值中
 				if (*iter1End == '/')
+				{
+					*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 					return false;
+				}
 				iter2Begin = iter1End + 1;
 				iter2End = strEnd;
 				index = -1, num = 1, sum = 0;
 				//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
-				if (!std::all_of(std::make_reverse_iterator(iter2End), std::make_reverse_iterator(iter2Begin), [&index, &num, &sum](const char ch)
+				if (!std::all_of(std::make_reverse_iterator(iter2End), std::make_reverse_iterator(iter2Begin), [&index, &num, &sum, this](const char ch)
 				{
 					if (!std::isdigit(ch))
+					{
+						*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 						return false;
+					}
 					if (++index)
 						num *= 10;
 					sum += (ch - '0') * num;
 					return true;
 				}))
+				{
+					*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 					return false;
+				}
 				//检测端口是否异常
 				if (sum < 0 || sum>65535)
+				{
+					*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 					return false;
+				}
 				hostPort = sum;
 
 				//记录下来，方便有问题时查看字符串内容
@@ -5666,9 +5678,9 @@ bool HTTPSERVICE::parseHttpHeader()
 		else
 		{
 			//HTTP/1.1强制要求请求必须包含Host字段，缺失或值为空均为非法
+			*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 			if (isHttp11)
 				return false;
-			*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 		}
 	}
 
