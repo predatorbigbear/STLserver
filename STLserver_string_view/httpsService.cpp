@@ -5672,11 +5672,10 @@ bool HTTPSSERVICE::parseHttpHeader()
 				iter2End = strEnd;
 				index = -1, num = 1, sum = 0;
 				//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
-				if (!std::all_of(std::make_reverse_iterator(iter2End), std::make_reverse_iterator(iter2Begin), [&index, &num, &sum, this](const char ch)
+				if (!std::all_of(std::make_reverse_iterator(iter2End), std::make_reverse_iterator(iter2Begin), [&index, &num, &sum](const char ch)
 				{
 					if (!std::isdigit(ch))
 					{
-						*m_HostNameBegin = *m_HostNameEnd = *m_HostPortBegin = *m_HostPortEnd = nullptr;
 						return false;
 					}
 					if (++index)
