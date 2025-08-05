@@ -1,17 +1,17 @@
-﻿#include "httpsService.h"
+﻿#include "webService.h"
 
 
 
 
 
-HTTPSSERVICE::HTTPSSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
+WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
 	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
-	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSSERVICE>&)>>& cleanFun,
+	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 	const unsigned int bufNum
 )
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
@@ -48,7 +48,7 @@ HTTPSSERVICE::HTTPSSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYN
 
 		m_verifyData.reset(new const char* [VerifyDataPos::maxBufferSize]);
 
-		m_business = std::bind(&HTTPSSERVICE::sendOK, this);
+		m_business = std::bind(&WEBSERVICE::sendOK, this);
 
 		prepare();
 
@@ -64,7 +64,7 @@ HTTPSSERVICE::HTTPSSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYN
 
 
 
-void HTTPSSERVICE::setReady(std::shared_ptr<HTTPSSERVICE>& other)
+void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 {
 
 	m_mySelf = other;
@@ -78,14 +78,14 @@ void HTTPSSERVICE::setReady(std::shared_ptr<HTTPSSERVICE>& other)
 
 
 
-std::shared_ptr<HTTPSSERVICE>* HTTPSSERVICE::getListIter()
+std::shared_ptr<WEBSERVICE>* WEBSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
 	return mySelfIter.load();
 }
 
 
-void HTTPSSERVICE::setListIter(std::shared_ptr<HTTPSSERVICE>* iter)
+void WEBSERVICE::setListIter(std::shared_ptr<WEBSERVICE>* iter)
 {
 	if (iter)
 		mySelfIter.store(iter);
@@ -94,7 +94,7 @@ void HTTPSSERVICE::setListIter(std::shared_ptr<HTTPSSERVICE>* iter)
 
 
 
-void HTTPSSERVICE::checkTimeOut()
+void WEBSERVICE::checkTimeOut()
 {
 	if (!m_hasRecv.load())
 	{
@@ -109,7 +109,7 @@ void HTTPSSERVICE::checkTimeOut()
 
 
 
-void HTTPSSERVICE::run()
+void WEBSERVICE::run()
 {
 	m_readBuffer = m_buffer->getBuffer();
 	m_startPos = 0;
@@ -120,7 +120,7 @@ void HTTPSSERVICE::run()
 
 
 
-void HTTPSSERVICE::checkMethod()
+void WEBSERVICE::checkMethod()
 {
 	ReadBuffer& refBuffer{ *m_buffer };
 	switch (refBuffer.getView().method())
@@ -153,7 +153,7 @@ void HTTPSSERVICE::checkMethod()
 
 
 
-void HTTPSSERVICE::switchPOSTInterface()
+void WEBSERVICE::switchPOSTInterface()
 {
 	ReadBuffer& refBuffer{ *m_buffer };
 	int index{ -1 }, num{ 1 };
@@ -164,99 +164,15 @@ void HTTPSSERVICE::switchPOSTInterface()
 		return sum += (ch - '0') * num;
 	}))
 	{
-
-		//测试body解析，提取参数
-	case INTERFACE::testBodyParse:
-		testBody();
-		break;
-
-
-		//测试ping pong
-	case INTERFACE::pingPong:
-		testPingPong();
-		break;
-
-
-		//测试联合sql读取
-	case INTERFACE::multiSqlReadSW:
-		testmultiSqlReadSW();
-		break;
-
-
-		//测试redis 读取LOT_SIZE_STRING情况
-	case INTERFACE::multiRedisReadLOT_SIZE_STRING:
-		testMultiRedisReadLOT_SIZE_STRING();
-		break;
-
-
-	case INTERFACE::testMultiRedisParseBodyReadLOT_SIZE_STRING:
-		testMultiRedisParseBodyReadLOT_SIZE_STRING();
-		break;
-
-
-		//测试redis 读取INTERGER情况
-	case INTERFACE::multiRedisReadINTERGER:
-		testMultiRedisReadINTERGER();
-		break;
-
-
-		//测试redis 读取ARRAY情况
-	case INTERFACE::multiRedisReadARRAY:
-		testMultiRedisReadARRAY();
-		break;
-
-
-		//测试body乱序解析情况
-	case INTERFACE::testRandomBody:
-		testRandomBody();
-		break;
-
-
-	case INTERFACE::testFirstTime:
-		testFirstTime();
-		break;
-
-
-
-	case INTERFACE::testMultiPartFormData:
+		
+	case WEBSERVICEINTERFACE::web_testMultiPartFormData:
 		testMultiPartFormData();
 		break;
 
 
-	case INTERFACE::successUpload:
+	case WEBSERVICEINTERFACE::web_successUpload:
 		testSuccessUpload();
 		break;
-
-
-	case INTERFACE::testPingPongJson:
-		testPingPongJson();
-		break;
-
-
-	case INTERFACE::testMakeJson:
-		testMakeJson();
-		break;
-
-
-	case INTERFACE::testCompareWorkFlow:
-		testCompareWorkFlow();
-		break;
-
-
-	case INTERFACE::testmultiSqlReadParseBosySW:
-		testmultiSqlReadParseBosySW();
-		break;
-
-
-	case INTERFACE::testmultiSqlReadUpdateSW:
-		testmultiSqlReadUpdateSW();
-		break;
-
-
-	case INTERFACE::testInsertHttpHeader:
-		testInsertHttpHeader();
-		break;
-
 
 
 		//默认，不匹配任何接口情况
@@ -269,172 +185,10 @@ void HTTPSSERVICE::switchPOSTInterface()
 
 
 
-
-void HTTPSSERVICE::testBody()
-{
-	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::test, STATICSTRING::testLen, STATICSTRING::parameter, STATICSTRING::parameterLen, STATICSTRING::number, STATICSTRING::numberLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	const char** BodyBuffer{ m_buffer->bodyPara() };
-
-	std::string_view testView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
-	std::string_view parameterView{ *(BodyBuffer + 2),*(BodyBuffer + 3) - *(BodyBuffer + 2) };
-	std::string_view numberView{ *(BodyBuffer + 4),*(BodyBuffer + 5) - *(BodyBuffer + 4) };
-
-	static const std::string_view test{ "test" }, parameter{ "parameter" }, number{ "number" };
-
-	STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-	st1.reset();
-
-	if (!st1.clear())
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	//如果确定不需要开启json转码处理，可以不带<TRANSFORMTYPE>即可，默认不开启json转码处理
-
-	//启用json转码处理
-	if (!st1.put<TRANSFORMTYPE>(test.cbegin(), test.cend(), testView.cbegin(), testView.cend()))
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	if (!st1.put<TRANSFORMTYPE>(parameter.cbegin(), parameter.cend(), parameterView.cbegin(), parameterView.cend()))
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	if (!st1.put<TRANSFORMTYPE>(number.cbegin(), number.cend(), numberView.cbegin(), numberView.cend()))
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	//启用json转码处理
-	makeSendJson<TRANSFORMTYPE>(st1);
-
-}
-
-
-
-/*
-POST /7 HTTP/1.1\r\n
-Host: 192.168.80.128:8085\r\n
-Content-Type: application/x-www-form-urlencoded\r\n
-Content-Length: 46\r\n\r\n
-number=1234&parameter=testDir&test=hello_world
-*/
-
-/*
-POST /7 HTTP/1.1\r\n
-Host: 192.168.80.128:8085\r\n
-Content-Type: application/x-www-form-urlencoded\r\n
-Content-Length: 46\r\n\r\n
-number=1234&test=hello_world&parameter=testDir
-
-
-
-
-POST /7?number&test=null&parameter= HTTP/1.1\r\n
-Host: 192.168.80.128:8085\r\n\r\n
-
-
-
-*/
-
-
-
-void HTTPSSERVICE::testRandomBody()
-{
-	if (!m_httpresult.isparaEmpty())
-	{
-		std::string_view para{ m_httpresult.getpara() };
-		if (!UrlDecodeWithTransChinese(para.cbegin(), para.size(), m_len))
-			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-		m_buffer->setBodyLen(m_len);
-
-		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(para.cbegin(), m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
-		{
-			const char** para{ m_buffer->bodyPara() };
-			std::string_view testStr{}, parameterStr{}, numberStr{};
-			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test))
-			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test),
-					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::test + 1)));
-				testStr.swap(sw);
-			}
-			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter))
-			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter),
-					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter + 1)));
-				parameterStr.swap(sw);
-			}
-			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number))
-			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number),
-					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::number + 1)));
-				numberStr.swap(sw);
-			}
-
-			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-		}
-	}
-
-
-
-	else if (!m_httpresult.isBodyEmpty())
-	{
-		std::string_view bodyView{ m_httpresult.getBody() };
-		if (!UrlDecodeWithTransChinese(bodyView.cbegin(), bodyView.size(), m_len))
-			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-		m_buffer->setBodyLen(m_len);
-
-		if (randomParseBody<HTTPINTERFACENUM::TESTRANDOMBODY, HTTPINTERFACENUM::TESTRANDOMBODY::max>(bodyView.cbegin(), m_buffer->getBodyLen(), m_buffer->bodyPara(), m_buffer->getBodyParaLen()))
-		{
-			const char** para{ m_buffer->bodyPara() };
-			std::string_view testStr{}, parameterStr{}, numberStr{};
-			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test))
-			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test),
-					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::test), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::test + 1)));
-				testStr.swap(sw);
-			}
-			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter))
-			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter),
-					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::parameter + 1)));
-				parameterStr.swap(sw);
-			}
-			if (*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number))
-			{
-				std::string_view sw(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number),
-					std::distance(*(para + HTTPINTERFACENUM::TESTRANDOMBODY::number), *(para + HTTPINTERFACENUM::TESTRANDOMBODY::number + 1)));
-				numberStr.swap(sw);
-			}
-
-			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-		}
-	}
-	else
-	{
-		//   没有Query Params ，也没有body，表明这个接口如果有参数的话，则参数全部为空的情况，自己做处理
-
-
-		startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
-	}
-}
-
-
 //读取文件接口
 //读取存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile
 //读取不存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile1
-void HTTPSSERVICE::testGet()
+void WEBSERVICE::testGet()
 {
 	if (m_buffer->getView().target().empty() || m_buffer->getView().target().size() < 2)
 		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
@@ -461,1005 +215,15 @@ void HTTPSSERVICE::testGet()
 
 
 
-void HTTPSSERVICE::testPingPong()
-{
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (bodyView.empty())
-	{
-		startWrite(HTTPRESPONSEREADY::http11OKNoBody, HTTPRESPONSEREADY::http11OKNoBodyLen);
-	}
-	else
-	{
-		STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
-		char* sendBuffer{};
-		unsigned int sendLen{};
-
-		if (st1.make_pingPongResppnse(sendBuffer, sendLen, nullptr, 0,
-			finalVersionBegin, finalVersionEnd, MAKEJSON::http200,
-			MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
-			bodyView.cbegin(), bodyView.cend(),
-			MAKEJSON::AccessControlAllowOrigin, MAKEJSON::AccessControlAllowOrigin + MAKEJSON::AccessControlAllowOriginLen,
-			MAKEJSON::httpStar, MAKEJSON::httpStar + MAKEJSON::httpStarLen,
-			MAKEJSON::Connection, MAKEJSON::Connection + MAKEJSON::ConnectionLen,
-			keep_alive ? MAKEJSON::keepAlive : MAKEJSON::httpClose, keep_alive ? MAKEJSON::keepAlive + MAKEJSON::keepAliveLen : MAKEJSON::httpClose + MAKEJSON::httpCloseLen
-		))
-		{
-			startWrite(sendBuffer, sendLen);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-		}
-	}
-}
-
-
-
-void HTTPSSERVICE::testPingPongJson()
-{
-	std::string_view bodyView{ m_httpresult.getBody() };
-
-	if (bodyView.empty())
-	{
-		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
-		return;
-	}
-
-	STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-	// 使用前先clear
-	if (!st1.clear())
-	{
-		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
-		return;
-	}
-
-	//设置json转换标志，会进行转义处理，如果确定没有转义字符出现，可以不写<TRANSFORMTYPE>
-	if (!st1.put<TRANSFORMTYPE>(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, bodyView.cbegin(), bodyView.cend()))
-	{
-		startWrite(HTTPRESPONSEREADY::http11OKNoBodyJson, HTTPRESPONSEREADY::http11OKNoBodyJsonLen);
-		return;
-	}
-
-	makeSendJson<TRANSFORMTYPE>(st1);
-}
-
-
-
-//测试前提条件，在database名称为serversql下创建一张表为table1,内部含有变量name,age,book即可，
-//自行插入一些数据
-//mysql客户端测试函数为 testmultiSqlReadSW();
-//  联合sql string_view版本 解析body查询函数
-//testmultiSqlReadParseBosySW();
-//   联合sql string_view版本 测试update  insert  delete以及多命令执行函数
-// testmultiSqlReadUpdateSW();
-void HTTPSSERVICE::testmultiSqlReadSW()
-{
-
-	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
-
-	resultTypeSW& thisRequest{ *sqlRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-
-	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
-
-	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
-
-	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
-
-
-	command.clear();
-	rowField.clear();
-	result.clear();
-	sqlNum.clear();
-
-	try
-	{
-
-		command.emplace_back(std::string_view(SQLCOMMAND::testSqlReadMemory, SQLCOMMAND::testSqlReadMemoryLen));
-
-		//
-		std::get<1>(thisRequest) = 1;
-		sqlNum.emplace_back(1);
-		std::get<5>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
-
-		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-
-}
-
-
-
-
-void HTTPSSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
-{
-	if (result)
-	{
-
-		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
-
-		resultTypeSW& thisRequest{ *sqlRequest };
-
-		std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
-
-		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
-
-		std::vector<unsigned int>::const_iterator rowFieldIter;
-		int sum{};
-
-		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
-
-		st1.reset();
-		st2.reset();
-		st3.reset();
-		st4.reset();
-		//没有任何返回结果或者返回结果错误，自己处理
-		if (result.empty() || rowField.empty() || (rowField.size() % 2))
-		{
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			makeSendJson(st1);
-		}
-		else
-		{
-			//比对rowField的每两项数据的总乘积是否等于result的个数
-			for (rowFieldIter = rowField.cbegin(); rowFieldIter != rowField.cend(); rowFieldIter += 2)
-			{
-				sum += (*rowFieldIter) * (*(rowFieldIter + 1));
-			}
-
-			//结果数量不匹配，自己处理
-			if (sum != result.size())
-			{
-
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-
-			}
-			else
-			{
-				std::vector<std::string_view>::const_iterator resultBegin{ result.cbegin() };
-				std::vector<unsigned int>::const_iterator begin{ rowField.cbegin() }, end{ rowField.cend() }, iter{ begin };
-				int rowNum{}, fieldNum{}, rowCount{}, fieldCount{}, index{ -1 };
-
-
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st2.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st3.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st4.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-
-				do
-				{
-					iter = begin;
-					rowNum = *begin, fieldNum = *(begin + 1);
-
-					rowCount = -1;
-					index = 0;
-					while (++rowCount != rowNum)
-					{
-						//插入查询结果第一个字段
-						if (!st1.put(STATICSTRING::name, STATICSTRING::name + STATICSTRING::nameLen, resultBegin->cbegin(), resultBegin->cend()))
-							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-						++resultBegin;
-						++index;
-
-						//插入查询结果第二个字段
-						if (!st1.put(STATICSTRING::age, STATICSTRING::age + STATICSTRING::ageLen, resultBegin->cbegin(), resultBegin->cend()))
-							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-						++resultBegin;
-						++index;
-
-						//插入查询结果第三个字段
-						if (!st1.put(STATICSTRING::book, STATICSTRING::book + STATICSTRING::bookLen, resultBegin->cbegin(), resultBegin->cend()))
-							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-						++resultBegin;
-						++index;
-
-						if (!st2.push_back(st1))
-							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-						if (!st1.clear())
-							return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-					}
-
-
-
-					if (!st3.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st2))
-						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-					if (!st2.clear())
-						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-					if (!st4.push_back(st3))
-						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-					if (!st3.clear())
-						return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-					begin += 2;
-
-				} while (begin != end);
-
-				if (!st1.put_child(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, st4))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-
-
-			}
-
-		}
-
-	}
-	else
-	{
-		handleERRORMESSAGE(em);
-	}
-}
-
-
-
-//从body中解析参数执行sql查询的测试函数
-void HTTPSSERVICE::testmultiSqlReadParseBosySW()
-{
-	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::name, STATICSTRING::nameLen, STATICSTRING::age, STATICSTRING::ageLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	const char** BodyBuffer{ m_buffer->bodyPara() };
-
-	//提取name  和  age出来
-	std::string_view nameView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) }, ageView{ *(BodyBuffer + 2),*(BodyBuffer + 3) - *(BodyBuffer + 2) };
-
-	//可以在这里对数据做一些校验，校验通过后插入sql查询语句
-
-	//可以直接在这里构建静态string_view语句，不用再翻文件找了
-	static const std::string_view query1{ "select name,age,book from table1 where name='" };
-	static const std::string_view query2{ "' or age=" };
-	static const std::string_view query3{ " limit 2" };
-
-
-	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
-
-	resultTypeSW& thisRequest{ *sqlRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-
-	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
-
-	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
-
-	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
-
-	//command是每次进行的命令必须进行清除的，多条命令中间需要加;分隔开  
-	// rowField和result在多次查询时可以复用不清空
-	//另外需要多次查询时可以将insertSqlRequest传入模板类型置为非SQLFREE类型，以保存之前的MYSQL_RES不被释放，这样就可以继续进行零拷贝处理
-	command.clear();
-	rowField.clear();
-	result.clear();
-	sqlNum.clear();
-
-	//使用string_view进行拼接
-	try
-	{
-
-		command.emplace_back(query1);
-		command.emplace_back(nameView);
-		command.emplace_back(query2);
-		command.emplace_back(ageView);
-		command.emplace_back(query3);
-
-
-		//执行命令数为1
-		std::get<1>(thisRequest) = 1;
-		sqlNum.emplace_back(5);
-		std::get<5>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiSqlReadSW, this, std::placeholders::_1, std::placeholders::_2);
-
-		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-
-}
-
-
-//处理联合sql string_view版本 测试update   insert执行，delete自己可以写一条测试，需要多条操作可以参考这里
-void HTTPSSERVICE::testmultiSqlReadUpdateSW()
-{
-	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
-
-	resultTypeSW& thisRequest{ *sqlRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-
-	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
-
-	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
-
-	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
-
-	command.clear();
-	rowField.clear();
-	result.clear();
-	sqlNum.clear();
-
-	//
-	// 插入出现错误时会陷入程序停顿问题已经修复，内部实现了机制可以在出现错误时继续获取sql结果
-	//如需进行insert操作，当插入值中有unique值时可以加入if not exists逻辑先绕过这个问题
-	static const std::string_view updateSql1{ "update table1 set name='test' where name='iist'" };
-	static const std::string_view updateSql2{ "insert into table1(name,age,book) value('testName',20,'python')" };
-	static const std::string_view updateSql3{ "update table1 set name='test1' where name='iist1'" };
-	try
-	{
-		//插入多语句的时候不需要加入;   在内部会自动加入
-		command.emplace_back(updateSql1);
-		command.emplace_back(updateSql2);
-
-		//插入了两条执行语句，所以这里设置2
-		std::get<1>(thisRequest) = 2;
-		sqlNum.emplace_back(1);
-		sqlNum.emplace_back(1);
-		std::get<5>(thisRequest) = std::bind(&HTTPSSERVICE::handlemultiSqlReadUpdateSW, this, std::placeholders::_1, std::placeholders::_2);
-
-		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertSql, HTTPRESPONSEREADY::httpFailToInsertSqlLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-
-}
-
-
-//处理联合sql string_view版本 测试update函数的回调函数
-void HTTPSSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
-{
-	if (result)
-	{
-
-		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
-
-		resultTypeSW& thisRequest{ *sqlRequest };
-
-		std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
-
-		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
-
-		std::vector<unsigned int>::const_iterator rowFieldIter;
-		int sum{};
-
-		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
-
-		st1.reset();
-		st2.reset();
-		st3.reset();
-		st4.reset();
-		//insert 与 delete可以自行修改上个接口进行测试
-		//对于update或者insert或者delete语句   result是不会有查询结果字符串返回的，上述每条命令执行后rowField里每一条执行命令会出现1 0，可以查看result中的string_view判断是否执行成功
-		//执行成功返回success to execute,  失败返回  fail to execute ，可以在sql读取模块中设置相关字符串内容
-		//一般在插入有unique指的sql语句时  可能出现失败情况（该值在sql中已存在的情况下）
-		if (rowField.empty() || (rowField.size() % 2) || result.empty())
-		{
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st1.put(STATICSTRING::result, STATICSTRING::result + STATICSTRING::resultLen, STATICSTRING::noResult, STATICSTRING::noResult + STATICSTRING::noResultLen))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			makeSendJson(st1);
-		}
-		else if (!(rowField.size() % 2))
-		{
-			//执行结束，自己根据result中的字符串提示进行相关后续处理
-
-			startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-		}
-	}
-	else
-	{
-		handleERRORMESSAGE(em);
-	}
-
-
-}
-
-
-//POST /4 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:0\r\n\r\n
-//  这里将foo 设置值为  set foo hello_world
-//  测试从redis获取dLOT_SIZE_STRING类型数据
-
-//测试从body中解析参数进行redis查询可以查看testMultiRedisParseBodyReadLOT_SIZE_STRING接口
-//测试从redis中读取int值可以查看testMultiRedisReadINTERGER接口
-//测试从redis中读取ARRAY结果集的可以查看testMultiRedisReadARRAY接口
-void HTTPSSERVICE::testMultiRedisReadLOT_SIZE_STRING()
-{
-
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-	redisResultTypeSW& thisRequest{ *redisRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
-
-
-	command.clear();            //插入命令string_view                   
-	commandSize.clear();        //插入每条命令的string_view个数，redis客户端会在生成发送给redis-server的命令时才进行数据的copy，减少性能开销
-	resultVec.clear();          //返回string_view结果的vector集，如果处理结果在一次调用之后就能完成，则可以直接使用该string_view
-	//否则应该调用内存池申请内存块保存string_view的结果
-	resultNumVec.clear();       //返回每条命令的string_view个数的vector集
-	try
-	{
-		command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
-		command.emplace_back(std::string_view(REDISNAMESPACE::foo, REDISNAMESPACE::fooLen));
-		commandSize.emplace_back(2);
-		//执行多条命令可以反复插入，例如再插入一遍此操作
-		//command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
-		//command.emplace_back(std::string_view(REDISNAMESPACE::foo, REDISNAMESPACE::fooLen));
-		//commandSize.emplace_back(2);
-		//也可以执行写入命令
-		//command.emplace_back(std::string_view(REDISNAMESPACE::set, REDISNAMESPACE::setLen));
-		//command.emplace_back(std::string_view(REDISNAMESPACE::foo, REDISNAMESPACE::fooLen));
-		//command.emplace_back(std::string_view(REDISNAMESPACE::helloWorld, REDISNAMESPACE::helloWorldLen));
-		//commandSize.emplace_back(3);
-
-
-
-		std::get<1>(thisRequest) = 1;       //执行命令个数
-		std::get<3>(thisRequest) = 1;       //获取结果个数
-		//如果将上述额外的2条命令都插入，则应该设置为
-		//std::get<1>(thisRequest) = 3;
-		//std::get<3>(thisRequest) = 3; 
-		//此时resultVec中的结果会有3个string_view，resultNumVec会有3个1，表明每条命令的string_view个数各为1
-		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadLOT_SIZE_STRING, this, std::placeholders::_1, std::placeholders::_2);
-		//获取到结果后执行的回调函数
-
-
-		//不想创建另一个函数将逻辑分开处理的话，也可以传入一个lambda表达式，具体这么写
-		//这样就可以在一个函数内完成多次异步交互，不停套娃就行了，至于性能的话，可以自己测试一下，再决定采用哪种方式
-		//std::get<6>(thisRequest) = [this](bool result, ERRORMESSAGE em)
-		//{
-		//	  将handleMultiRedisReadLOT_SIZE_STRING  内部实现拷贝进来即可		
-		//};
-
-
-
-		//如果有主从的话，可以分别设置不同的MULTIREDISREAD对象，没有的话只传递一个进来即可
-		//目前实现好MULTIREDISREAD对象类，可以正常返回多种redis结果值
-		//MULTIREDISWRITE的设置目的是为了高效执行一些写入操作，不返回执行结果的字符串，只返回1和0代表成功与否，目前还需要完善
-		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-}
-
-
-
-
-//这里返回，另外使用一个新发送函数
-void HTTPSSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em)
-{
-
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-
-	redisResultTypeSW& thisRequest{ *redisRequest };
-	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
-
-
-	if (result)
-	{
-		if (!resultVec.empty())
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			st1.reset();
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			//如果确定不需要开启json转码处理，可以不带<TRANSFORMTYPE>即可，默认不开启json转码处理
-
-			//启用json转码处理
-			if (!st1.put<TRANSFORMTYPE>(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			//启用json转码处理
-			makeSendJson<TRANSFORMTYPE>(st1);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-		}
-	}
-	else
-	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				st1.reset();
-
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
-	}
-}
-
-
-
-//POST /8 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:7\r\n\r\nkey=foo
-// POST /8 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:6\r\n\r\nkey=fo
-//  联合redis string_view版本 从body中解析参数进行查询KEY测试函数
-void HTTPSSERVICE::testMultiRedisParseBodyReadLOT_SIZE_STRING()
-{
-	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::key, STATICSTRING::keyLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	const char** BodyBuffer{ m_buffer->bodyPara() };
-
-	std::string_view keyView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
-
-	if (keyView.empty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-	redisResultTypeSW& thisRequest{ *redisRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
-
-
-	command.clear();
-	commandSize.clear();
-	resultVec.clear();
-	resultNumVec.clear();
-	try
-	{
-		command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
-		command.emplace_back(keyView);
-		commandSize.emplace_back(2);
-
-		std::get<1>(thisRequest) = 1;
-		std::get<3>(thisRequest) = 1;
-		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadLOT_SIZE_STRING, this, std::placeholders::_1, std::placeholders::_2);
-
-		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-
-}
-
-
-//POST /5 HTTP/1.0\r\nHost:192.168.80.128:8085\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:0\r\n\r\n
-
-void HTTPSSERVICE::testMultiRedisReadINTERGER()
-{
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-	redisResultTypeSW& thisRequest{ *redisRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
-
-
-	command.clear();
-	commandSize.clear();
-	resultVec.clear();
-	resultNumVec.clear();
-	try
-	{
-		command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
-		command.emplace_back(std::string_view(REDISNAMESPACE::age, REDISNAMESPACE::ageLen));
-		commandSize.emplace_back(2);
-
-		std::get<1>(thisRequest) = 1;
-		std::get<3>(thisRequest) = 1;
-		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadINTERGER, this, std::placeholders::_1, std::placeholders::_2);
-
-		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-}
-
-
-
-void HTTPSSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
-{
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-	std::vector<std::string_view>& resultVec{ std::get<4>(*redisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(*redisRequest).get() };
-
-
-	if (result)
-	{
-		if (!resultVec.empty())
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			st1.reset();
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			int index{ -1 }, num{ 1 };
-
-			if (!st1.putNumber(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, std::accumulate(std::make_reverse_iterator(resultVec[0].cend()), std::make_reverse_iterator(resultVec[0].cbegin()), 0, [&index, &num](auto& sum, auto const ch)
-			{
-				if (++index)num *= 10;
-				return sum += (ch - '0') * num;
-			})))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			makeSendJson(st1);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::httpNO_KEY, HTTPRESPONSEREADY::httpNO_KEYLen);
-		}
-	}
-	else
-	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
-	}
-}
-
-
-
-//测试redis返回ARRAY结果集的接口
-void HTTPSSERVICE::testMultiRedisReadARRAY()
-{
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-	redisResultTypeSW& thisRequest{ *redisRequest };
-
-	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
-	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
-	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
-
-
-	command.clear();
-	commandSize.clear();
-	resultVec.clear();
-	resultNumVec.clear();
-	try
-	{
-		command.emplace_back(std::string_view(REDISNAMESPACE::mget, REDISNAMESPACE::mgetLen));
-		command.emplace_back(std::string_view(REDISNAMESPACE::foo, REDISNAMESPACE::fooLen));
-		command.emplace_back(std::string_view(REDISNAMESPACE::age, REDISNAMESPACE::ageLen));
-		command.emplace_back(std::string_view(REDISNAMESPACE::foo, REDISNAMESPACE::fooLen));
-		command.emplace_back(std::string_view(REDISNAMESPACE::age1, REDISNAMESPACE::age1Len));
-		commandSize.emplace_back(5);
-
-		std::get<1>(thisRequest) = 1;
-		std::get<3>(thisRequest) = 1;
-		std::get<6>(thisRequest) = std::bind(&HTTPSSERVICE::handleMultiRedisReadARRAY, this, std::placeholders::_1, std::placeholders::_2);
-
-		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
-	}
-	catch (const std::exception& e)
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-}
-
-
-
-void HTTPSSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
-{
-	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
-	std::vector<std::string_view>& resultVec{ std::get<4>(*redisRequest).get() };
-	std::vector<unsigned int>& resultNumVec{ std::get<5>(*redisRequest).get() };
-
-
-	if (result)
-	{
-
-		if (resultVec.size() == 4)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] };
-
-			st1.reset();
-			st2.reset();
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			if (!st1.put(REDISNAMESPACE::foo, REDISNAMESPACE::foo + REDISNAMESPACE::fooLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.push_back(st1))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			if (!st1.put(REDISNAMESPACE::age, REDISNAMESPACE::age + REDISNAMESPACE::ageLen, &*(resultVec[1].cbegin()), &*(resultVec[1].cend())))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.push_back(st1))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			if (!st1.put(REDISNAMESPACE::foo, REDISNAMESPACE::foo + REDISNAMESPACE::fooLen, &*(resultVec[2].cbegin()), &*(resultVec[2].cend())))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.push_back(st1))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			if (!st1.put(REDISNAMESPACE::age1, REDISNAMESPACE::age1 + REDISNAMESPACE::age1Len, &*(resultVec[3].cbegin()), &*(resultVec[3].cend())))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st2.push_back(st1))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			if (!st1.put_child(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, st2))
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-
-			makeSendJson(st1);
-		}
-		else
-		{
-			startWrite(HTTPRESPONSEREADY::httpNO_KEY, HTTPRESPONSEREADY::httpNO_KEYLen);
-		}
-	}
-	else
-	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
-	}
-
-}
-
-
-
-//接口/23 将动态http头部以及内容直接写入发送缓冲区测试函数，省去一次拷贝开销
-//可以搜索if constexpr (std::is_same<HTTPFLAG, CUSTOMTAG>::value)进行了解实现细节
-//当需要插入多条http头部值时，前面的http值结束时需要加入\r\n，最后一个不需要
-//当不确定需要多大的空间时，可以将需要的空间值设置大一点，
-//在插入数据前保存当前指针位置，在插入完成后比对指针位置长度，然后将剩余长度内容用空格填充即可
-//提供给需要极限qps的场景下使用
-void HTTPSSERVICE::testInsertHttpHeader()
-{
-	STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-	st1.reset();
-
-	if (!st1.clear())
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, STATICSTRING::test, STATICSTRING::test + STATICSTRING::testLen))
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-
-	static unsigned int dateLen{ 34 };
-	char* sendBuffer{};
-	unsigned int sendLen{};
-
-	static std::function<void(char*&)>timeStampFun{ [this](char*& bufferBegin)
-	{
-		if (!bufferBegin)
-			return;
-
-		std::copy(STATICSTRING::Date, STATICSTRING::Date + STATICSTRING::DateLen, bufferBegin);
-		bufferBegin += STATICSTRING::DateLen;
-
-		*bufferBegin++ = ':';
-
-		//设置Date值   
-		m_time = std::chrono::high_resolution_clock::now();
-
-		m_sessionTime = std::chrono::system_clock::to_time_t(m_time);
-
-		//复用m_tmGMT生成CST时间
-		m_tmGMT = localtime(&m_sessionTime);
-
-		// Mon, 13 Sep 2021 11:07:54 CST
-
-		m_tmGMT->tm_year += 1900;
-
-		std::copy(STATICSTRING::tm_wday[m_tmGMT->tm_wday], STATICSTRING::tm_wday[m_tmGMT->tm_wday] + STATICSTRING::tm_wdayLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_wdayLen;
-
-		*bufferBegin++ = ',';
-		*bufferBegin++ = ' ';
-
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_mday], STATICSTRING::tm_sec[m_tmGMT->tm_mday] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ' ';
-
-		std::copy(STATICSTRING::tm_mon[m_tmGMT->tm_mon], STATICSTRING::tm_mon[m_tmGMT->tm_mon] + STATICSTRING::tm_monLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_monLen;
-
-		*bufferBegin++ = ' ';
-
-		*bufferBegin++ = m_tmGMT->tm_year / 1000 + '0';
-		*bufferBegin++ = m_tmGMT->tm_year / 100 % 10 + '0';
-		*bufferBegin++ = m_tmGMT->tm_year / 10 % 10 + '0';
-		*bufferBegin++ = m_tmGMT->tm_year % 10 + '0';
-
-		*bufferBegin++ = ' ';
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_hour], STATICSTRING::tm_sec[m_tmGMT->tm_hour] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ':';
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_min], STATICSTRING::tm_sec[m_tmGMT->tm_min] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ':';
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_sec], STATICSTRING::tm_sec[m_tmGMT->tm_sec] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ' ';
-
-		std::copy(STATICSTRING::CST, STATICSTRING::CST + STATICSTRING::CSTLen, bufferBegin);
-		bufferBegin += STATICSTRING::CSTLen;
-
-	} };
-
-
-	makeSendJson<TRANSFORMTYPE, CUSTOMTAG>(st1, timeStampFun, dateLen);
-
-}
-
-
-
-
-
-
-void HTTPSSERVICE::testFirstTime()
-{
-	m_firstTime = std::chrono::system_clock::to_time_t(std::chrono::high_resolution_clock::now());
-
-	return startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
-}
-
-
-
-
-
-
-void HTTPSSERVICE::testBusiness()
+void WEBSERVICE::testBusiness()
 {
 	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
 
-void HTTPSSERVICE::readyParseMultiPartFormData()
+void WEBSERVICE::readyParseMultiPartFormData()
 {
 	m_boundaryLen = boundaryEnd - boundaryBegin + 4;
 	char* buffer{ m_MemoryPool.getMemory<char*>(m_boundaryLen) }, * iter{};
@@ -1487,7 +251,7 @@ void HTTPSSERVICE::readyParseMultiPartFormData()
 
 
 
-void HTTPSSERVICE::testMultiPartFormData()
+void WEBSERVICE::testMultiPartFormData()
 {
 	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
@@ -1502,7 +266,7 @@ void HTTPSSERVICE::testMultiPartFormData()
 
 
 
-void HTTPSSERVICE::testSuccessUpload()
+void WEBSERVICE::testSuccessUpload()
 {
 	STLtreeFast& st1{ m_STLtreeFastVec[0] };
 
@@ -1517,7 +281,7 @@ void HTTPSSERVICE::testSuccessUpload()
 
 
 
-void HTTPSSERVICE::readyParseChunkData()
+void WEBSERVICE::readyParseChunkData()
 {
 	m_parseStatus = PARSERESULT::begin_checkChunkData;
 
@@ -1527,330 +291,7 @@ void HTTPSSERVICE::readyParseChunkData()
 
 
 
-//  keyValue   {"key":"value"}
-//  
-
-//测试json生成函数
-void HTTPSSERVICE::testMakeJson()
-{
-	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	std::string_view bodyView{ m_httpresult.getBody() };
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::jsonType, STATICSTRING::jsonTypeLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	const char** BodyBuffer{ m_buffer->bodyPara() };
-
-	std::string_view jsonTypeView{ *(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType),*(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTMAKEJSON::jsonType) };
-
-	STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] };
-
-	st1.reset();
-	st2.reset();
-
-	if (!st1.clear())
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	if (!st2.clear())
-		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-	static const char* key1Str{ "key1" }, * value1Str{ "value1" }, * key2Str{ "key2" }, * value2Str{ "value2" }, * value3Str{ "value3" }, * key3Str{ "key3" }, * nullStr{ "null" };
-
-	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
-		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
-
-	bool success{ false }, innerSuccess{ false };
-
-	char* newbuffer{};
-
-	int needLen{};
-
-	do
-	{
-		switch (jsonTypeView.size())
-		{
-			// {"key1":"value1"}
-		case STATICSTRING::keyValueLen:
-			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::keyValue, STATICSTRING::keyValue + STATICSTRING::keyValueLen))
-				break;
-			if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
-				break;
-			innerSuccess = true;
-			break;
-
-			//{"key1":"value1","key2":"value2"}
-			//{"key1":{}}
-			//{"key1":[{"key1":"value1","key2":"","key3":true},{"key1":"value1","key2":"","key3":true},{"key1":"value1","key2":"","key3":true}]}
-		case STATICSTRING::doubleValueLen:
-			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::doubleValue, STATICSTRING::doubleValue + STATICSTRING::doubleValueLen))
-			{
-				if (!st1.putNumber(key1Str, key1Str + key1StrLen, 1.001f))
-					break;
-				if (!st1.putNumber(key2Str, key2Str + key2StrLen, 10.983f))
-					break;
-			}
-			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyObject, STATICSTRING::emptyObject + STATICSTRING::emptyObjectLen))
-			{
-				if (!st1.putObject<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
-					break;
-			}
-			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::objectArray, STATICSTRING::objectArray + STATICSTRING::objectArrayLen))
-			{
-				if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
-					break;
-				if (!st1.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
-					break;
-				if (!st1.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
-					break;
-				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
-					break;
-				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
-					break;
-				if (!st2.putObject<TRANSFORMTYPE>(nullptr, nullptr, st1))
-					break;
-				if (!st1.clear())
-					break;
-				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
-					break;
-			}
-			else
-				break;
-			innerSuccess = true;
-			break;
-
-			//{"key1":""}
-			//{"key1":{}}
-			//{"key1":["value1","value2","value3"]}
-		case STATICSTRING::emptyValueLen:
-			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyValue, STATICSTRING::emptyValue + STATICSTRING::emptyValueLen))
-			{
-				if (!st1.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, nullptr, nullptr))
-					break;
-			}
-			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::emptyObject, STATICSTRING::emptyObject + STATICSTRING::emptyObjectLen))
-			{
-				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
-					break;
-			}
-			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::valueArray, STATICSTRING::valueArray + STATICSTRING::valueArrayLen))
-			{
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
-					break;
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value2Str, value2Str + value2StrLen))
-					break;
-				if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value3Str, value3Str + value3StrLen))
-					break;
-				if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
-					break;
-			}
-			else
-				break;
-			innerSuccess = true;
-			break;
-			// {"key1":null}
-		case STATICSTRING::jsonNullLen:
-			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonNull, STATICSTRING::jsonNull + STATICSTRING::jsonNullLen))
-				break;
-			if (!st1.putNull<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen))
-				break;
-			innerSuccess = true;
-			break;
-
-			//{"key1":true,"key2":false}
-		case STATICSTRING::jsonBooleanLen:
-			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonBoolean, STATICSTRING::jsonBoolean + STATICSTRING::jsonBooleanLen))
-				break;
-			if (!st1.putBoolean<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, true))
-				break;
-			if (!st1.putBoolean<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, false))
-				break;
-			innerSuccess = true;
-			break;
-
-			//{"key1":30}
-			//{"key1":{"key1":"value1","key2":"","key3":true}}
-		case STATICSTRING::jsonNumberLen:
-			if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonNumber, STATICSTRING::jsonNumber + STATICSTRING::jsonNumberLen))
-			{
-				if (!st1.putNumber<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, static_cast<int>(30)))
-					break;
-				if (!st1.putNumber<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, static_cast<int>(-20)))
-					break;
-				if (!st1.putNumber<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, static_cast<float>(40.7856f)))
-					break;
-			}
-			else if (std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonObject, STATICSTRING::jsonObject + STATICSTRING::jsonObjectLen))
-			{
-				if (!st2.putString<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, value1Str, value1Str + value1StrLen))
-					break;
-				if (!st2.putString<TRANSFORMTYPE>(key2Str, key2Str + key2StrLen, nullptr, nullptr))
-					break;
-				if (!st2.putBoolean<TRANSFORMTYPE>(key3Str, key3Str + key3StrLen, true))
-					break;
-				if (!st1.putObject<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
-					break;
-			}
-			else
-				break;
-			innerSuccess = true;
-			break;
-
-			//{"key1":["key1":"value1","key2":"","key3":true]}
-		case STATICSTRING::jsonArrayLen:
-			if (!std::equal(jsonTypeView.cbegin(), jsonTypeView.cend(), STATICSTRING::jsonArray, STATICSTRING::jsonArray + STATICSTRING::jsonArrayLen))
-				break;
-			if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, value1Str, value1Str + value1StrLen))
-				break;
-			if (!st2.putString<TRANSFORMTYPE>(nullptr, nullptr, nullptr, nullptr))
-				break;
-			if (!st2.putBoolean<TRANSFORMTYPE>(nullptr, nullptr, true))
-				break;
-			if (!st1.putArray<TRANSFORMTYPE>(key1Str, key1Str + key1StrLen, st2))
-				break;
-			innerSuccess = true;
-			break;
-
-
-		default:
-			break;
-		}
-
-		if (!innerSuccess)
-			break;
-
-		success = true;
-	} while (false);
-	if (success)
-		makeSendJson<TRANSFORMTYPE>(st1);
-	else
-		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-}
-
-
-
-
-void HTTPSSERVICE::testCompareWorkFlow()
-{
-	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	ReadBuffer& refBuffer{ *m_buffer };
-
-	std::string_view bodyView{ m_httpresult.getBody() };
-	//解释获取body中的参数stringlen  必须存在此项参数
-	if (!praseBody(bodyView.cbegin(), bodyView.size(), refBuffer.bodyPara(), STATICSTRING::stringlen, STATICSTRING::stringlenLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-	const char** BodyBuffer{ refBuffer.bodyPara() };
-
-	std::string_view numberView{ *(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen),*(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen + 1) - *(BodyBuffer + HTTPINTERFACENUM::TESTCOMPAREWORKFLOW::stringLen) };
-
-	//从stringlen获取本次返回的字符串长度
-	unsigned int number{ 0 };
-	if (!numberView.empty())
-	{
-		if (!std::all_of(numberView.cbegin(), numberView.cend(), std::bind(isdigit, std::placeholders::_1)))
-			return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
-
-		int index{ -1 }, num{ 1 };
-		number = std::accumulate(std::make_reverse_iterator(numberView.cend()), std::make_reverse_iterator(numberView.cbegin()), 0, [&index, &num](auto& sum, const char ch)
-		{
-			if (++index)num *= 10;
-			return sum += (ch - '0') * num;
-		});
-	}
-
-	static unsigned int dateLen{ 34 };
-	char* sendBuffer{};
-	unsigned int sendLen{};
-
-	static std::function<void(char*&)>compareFun{ [this](char*& bufferBegin)
-	{
-		if (!bufferBegin)
-			return;
-
-		std::copy(STATICSTRING::Date, STATICSTRING::Date + STATICSTRING::DateLen, bufferBegin);
-		bufferBegin += STATICSTRING::DateLen;
-
-		*bufferBegin++ = ':';
-
-		//设置Date值   
-		m_sessionClock = std::chrono::system_clock::now();
-
-		m_sessionTime = std::chrono::system_clock::to_time_t(m_sessionClock);
-
-		//复用m_tmGMT生成CST时间
-		m_tmGMT = localtime(&m_sessionTime);
-
-		// Mon, 13 Sep 2021 11:07:54 CST
-
-		m_tmGMT->tm_year += 1900;
-
-		std::copy(STATICSTRING::tm_wday[m_tmGMT->tm_wday], STATICSTRING::tm_wday[m_tmGMT->tm_wday] + STATICSTRING::tm_wdayLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_wdayLen;
-
-		*bufferBegin++ = ',';
-		*bufferBegin++ = ' ';
-
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_mday], STATICSTRING::tm_sec[m_tmGMT->tm_mday] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ' ';
-
-		std::copy(STATICSTRING::tm_mon[m_tmGMT->tm_mon], STATICSTRING::tm_mon[m_tmGMT->tm_mon] + STATICSTRING::tm_monLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_monLen;
-
-		*bufferBegin++ = ' ';
-
-		*bufferBegin++ = m_tmGMT->tm_year / 1000 + '0';
-		*bufferBegin++ = m_tmGMT->tm_year / 100 % 10 + '0';
-		*bufferBegin++ = m_tmGMT->tm_year / 10 % 10 + '0';
-		*bufferBegin++ = m_tmGMT->tm_year % 10 + '0';
-
-		*bufferBegin++ = ' ';
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_hour], STATICSTRING::tm_sec[m_tmGMT->tm_hour] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ':';
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_min], STATICSTRING::tm_sec[m_tmGMT->tm_min] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ':';
-
-		std::copy(STATICSTRING::tm_sec[m_tmGMT->tm_sec], STATICSTRING::tm_sec[m_tmGMT->tm_sec] + STATICSTRING::tm_secLen, bufferBegin);
-		bufferBegin += STATICSTRING::tm_secLen;
-
-		*bufferBegin++ = ' ';
-
-		std::copy(STATICSTRING::CST, STATICSTRING::CST + STATICSTRING::CSTLen, bufferBegin);
-		bufferBegin += STATICSTRING::CSTLen;
-
-
-	} };
-
-	//29  生成与workflow测试中的一样类型的返回消息
-	if (make_compareWithWorkFlowResPonse<CUSTOMTAG>(sendBuffer, sendLen, compareFun, STATICSTRING::DateLen + 1 + dateLen, finalVersionBegin, finalVersionEnd, MAKEJSON::http200,
-		MAKEJSON::http200 + MAKEJSON::http200Len, MAKEJSON::httpOK, MAKEJSON::httpOK + MAKEJSON::httpOKLen,
-		number,
-		MAKEJSON::ContentType, MAKEJSON::ContentType + MAKEJSON::ContentTypeLen, STATICSTRING::textplainUtf8, STATICSTRING::textplainUtf8 + STATICSTRING::textplainUtf8Len,
-		MAKEJSON::Connection, MAKEJSON::Connection + MAKEJSON::ConnectionLen, STATICSTRING::Keep_Alive, STATICSTRING::Keep_Alive + STATICSTRING::Keep_AliveLen))
-	{
-		startWrite(sendBuffer, sendLen);
-	}
-	else
-	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-	}
-}
-
-
-
-
-void HTTPSSERVICE::resetVerifyData()
+void WEBSERVICE::resetVerifyData()
 {
 	std::fill(m_verifyData.get(), m_verifyData.get() + VerifyDataPos::maxBufferSize, nullptr);
 }
@@ -1933,7 +374,7 @@ char**+4，（char**+4+7*2）   依次类推
 */
 
 
-void HTTPSSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
+void WEBSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 {
 	switch (em)
 	{
@@ -2003,7 +444,7 @@ void HTTPSSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 
 
 
-void HTTPSSERVICE::clean()
+void WEBSERVICE::clean()
 {
 	//cout << "start clean\n";
 	if (!m_hasClean.load())
@@ -2032,7 +473,7 @@ void HTTPSSERVICE::clean()
 
 
 
-void HTTPSSERVICE::setRecvTrue()
+void WEBSERVICE::setRecvTrue()
 {
 	m_hasRecv.store(true);
 }
@@ -2041,7 +482,7 @@ void HTTPSSERVICE::setRecvTrue()
 
 
 
-void HTTPSSERVICE::sslShutdownLoop()
+void WEBSERVICE::sslShutdownLoop()
 {
 	m_buffer->getSSLSock()->async_shutdown([this](const boost::system::error_code& err)
 	{
@@ -2065,7 +506,7 @@ void HTTPSSERVICE::sslShutdownLoop()
 
 
 
-void HTTPSSERVICE::shutdownLoop()
+void WEBSERVICE::shutdownLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
@@ -2082,7 +523,7 @@ void HTTPSSERVICE::shutdownLoop()
 }
 
 
-void HTTPSSERVICE::cancelLoop()
+void WEBSERVICE::cancelLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
@@ -2099,7 +540,7 @@ void HTTPSSERVICE::cancelLoop()
 
 }
 
-void HTTPSSERVICE::closeLoop()
+void WEBSERVICE::closeLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
@@ -2113,7 +554,7 @@ void HTTPSSERVICE::closeLoop()
 	}
 }
 
-void HTTPSSERVICE::resetSocket()
+void WEBSERVICE::resetSocket()
 {
 	m_buffer->getSock().reset(new boost::asio::ip::tcp::socket(*m_ioc));
 	m_buffer->getSock()->set_option(boost::asio::socket_base::keep_alive(true), ec);
@@ -2122,21 +563,21 @@ void HTTPSSERVICE::resetSocket()
 }
 
 
-void HTTPSSERVICE::recoverMemory()
+void WEBSERVICE::recoverMemory()
 {
 	m_httpresult.resetheader();
 	m_MemoryPool.prepare();
 }
 
 
-void HTTPSSERVICE::sendOK()
+void WEBSERVICE::sendOK()
 {
 	startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
 }
 
 
 
-void HTTPSSERVICE::cleanData()
+void WEBSERVICE::cleanData()
 {
 	if (m_availableLen)
 	{
@@ -2169,7 +610,7 @@ void HTTPSSERVICE::cleanData()
 
 
 
-void HTTPSSERVICE::prepare()
+void WEBSERVICE::prepare()
 {
 	m_httpHeaderMap.reset(new const char* [HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN]);
 	std::fill(m_httpHeaderMap.get(), m_httpHeaderMap.get() + HTTPHEADERSPACE::HTTPHEADERLIST::HTTPHEADERLEN, nullptr);
@@ -2291,7 +732,7 @@ void HTTPSSERVICE::prepare()
 }
 
 
-void HTTPSSERVICE::handShake()
+void WEBSERVICE::handShake()
 {
 	m_buffer->getSSLSock()->async_handshake(boost::asio::ssl::stream_base::server,
 		[this](const boost::system::error_code& err)
@@ -2314,7 +755,7 @@ void HTTPSSERVICE::handShake()
 
 
 
-void HTTPSSERVICE::startRead()
+void WEBSERVICE::startRead()
 {
 
 	//如果Connection则发送http 响应后继续接收新消息，否则停止接收，等待回收到对象池
@@ -2353,7 +794,7 @@ void HTTPSSERVICE::startRead()
 
 //发生异常时还原置位，开启新的监听
 //m_startPos 集中在外层设置，表示下次的起始读取位置
-void HTTPSSERVICE::parseReadData(const char* source, const int size)
+void WEBSERVICE::parseReadData(const char* source, const int size)
 {
 	ReadBuffer& refBuffer{ *m_buffer };
 
@@ -2433,7 +874,7 @@ void HTTPSSERVICE::parseReadData(const char* source, const int size)
 //在解析处理过程中对target、Query para以及body进行url转码处理，后续无需在转码处理，搜素UrlDecodeWithTransChinese函数即可定位处理代码
 //UrlDecodeWithTransChinese可以在一次循环内同时转换url转义字符和中文字符转换
 
-int HTTPSSERVICE::parseHttp(const char* source, const int size)
+int WEBSERVICE::parseHttp(const char* source, const int size)
 {
 #define MAXMETHODLEN 7
 #define MAXTARGETBEGINLEN 2
@@ -5627,7 +4068,7 @@ check_messageComplete:
 
 
 //解析http header字段内容
-bool HTTPSSERVICE::parseHttpHeader()
+bool WEBSERVICE::parseHttpHeader()
 {
 	//HTTP/1.1：‌必须存在Host字段‌，缺失则返回400 Bad Request错误‌1；
 	//HTTP / 1.0：允许缺失（旧协议无强制要求）‌

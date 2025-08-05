@@ -1,6 +1,8 @@
 ﻿#pragma once
 
 
+#include "httpslistener.h"
+#include "webservicelistener.h"
 #include "listener.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
@@ -35,6 +37,14 @@ struct MiddleCenter
 		std::vector<std::string> &&fileVec,
 		const int socketNum , const int timeOut,
 		const bool isHttp = true, const char* cert = nullptr, const char* privateKey = nullptr);
+
+
+
+	//webservice分支启动函数
+	void setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string& tcpAddress, const std::string& doc_root,
+		std::vector<std::string>&& fileVec,
+		const int socketNum, const int timeOut,
+		const char* cert , const char* privateKey);
 
 
 
@@ -85,7 +95,15 @@ struct MiddleCenter
 
 
 private:
-	std::unique_ptr<listener>m_listener;
+	std::unique_ptr<listener>m_listener{};
+
+	std::unique_ptr<HTTPSlistener>m_httpsListener{};
+
+	//webservic分支专用
+	std::unique_ptr<WEBSERVICELISTENER>m_webListener{};
+
+
+
 
 	bool m_hasSetLog{ false };
 	bool m_hasSetListener{false};

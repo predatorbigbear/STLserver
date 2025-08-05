@@ -70,8 +70,17 @@ int main()
 		//绑定8085端口  http默认网页文件夹   1024处理对象   60s内超时        网页端文件存储目录需要存在
 		//{}填入想要缓存起来的文件，内部会调用gzip预先进行压缩
 		//{}是一个vector，可以为空
-		//
+		
+		//启动HTTP示例
 		m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
+		
+		//启动HTTPS可以仿照以下示例
+		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", { "webfile" }, 1024, 30, 
+		//	false, "/home/certs/web.crt", "/home/certs/web.key");
+
+
+		//m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", { "webfile" }, 1024, 60,
+		//		"/home/certs/web.crt", "/home/certs/web.key");
 		if (!success)
 		{
 			m1.freeMysql();

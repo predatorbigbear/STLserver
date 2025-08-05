@@ -10,7 +10,7 @@
 template<typename HTTPCLASS>
 struct FIXEDTEMPLATESAFELIST
 {
-	FIXEDTEMPLATESAFELIST(std::shared_ptr<std::function<void()>> &startcheckTime, 
+	FIXEDTEMPLATESAFELIST(std::shared_ptr<std::function<void()>>& startcheckTime,
 		const int beginSize = 200) :
 		m_startcheckTime(startcheckTime), m_beginSize(beginSize)
 	{
@@ -21,7 +21,7 @@ struct FIXEDTEMPLATESAFELIST
 			if (!startcheckTime)
 				throw std::runtime_error("startcheckTime is invaild");
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 			cout << e.what() << "  , please restart server\n";
 		}
@@ -38,12 +38,12 @@ struct FIXEDTEMPLATESAFELIST
 				m_checkBegin = m_checkList.get();
 				m_checkEnd = m_checkBegin;
 				m_checkMax = m_checkBegin + m_beginSize;
-	
+
 				m_hasReady = true;
 				return true;
 			}
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 			return false;
 		}
@@ -51,8 +51,8 @@ struct FIXEDTEMPLATESAFELIST
 	}
 
 
-	
-	bool insert(HTTPCLASS &buffer)
+
+	bool insert(HTTPCLASS& buffer)
 	{
 		//std::lock_guard<std::mutex>l1{ m_listMutex };
 		m_listMutex.lock();
@@ -67,7 +67,7 @@ struct FIXEDTEMPLATESAFELIST
 				//在插入成功时立即设置状态位，避免马上进行超时检测被回收的情况
 				buffer->setRecvTrue();
 			}
-			else if (m_checkEnd != m_checkMax)   
+			else if (m_checkEnd != m_checkMax)
 			{
 				//如果末尾位置不是空间最大值位置
 				*m_checkEnd = buffer;
@@ -90,8 +90,8 @@ struct FIXEDTEMPLATESAFELIST
 	}
 
 
-	
-	bool pop(HTTPCLASS *iter)
+
+	bool pop(HTTPCLASS* iter)
 	{
 		//std::lock_guard<std::mutex>l1{ m_listMutex };
 		m_listMutex.lock();
@@ -117,7 +117,7 @@ struct FIXEDTEMPLATESAFELIST
 
 			if (m_checkBegin == m_checkEnd)
 				m_checkBegin = m_checkEnd = m_checkList.get();
-			
+
 
 			m_listMutex.unlock();
 			return true;
@@ -130,7 +130,7 @@ struct FIXEDTEMPLATESAFELIST
 	}
 
 
-	
+
 	void check()
 	{
 		//std::lock_guard<std::mutex>l1{ m_listMutex };
@@ -139,8 +139,7 @@ struct FIXEDTEMPLATESAFELIST
 		{
 			for (m_tempIter = m_checkBegin; m_tempIter != m_checkEnd; ++m_tempIter)
 			{
-				if ((*m_tempIter)->checkTimeOut())
-					(*m_tempIter)->clean();
+				(*m_tempIter)->checkTimeOut();
 			}
 		}
 		m_listMutex.unlock();
@@ -168,7 +167,6 @@ private:
 	std::shared_ptr<std::function<void()>>m_startcheckTime{};
 
 };
-
 
 
 

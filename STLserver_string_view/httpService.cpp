@@ -66,7 +66,7 @@ HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCL
 
 void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE>& other)
 {
-	
+
 	m_mySelf = other;
 	m_hasClean.store(false);
 
@@ -93,16 +93,15 @@ void HTTPSERVICE::setListIter(std::shared_ptr<HTTPSERVICE>* iter)
 
 
 
-bool HTTPSERVICE::checkTimeOut()
+void HTTPSERVICE::checkTimeOut()
 {
 	if (!m_hasRecv.load())
 	{
-		return true;
+		clean();
 	}
 	else
 	{
 		m_hasRecv.store(false);
-		return false;
 	}
 }
 
@@ -2010,7 +2009,7 @@ void HTTPSERVICE::clean()
 	{
 		m_hasClean.store(true);
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
-		
+
 
 		m_startPos = 0;
 		m_firstTime = 0;
@@ -2401,7 +2400,7 @@ int HTTPSERVICE::parseHttp(const char* source, const int size)
 #define MAXVERSIONLEN 3
 #define MAXLINELEN 5
 #define MAXHEADBEGINLEN 1
-#define MAXHEADLEN 19
+#define MAXHEADLEN 50
 #define MAXWORDBEGINLEN 20
 #define MAXWORDLEN 1024
 #define MAXCHUNKNUMBERLEN 6
@@ -5926,7 +5925,6 @@ after_parse_Content_Type:
 
 	return true;
 }
-
 
 
 

@@ -20,27 +20,28 @@
 
 #include<ctype.h>
 
-
-struct HTTPSSERVICE
+//webService为我做实验的一个分支，开发项目请使用http 和 https 处理分支
+//webService 配套类为 FixedWebServicePool  以及  webservicelistener
+struct WEBSERVICE
 {
-	HTTPSSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
+	WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
 		std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 		std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
-		const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSSERVICE>&)>>& cleanFun,
+		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const unsigned int bufNum = 4096
 	);
 
-	void setReady(std::shared_ptr<HTTPSSERVICE>& other);
+	void setReady(std::shared_ptr<WEBSERVICE>& other);
 
 	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
-	std::shared_ptr<HTTPSSERVICE>* getListIter();
+	std::shared_ptr<WEBSERVICE>* getListIter();
 
 	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
-	void setListIter(std::shared_ptr<HTTPSSERVICE>* iter);
+	void setListIter(std::shared_ptr<WEBSERVICE>* iter);
 
 	//64位系统下，不超过8字节的传值更高效
 	void checkTimeOut();
@@ -65,13 +66,13 @@ private:
 
 	int m_len{};
 
-	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSSERVICE>&)>> m_clearFunction{};
+	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>> m_clearFunction{};
 
 	std::shared_ptr<ASYNCLOG> m_log{};
 
-	std::atomic<std::shared_ptr<HTTPSSERVICE>*>mySelfIter{};
+	std::atomic<std::shared_ptr<WEBSERVICE>*>mySelfIter{};
 
-	std::shared_ptr<HTTPSSERVICE> m_mySelf{};
+	std::shared_ptr<WEBSERVICE> m_mySelf{};
 
 	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
 
@@ -533,68 +534,14 @@ private:
 
 
 
-	void testBody();
-
-	void testRandomBody();
+	
 
 	void testGet();     //读取文件返回
 
 	///////////////////////////////////////////////////
 
-	void testPingPong();
-
-	//以json格式返回ping pong信息
-	void testPingPongJson();
-
 
 	void handleERRORMESSAGE(ERRORMESSAGE em);
-
-
-	//  联合sql string_view版本 查询函数
-	void testmultiSqlReadSW();
-
-	void handleMultiSqlReadSW(bool result, ERRORMESSAGE em);
-
-	//  联合sql string_view版本 解析body查询函数
-	void testmultiSqlReadParseBosySW();
-
-	//   联合sql string_view版本 测试update函数
-	void testmultiSqlReadUpdateSW();
-
-
-	//处理联合sql string_view版本 测试update函数的回调函数
-	void handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em);
-
-
-	//  联合redis string_view版本 查询函数KEY测试函数
-	void testMultiRedisReadLOT_SIZE_STRING();
-
-	void handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE em);
-
-
-	//  联合redis string_view版本 从body中解析参数进行查询KEY测试函数
-	void testMultiRedisParseBodyReadLOT_SIZE_STRING();
-
-
-	//  联合redis string_view版本 查询函数数值测试函数
-	void testMultiRedisReadINTERGER();
-
-	void handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em);
-
-
-	//  联合redis string_view版本 查询函数数值测试函数
-	void testMultiRedisReadARRAY();
-
-	void handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em);
-
-
-
-	// 将动态http头部以及内容直接写入发送缓冲区测试函数，省去一次拷贝开销
-	void testInsertHttpHeader();
-
-
-	//测定首次时间戳
-	void testFirstTime();
 
 
 
@@ -619,24 +566,6 @@ private:
 	//测试解析chunk格式数据
 	void readyParseChunkData();
 
-	//json格式生成演示
-	void testMakeJson();
-
-
-
-
-
-	//与workflow进行对比测试的函数
-	//https://github.com/sogou/workflow/tree/master/benchmark
-	//workflow对请求返回每次的时间  body长度  以及Connection  Conteng-type设置
-	//string str{ "POST /20 HTTP/1.1\r\nHost: 101.32.203.226:8085\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 12\r\n\r\nstringlen=11" };
-	void testCompareWorkFlow();
-
-
-
-
-
-
 
 
 	/// ------------------------------------------------------
@@ -650,9 +579,51 @@ private:
 
 
 	/////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
+	//                   业务逻辑区
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	///////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
 
 
 
@@ -734,7 +705,7 @@ private:
 
 
 template<typename SENDMODE>
-inline void HTTPSSERVICE::startWrite(const char* source, const int size)
+inline void WEBSERVICE::startWrite(const char* source, const int size)
 {
 	startWriteLoop<SENDMODE>(source, size);
 }
@@ -742,7 +713,7 @@ inline void HTTPSSERVICE::startWrite(const char* source, const int size)
 
 
 template<typename SENDMODE>
-inline void HTTPSSERVICE::startWriteLoop(const char* source, const int size)
+inline void WEBSERVICE::startWriteLoop(const char* source, const int size)
 {
 	boost::asio::async_write(*m_buffer->getSSLSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code& err, std::size_t size)
 	{
@@ -794,7 +765,7 @@ inline void HTTPSSERVICE::startWriteLoop(const char* source, const int size)
 
 
 template<typename T, typename HTTPFLAG, typename HTTPFUNCTION>
-inline void HTTPSSERVICE::makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite, unsigned int httpLen)
+inline void WEBSERVICE::makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite, unsigned int httpLen)
 {
 	if (!st.isEmpty())
 	{
@@ -852,7 +823,7 @@ inline void HTTPSSERVICE::makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite, 
 
 
 template<typename HTTPFLAG, typename HTTPFUNCTION, typename ...ARG>
-inline bool HTTPSSERVICE::makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char* httpVersionBegin, const char* httpVersionEnd, const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd, ARG && ...args)
+inline bool WEBSERVICE::makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char* httpVersionBegin, const char* httpVersionEnd, const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd, ARG && ...args)
 {
 	int parSize{ sizeof...(args) }, httpHeadLen{};
 	if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !calLength(httpHeadLen, args...))
@@ -965,7 +936,7 @@ inline bool HTTPSSERVICE::makeFileFront(std::string_view fileName, const unsigne
 
 
 template<typename HTTPFLAG, typename HTTPFUNCTION, typename ...ARG>
-inline bool HTTPSSERVICE::make_compareWithWorkFlowResPonse(char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen,
+inline bool WEBSERVICE::make_compareWithWorkFlowResPonse(char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen,
 	const char* httpVersionBegin, const char* httpVersionEnd, const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd,
 	unsigned int randomBodyLen, ARG && ...args)
 {

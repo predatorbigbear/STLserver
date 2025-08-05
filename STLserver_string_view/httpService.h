@@ -23,27 +23,27 @@
 
 struct HTTPSERVICE
 {
-	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string &doc_root,
+	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
 		std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
 		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 		std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const unsigned int timeOut, bool & success, const unsigned int serviceNum,
-		const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> & cleanFun,
+		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
+		const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 		const unsigned int bufNum = 4096
-		);
+	);
 
-	void setReady(std::shared_ptr<HTTPSERVICE> &other);
+	void setReady(std::shared_ptr<HTTPSERVICE>& other);
 
 	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
-	std::shared_ptr<HTTPSERVICE> *getListIter();
+	std::shared_ptr<HTTPSERVICE>* getListIter();
 
 	//在实际运行中，读写在不同线程中运行，所以需要改成多线程同步
 	void setListIter(std::shared_ptr<HTTPSERVICE>* iter);
 
 	//64位系统下，不超过8字节的传值更高效
-	bool checkTimeOut();
+	void checkTimeOut();
 
 	void clean();
 
@@ -59,7 +59,7 @@ struct HTTPSERVICE
 private:
 	const unsigned int m_serviceNum{};
 
-	const std::string &m_doc_root;
+	const std::string& m_doc_root;
 
 	std::shared_ptr<io_context> m_ioc{};
 
@@ -84,7 +84,7 @@ private:
 
 
 	using resultType = std::tuple<const char**, unsigned int, unsigned int, std::shared_ptr<MYSQL_RES*>, unsigned int, std::shared_ptr<unsigned int[]>, unsigned int,
-		std::shared_ptr<const char*[]>, unsigned int, std::function<void(bool, enum ERRORMESSAGE)>>;
+		std::shared_ptr<const char* []>, unsigned int, std::function<void(bool, enum ERRORMESSAGE)>>;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -120,7 +120,7 @@ private:
 	// redis类型
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
-		std::function<void(bool, enum ERRORMESSAGE)>,bool, MEMORYPOOL<> *>;
+		std::function<void(bool, enum ERRORMESSAGE)>, bool, MEMORYPOOL<>*>;
 
 
 
@@ -166,15 +166,15 @@ private:
 
 
 
-	
+
 
 
 	std::shared_ptr<MULTISQLREADSW>m_multiSqlReadSWMaster{};
 
 	std::shared_ptr<MULTIREDISREAD>m_multiRedisReadMaster{};
-		
+
 	std::shared_ptr<MULTIREDISWRITE>m_multiRedisWriteMaster{};
-	
+
 	std::shared_ptr<MULTISQLWRITESW>m_multiSqlWriteSWMaster{};
 
 
@@ -203,28 +203,28 @@ private:
 	/////////////////////////////////////////
 
 
-	char *m_readBuffer{};
+	char* m_readBuffer{};
 
 
 
 
-	const char *funBegin{}, *funEnd{}, *finalFunBegin{}, *finalFunEnd{},
-		*targetBegin{}, *targetEnd{}, *finalTargetBegin{}, *finalTargetEnd{},
-		*paraBegin{}, *paraEnd{}, *finalParaBegin{}, *finalParaEnd{},
-		*bodyBegin{ }, *bodyEnd{ }, *finalBodyBegin{}, *finalBodyEnd{},
-		*versionBegin{}, *versionEnd{}, *finalVersionBegin{}, *finalVersionEnd{},
-		*headBegin{}, *headEnd{}, *finalHeadBegin{}, *finalHeadEnd{},
-		*wordBegin{}, *wordEnd{}, *finalWordBegin{}, *finalWordEnd{},
-		*httpBegin{}, *httpEnd{}, *finalHttpBegin{}, *finalHttpEnd{},
-		*lineBegin{}, *lineEnd{}, *finalLineBegin{}, *finalLineEnd{},
-		*chunkNumBegin{}, *chunkNumEnd{}, *finalChunkNumBegin{}, *finalChunkNumEnd{},
-		*chunkDataBegin{}, *chunkDataEnd{}, *finalChunkDataBegin{}, *finalChunkDataEnd{},
-		*boundaryBegin{}, *boundaryEnd{},
-		*findBoundaryBegin{}, *findBoundaryEnd{},
-		*boundaryHeaderBegin{}, *boundaryHeaderEnd{},
-		*boundaryWordBegin{}, *boundaryWordEnd{}, *thisBoundaryWordBegin{}, *thisBoundaryWordEnd{},
-		*messageBegin{}, *messageEnd{}
-		;
+	const char* funBegin{}, * funEnd{}, * finalFunBegin{}, * finalFunEnd{},
+		* targetBegin{}, * targetEnd{}, * finalTargetBegin{}, * finalTargetEnd{},
+		* paraBegin{}, * paraEnd{}, * finalParaBegin{}, * finalParaEnd{},
+		* bodyBegin{ }, * bodyEnd{ }, * finalBodyBegin{}, * finalBodyEnd{},
+		* versionBegin{}, * versionEnd{}, * finalVersionBegin{}, * finalVersionEnd{},
+		* headBegin{}, * headEnd{}, * finalHeadBegin{}, * finalHeadEnd{},
+		* wordBegin{}, * wordEnd{}, * finalWordBegin{}, * finalWordEnd{},
+		* httpBegin{}, * httpEnd{}, * finalHttpBegin{}, * finalHttpEnd{},
+		* lineBegin{}, * lineEnd{}, * finalLineBegin{}, * finalLineEnd{},
+		* chunkNumBegin{}, * chunkNumEnd{}, * finalChunkNumBegin{}, * finalChunkNumEnd{},
+		* chunkDataBegin{}, * chunkDataEnd{}, * finalChunkDataBegin{}, * finalChunkDataEnd{},
+		* boundaryBegin{}, * boundaryEnd{},
+		* findBoundaryBegin{}, * findBoundaryEnd{},
+		* boundaryHeaderBegin{}, * boundaryHeaderEnd{},
+		* boundaryWordBegin{}, * boundaryWordEnd{}, * thisBoundaryWordBegin{}, * thisBoundaryWordEnd{},
+		* messageBegin{}, * messageEnd{}
+	;
 
 
 
@@ -258,7 +258,7 @@ private:
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	std::unique_ptr<const char*[]>m_httpHeaderMap{};
+	std::unique_ptr<const char* []>m_httpHeaderMap{};
 
 	bool isHttp10{ false };                   //是否是http1.0
 
@@ -271,7 +271,7 @@ private:
 
 	const bool isHttp{ true };                //是否是http
 
-	int hostPort{80};                         //http host默认端口
+	int hostPort{ 80 };                         //http host默认端口
 
 
 
@@ -285,14 +285,14 @@ private:
 
 	const char** m_HostNameBegin{}, ** m_HostNameEnd{};
 	const char** m_HostPortBegin{}, ** m_HostPortEnd{};
-	
-	const char **m_Boundary_ContentDispositionBegin{}, **m_Boundary_ContentDispositionEnd{};
-	const char **m_Boundary_NameBegin{}, **m_Boundary_NameEnd{};
-	const char **m_Boundary_FilenameBegin{}, **m_Boundary_FilenameEnd{};
-	const char **m_Boundary_ContentTypeBegin{}, **m_Boundary_ContentTypeEnd{};
+
+	const char** m_Boundary_ContentDispositionBegin{}, ** m_Boundary_ContentDispositionEnd{};
+	const char** m_Boundary_NameBegin{}, ** m_Boundary_NameEnd{};
+	const char** m_Boundary_FilenameBegin{}, ** m_Boundary_FilenameEnd{};
+	const char** m_Boundary_ContentTypeBegin{}, ** m_Boundary_ContentTypeEnd{};
 
 
-	
+
 
 
 
@@ -318,7 +318,7 @@ private:
 	//文件大小
 	int m_fileSize{};
 	int m_readFileSize{};
-	
+
 	std::ifstream m_file{};
 
 	int m_getStatus{};
@@ -448,16 +448,16 @@ private:
 
 	boost::system::error_code ec;
 
-	std::chrono::system_clock::time_point m_sessionClock, m_sessionGMTClock ,m_thisClock;       //用于取值当前时间点
+	std::chrono::system_clock::time_point m_sessionClock, m_sessionGMTClock, m_thisClock;       //用于取值当前时间点
 
-	time_t m_sessionTime, m_sessionGMTTime , m_thisTime;
+	time_t m_sessionTime, m_sessionGMTTime, m_thisTime;
 
 	time_t m_firstTime{};         //首次测试时间戳
 
-	struct tm *m_tmGMT;
+	struct tm* m_tmGMT;
 
 
-	const char *m_sendBuffer{};
+	const char* m_sendBuffer{};
 	unsigned int m_sendLen{};
 	unsigned int m_sendTimes{};
 
@@ -483,26 +483,26 @@ private:
 
 	void startRead();
 
-	void parseReadData(const char *source, const int size);         // 解析数据
+	void parseReadData(const char* source, const int size);         // 解析数据
 
-	int parseHttp(const char *source, const int size);             // 解析Http数据
+	int parseHttp(const char* source, const int size);             // 解析Http数据
 
 	bool parseHttpHeader();                                        //解析http 字段内容
 
 	// 普通模式
 	// READFROMDISK 直接从磁盘读取文件发送模式
 	template<typename SENDMODE = void>
-	void startWrite(const char *source, const int size);
+	void startWrite(const char* source, const int size);
 
 
 	// 普通模式
 	// READFROMDISK 直接从磁盘读取文件发送模式
 	template<typename SENDMODE = void>
-	void startWriteLoop(const char *source, const int size);
+	void startWriteLoop(const char* source, const int size);
 
 
-	template<typename T=void, typename HTTPFLAG = void, typename HTTPFUNCTION=void*>
-	void makeSendJson(STLtreeFast &st, HTTPFUNCTION httpWrite=nullptr, unsigned int httpLen=0);
+	template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = void*>
+	void makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite = nullptr, unsigned int httpLen = 0);
 
 
 	//文件名称
@@ -512,14 +512,14 @@ private:
 	//发送buffer http前缀大小
 	//
 	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
-	bool makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
-		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, ARG&&...args);
-	
+	bool makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char* httpVersionBegin, const char* httpVersionEnd,
+		const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd, ARG&&...args);
+
 
 	//用来生成与workflow测试文件相同的返回数据的专用打包函数
 	template<typename HTTPFLAG = void, typename HTTPFUNCTION = void*, typename ...ARG>
-	bool make_compareWithWorkFlowResPonse(char *&resultPtr, unsigned int &resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char *httpVersionBegin, const char *httpVersionEnd,
-		const char *httpCodeBegin, const char *httpCodeEnd, const char *httpResultBegin, const char *httpResultEnd, unsigned int randomBodyLen, ARG&&...args);
+	bool make_compareWithWorkFlowResPonse(char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char* httpVersionBegin, const char* httpVersionEnd,
+		const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd, unsigned int randomBodyLen, ARG&&...args);
 
 	void run();
 
@@ -638,9 +638,9 @@ private:
 	/// ------------------------------------------------------
 
 	std::function<void()>m_business;
-	
+
 	// 验证函数专用buf，外界不要使用
-	std::unique_ptr<const char*[]>m_verifyData;
+	std::unique_ptr<const char* []>m_verifyData;
 
 	void resetVerifyData();
 
@@ -649,11 +649,11 @@ private:
 
 
 
-	
+
 
 
 	template<typename HEADERTYPE>
-	bool calLength(int &httpLength, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd)
+	bool calLength(int& httpLength, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd)
 	{
 		if constexpr (std::is_same<HEADERTYPE, const char*>::value)
 		{
@@ -668,7 +668,7 @@ private:
 
 
 	template<typename HEADERTYPE, typename ...ARG>
-	bool calLength(int &httpLength, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd, ARG&& ... args)
+	bool calLength(int& httpLength, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd, ARG&& ... args)
 	{
 		if constexpr (std::is_same<HEADERTYPE, const char*>::value)
 		{
@@ -683,7 +683,7 @@ private:
 
 
 	template<typename HEADERTYPE>
-	void packAgeHttpHeader(char *&httpPointer, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd)
+	void packAgeHttpHeader(char*& httpPointer, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd)
 	{
 		if constexpr (std::is_same<HEADERTYPE, const char*>::value)
 		{
@@ -704,7 +704,7 @@ private:
 
 
 	template<typename HEADERTYPE, typename ...ARG>
-	void packAgeHttpHeader(char *&httpPointer, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd, ARG&& ... args)
+	void packAgeHttpHeader(char*& httpPointer, HEADERTYPE headerBegin, HEADERTYPE headerEnd, HEADERTYPE wordBegin, HEADERTYPE wordEnd, ARG&& ... args)
 	{
 		if constexpr (std::is_same<HEADERTYPE, const char*>::value)
 		{
@@ -730,7 +730,7 @@ private:
 
 
 template<typename SENDMODE>
-inline void HTTPSERVICE::startWrite(const char * source, const int size)
+inline void HTTPSERVICE::startWrite(const char* source, const int size)
 {
 	startWriteLoop<SENDMODE>(source, size);
 }
@@ -738,18 +738,18 @@ inline void HTTPSERVICE::startWrite(const char * source, const int size)
 
 
 template<typename SENDMODE>
-inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
+inline void HTTPSERVICE::startWriteLoop(const char* source, const int size)
 {
-	boost::asio::async_write(*m_buffer->getSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code &err, std::size_t size)
+	boost::asio::async_write(*m_buffer->getSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code& err, std::size_t size)
 	{
 		if (err)
 		{
 			//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 			if (err != boost::asio::error::operation_aborted)
 			{
-				
+
 			}
-			
+
 			//发生错误时等待超时回收，clean函数内会对内存池进行重置
 		}
 		else
@@ -790,11 +790,11 @@ inline void HTTPSERVICE::startWriteLoop(const char * source, const int size)
 
 
 template<typename T, typename HTTPFLAG, typename HTTPFUNCTION>
-inline void HTTPSERVICE::makeSendJson(STLtreeFast & st, HTTPFUNCTION httpWrite, unsigned int httpLen)
+inline void HTTPSERVICE::makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite, unsigned int httpLen)
 {
 	if (!st.isEmpty())
 	{
-		char *sendBuffer{};
+		char* sendBuffer{};
 		unsigned int sendLen{};
 
 		if (keep_alive)
@@ -848,7 +848,7 @@ inline void HTTPSERVICE::makeSendJson(STLtreeFast & st, HTTPFUNCTION httpWrite, 
 
 
 template<typename HTTPFLAG, typename HTTPFUNCTION, typename ...ARG>
-inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned int fileLen, const unsigned int assignLen, char *& resultPtr, unsigned int & resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char * httpVersionBegin, const char * httpVersionEnd, const char * httpCodeBegin, const char * httpCodeEnd, const char * httpResultBegin, const char * httpResultEnd, ARG && ...args)
+inline bool HTTPSERVICE::makeFileFront(std::string_view fileName, const unsigned int fileLen, const unsigned int assignLen, char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, const char* httpVersionBegin, const char* httpVersionEnd, const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd, ARG && ...args)
 {
 	int parSize{ sizeof...(args) }, httpHeadLen{};
 	if (!httpVersionBegin || !httpVersionEnd || !httpCodeBegin || !httpCodeEnd || !httpResultBegin || !httpResultEnd || !calLength(httpHeadLen, args...))
@@ -870,7 +870,7 @@ inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned 
 	if (assignLen < needFrontLen)
 		return false;
 
-	char *newResultPtr{ m_MemoryPool.getMemory<char*>(assignLen) };
+	char* newResultPtr{ m_MemoryPool.getMemory<char*>(assignLen) };
 
 	if (!newResultPtr)
 		return false;
@@ -961,8 +961,8 @@ inline bool HTTPSERVICE::makeFileFront(std::string_view fileName,const unsigned 
 
 
 template<typename HTTPFLAG, typename HTTPFUNCTION, typename ...ARG>
-inline bool HTTPSERVICE::make_compareWithWorkFlowResPonse(char *& resultPtr, unsigned int & resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen, 
-	const char * httpVersionBegin, const char * httpVersionEnd, const char * httpCodeBegin, const char * httpCodeEnd, const char * httpResultBegin, const char * httpResultEnd,
+inline bool HTTPSERVICE::make_compareWithWorkFlowResPonse(char*& resultPtr, unsigned int& resultLen, HTTPFUNCTION httpWrite, unsigned int httpLen,
+	const char* httpVersionBegin, const char* httpVersionEnd, const char* httpCodeBegin, const char* httpCodeEnd, const char* httpResultBegin, const char* httpResultEnd,
 	unsigned int randomBodyLen, ARG && ...args)
 {
 	int parSize{ sizeof...(args) }, httpHeadLen{};
@@ -990,7 +990,7 @@ inline bool HTTPSERVICE::make_compareWithWorkFlowResPonse(char *& resultPtr, uns
 	//////////////////////////////////////////////////
 
 
-	char *newResultPtr{ m_MemoryPool.getMemory<char*>(needLen) };
+	char* newResultPtr{ m_MemoryPool.getMemory<char*>(needLen) };
 
 	if (!newResultPtr)
 		return false;
@@ -1081,7 +1081,6 @@ inline bool HTTPSERVICE::make_compareWithWorkFlowResPonse(char *& resultPtr, uns
 
 	return true;
 }
-
 
 
 

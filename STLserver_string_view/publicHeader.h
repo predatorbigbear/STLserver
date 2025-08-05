@@ -80,7 +80,7 @@ using std::list;
 using std::unordered_map;
 using std::equal_to;
 using std::ifstream;
-namespace fs= std::filesystem;
+namespace fs = std::filesystem;
 using std::stringstream;
 using std::map;
 using std::mutex;
@@ -157,7 +157,7 @@ enum VerifyDataPos
 
 enum VerifyFlag
 {
-	verifyOK ,
+	verifyOK,
 
 	verifyFail,
 
@@ -172,9 +172,9 @@ namespace HTTPHEADERSPACE
 
 	enum HTTPHEADERLIST
 	{
-		Method=0,
-		Target=2,
-		Version=4,
+		Method = 0,
+		Target = 2,
+		Version = 4,
 
 
 		Accept = 6,
@@ -196,7 +196,7 @@ namespace HTTPHEADERSPACE
 		If_Modified_Since = 38,
 		If_None_Match = 40,
 		If_Range = 42,
-		If_Unmodified_Since =44,
+		If_Unmodified_Since = 44,
 		Max_Forwards = 46,
 		Pragma = 48,
 		Proxy_Authorization = 50,
@@ -208,10 +208,10 @@ namespace HTTPHEADERSPACE
 		Via = 62,
 		Warning = 64,
 		Params = 66,
-		Transfer_Encoding=68,
-		Body=70,
+		Transfer_Encoding = 68,
+		Body = 70,
 
-		boundary_ContentDisposition=72,
+		boundary_ContentDisposition = 72,
 		boundary_Name = 74,
 		boundary_Filename = 76,
 		boundary_ContentType = 78,
@@ -240,11 +240,11 @@ enum METHOD
 	DELETE = 5,
 	CONNECT = 6,
 	OPTIONS = 7,
-	GET =8
+	GET = 8
 };
 
 
-
+//http 和 https 分支接口
 enum INTERFACE
 {
 	testBodyParse = 1,
@@ -281,6 +281,22 @@ enum INTERFACE
 
 	testInsertHttpHeader = 23
 };
+
+
+
+//webService分支接口
+enum WEBSERVICEINTERFACE
+{
+	web_testMultiPartFormData = 0,
+
+	web_successUpload = 1
+
+
+
+};
+
+
+
 
 enum HTTPHEADER
 {
@@ -325,7 +341,7 @@ enum HTTPBOUNDARYHEADERLEN
 
 //url编码规则请看   https://baike.baidu.com/item/URL%E7%BC%96%E7%A0%81/3703727?fr=aladdin&qq-pf-to=pcqq.group  
 
-static const std::unordered_map<std::string_view, char>urlMap         
+static const std::unordered_map<std::string_view, char>urlMap
 {
 {"%08",'\b'} ,{"%09",'\t'},
 {"%0A",'\n'},{"%0a",'\n'},{"%0D",'\r'},{"%0d",'\r'},
@@ -357,7 +373,7 @@ static const std::unordered_set<int>chineseSet;
 
 
 //测试版  同时处理url转码和中文转换
-static bool UrlDecodeWithTransChinese(const char *source, const int len, char * des, int &desLen, const int maxDesLen)
+static bool UrlDecodeWithTransChinese(const char* source, const int len, char* des, int& desLen, const int maxDesLen)
 {
 	static const int pow2562{ static_cast<int>(pow(256,2)) };
 	static const int pow2561{ static_cast<int>(pow(256,1)) };
@@ -373,7 +389,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 	desLen = 0;
 	if (len > 0)
 	{
-		const char *iterBegin{ source }, *iterEnd{ source + len }, *iterFirst{ source }, *iterTemp{ source };
+		const char* iterBegin{ source }, * iterEnd{ source + len }, * iterFirst{ source }, * iterTemp{ source };
 		decltype(urlMap)::const_iterator iter;
 		int index{}, index1{}, index2{}, index3{}, BeginToEndLen{};
 		char ch0{}, ch1{}, ch2{}, ch3{}, ch4{}, ch5{}, ch6{}, ch7{}, ch8{};
@@ -454,7 +470,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 										index = index1 * pow2561 + index2 * pow2560;
 
 										//
-										if (index >= utf8ChineseMin || chineseSet.find(index)!= chineseSet.cend())
+										if (index >= utf8ChineseMin || chineseSet.find(index) != chineseSet.cend())
 										{
 											*(des + desLen++) = static_cast<char>(index1);
 											*(des + desLen++) = static_cast<char>(index2);
@@ -483,7 +499,7 @@ static bool UrlDecodeWithTransChinese(const char *source, const int len, char * 
 
 													index = index1 * pow2562 + index2 * pow2561 + index3 * pow2560;
 
-													if (index <= utf8ChineseMax || chineseSet.find(index)!= chineseSet.cend())
+													if (index <= utf8ChineseMax || chineseSet.find(index) != chineseSet.cend())
 													{
 														*(des + desLen++) = static_cast<char>(index1);
 														*(des + desLen++) = static_cast<char>(index2);
@@ -1322,14 +1338,14 @@ static T stringLen(const T num)
 
 
 template<typename T>
-static char* NumToString(const T num, int &needLen, MEMORYPOOL<> &m_charMemoryPool)
+static char* NumToString(const T num, int& needLen, MEMORYPOOL<>& m_charMemoryPool)
 {
 	if (num <= static_cast<T>(0))
 		return nullptr;
 	needLen = stringLen(num);
 
-	char *buffer{ m_charMemoryPool.getMemory<char*>(needLen) };
-	if(!buffer)
+	char* buffer{ m_charMemoryPool.getMemory<char*>(needLen) };
+	if (!buffer)
 		return nullptr;
 
 	buffer += needLen;
@@ -1373,7 +1389,7 @@ static std::string_view mine_type(std::string_view fileName)
 #ifdef _WIN32
 #include <windows.h>
 
-static std::string GbkToUtf8(const char *src_str)
+static std::string GbkToUtf8(const char* src_str)
 {
 	if (src_str)
 	{
@@ -1392,7 +1408,7 @@ static std::string GbkToUtf8(const char *src_str)
 			if (str) delete[] str;
 			return strTemp;
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 			return "";
 		}
@@ -1400,9 +1416,9 @@ static std::string GbkToUtf8(const char *src_str)
 	return "";
 }
 
-static std::string Utf8ToGbk(const char *src_str)
+static std::string Utf8ToGbk(const char* src_str)
 {
-	if(src_str)
+	if (src_str)
 	{
 		try
 		{
@@ -1419,7 +1435,7 @@ static std::string Utf8ToGbk(const char *src_str)
 			if (szGBK) delete[] szGBK;
 			return strTemp;
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 			return "";
 		}
@@ -1429,11 +1445,11 @@ static std::string Utf8ToGbk(const char *src_str)
 #else
 #include <iconv.h>
 
-static int GbkToUtf8(char *str_str, size_t src_len, char *dst_str, size_t dst_len)
+static int GbkToUtf8(char* str_str, size_t src_len, char* dst_str, size_t dst_len)
 {
 	iconv_t cd;
-	char **pin = &str_str;
-	char **pout = &dst_str;
+	char** pin = &str_str;
+	char** pout = &dst_str;
 
 	cd = iconv_open("utf8", "gbk");
 	if (cd == 0)
@@ -1447,11 +1463,11 @@ static int GbkToUtf8(char *str_str, size_t src_len, char *dst_str, size_t dst_le
 	return 0;
 }
 
-static int Utf8ToGbk(char *src_str, size_t src_len, char *dst_str, size_t dst_len)
+static int Utf8ToGbk(char* src_str, size_t src_len, char* dst_str, size_t dst_len)
 {
 	iconv_t cd;
-	char **pin = &src_str;
-	char **pout = &dst_str;
+	char** pin = &src_str;
+	char** pout = &dst_str;
 
 	cd = iconv_open("gbk", "utf8");
 	if (cd == 0)
@@ -1481,35 +1497,35 @@ static int Utf8ToGbk(char *src_str, size_t src_len, char *dst_str, size_t dst_le
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN>
-static bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen);
+static bool praseBodySafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen);
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN, typename ... ARGS>
-static bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen, ARGS ... args);
+static bool praseBodySafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen, ARGS ... args);
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename ... ARGS>
-static bool praseBody(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, ARGS ... args);
+static bool praseBody(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, ARGS ... args);
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN, typename ... ARGS>
-static bool praseBodyFast(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen, ARGS ... args);
+static bool praseBodyFast(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen, ARGS ... args);
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN>
-static bool praseBodyUnsafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen,
-	const SOURCE *iterBegin, const SOURCE *iterEnd, const SOURCE *iterLast);
+static bool praseBodyUnsafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen,
+	const SOURCE* iterBegin, const SOURCE* iterEnd, const SOURCE* iterLast);
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN, typename ... ARGS>
-static bool praseBodyUnsafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen,
-	const SOURCE *iterBegin, const SOURCE *iterEnd, const SOURCE *iterLast, ARGS ... args);
+static bool praseBodyUnsafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen,
+	const SOURCE* iterBegin, const SOURCE* iterEnd, const SOURCE* iterLast, ARGS ... args);
 
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN>
-bool praseBodyUnsafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen,
-	const SOURCE *iterBegin, const SOURCE *iterEnd, const SOURCE *iterLast)
+bool praseBodyUnsafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen,
+	const SOURCE* iterBegin, const SOURCE* iterEnd, const SOURCE* iterLast)
 {
 	if (!std::equal(iterBegin, iterBegin + findWordLen, findWord, findWord + findWordLen))
 		return false;
@@ -1535,29 +1551,29 @@ bool praseBodyUnsafe(const SOURCE *source, const SOURCELEN sourceLen, const DES 
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN, typename ... ARGS>
-bool praseBodyUnsafe (const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen,
-	const SOURCE *iterBegin, const SOURCE *iterEnd, const SOURCE *iterLast, ARGS ... args)
+bool praseBodyUnsafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen,
+	const SOURCE* iterBegin, const SOURCE* iterEnd, const SOURCE* iterLast, ARGS ... args)
 {
-		if (!std::equal(iterBegin, iterBegin + findWordLen, findWord, findWord + findWordLen))
-			return false;
+	if (!std::equal(iterBegin, iterBegin + findWordLen, findWord, findWord + findWordLen))
+		return false;
 
-		iterBegin += findWordLen;
+	iterBegin += findWordLen;
 
-		if (iterBegin == iterLast || *iterBegin != '=')
-			return false;
+	if (iterBegin == iterLast || *iterBegin != '=')
+		return false;
 
-		++iterBegin;
+	++iterBegin;
 
-		iterEnd = std::find(iterBegin, iterLast, '&');
-		if (iterEnd == iterLast)
-			return false;
+	iterEnd = std::find(iterBegin, iterLast, '&');
+	if (iterEnd == iterLast)
+		return false;
 
-		*des = iterBegin;
-		*(++des) = iterEnd;
+	*des = iterBegin;
+	*(++des) = iterEnd;
 
-		iterBegin = ++iterEnd;
+	iterBegin = ++iterEnd;
 
-		return praseBodyUnsafe(iterBegin, sourceLen - distance(source, iterBegin), ++des, iterBegin , iterBegin , iterBegin + (sourceLen - distance(source, iterBegin)) , args...);
+	return praseBodyUnsafe(iterBegin, sourceLen - distance(source, iterBegin), ++des, iterBegin, iterBegin, iterBegin + (sourceLen - distance(source, iterBegin)), args...);
 }
 
 
@@ -1565,11 +1581,11 @@ bool praseBodyUnsafe (const SOURCE *source, const SOURCELEN sourceLen, const DES
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN, typename ... ARGS>
-bool praseBodyFast(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen, ARGS ... args)
+bool praseBodyFast(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen, ARGS ... args)
 {
 	if (source && sourceLen && findWord && findWordLen <= sourceLen && des)
 	{
-		return praseBodyUnsafe(source, sourceLen , ++des, source, source, source + sourceLen, args...);
+		return praseBodyUnsafe(source, sourceLen, ++des, source, source, source + sourceLen, args...);
 	}
 	return false;
 }
@@ -1581,11 +1597,11 @@ bool praseBodyFast(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN>
-bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen)
+bool praseBodySafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen)
 {
 	if (source && sourceLen && findWord && findWordLen <= sourceLen && des)
 	{
-		const SOURCE *iterBegin{ source }, *iterEnd{ iterBegin }, *iterLast{ iterBegin + sourceLen };
+		const SOURCE* iterBegin{ source }, * iterEnd{ iterBegin }, * iterLast{ iterBegin + sourceLen };
 
 		if (!std::equal(iterBegin, iterBegin + findWordLen, findWord, findWord + findWordLen))
 			return false;
@@ -1644,11 +1660,11 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename FINDWORD, typename FINDWORDLEN, typename ... ARGS>
-bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **des, const FINDWORD *findWord, const FINDWORDLEN findWordLen, ARGS ... args)
+bool praseBodySafe(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, const FINDWORD* findWord, const FINDWORDLEN findWordLen, ARGS ... args)
 {
 	if (source && sourceLen && findWord && findWordLen <= sourceLen && des)
 	{
-		const SOURCE *iterBegin{ source }, *iterEnd{ iterBegin }, *iterLast{ iterBegin + sourceLen };
+		const SOURCE* iterBegin{ source }, * iterEnd{ iterBegin }, * iterLast{ iterBegin + sourceLen };
 
 		if (!std::equal(iterBegin, iterBegin + findWordLen, findWord, findWord + findWordLen))
 			return false;
@@ -1667,9 +1683,9 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 		else if (*iterBegin == '=')
 		{
 			++iterBegin;
-			iterEnd = std::find_if(iterBegin, iterLast, 
+			iterEnd = std::find_if(iterBegin, iterLast,
 				std::bind(std::logical_or<bool>(),
-					std::bind(std::equal_to<>(),std::placeholders::_1,'%'), std::bind(std::equal_to<>(), std::placeholders::_1, '&')));
+					std::bind(std::equal_to<>(), std::placeholders::_1, '%'), std::bind(std::equal_to<>(), std::placeholders::_1, '&')));
 			if (iterEnd == iterLast)
 				return false;
 			if (*iterEnd == '&')
@@ -1706,10 +1722,10 @@ bool praseBodySafe(const SOURCE *source, const SOURCELEN sourceLen, const DES **
 
 
 template<typename SOURCE, typename SOURCELEN, typename DES, typename ...ARGS>
-bool praseBody(const SOURCE * source, const SOURCELEN sourceLen, const DES ** des, ARGS ...args)
+bool praseBody(const SOURCE* source, const SOURCELEN sourceLen, const DES** des, ARGS ...args)
 {
 	unsigned int argSize{ sizeof...(args) };
-	if (source && sourceLen  && des && argSize && !(argSize % 2) && argSize <= 100)
+	if (source && sourceLen && des && argSize && !(argSize % 2) && argSize <= 100)
 		return praseBodySafe(source, sourceLen, des, args...);
 	return false;
 }
@@ -1743,178 +1759,178 @@ bool praseBody(const SOURCE * source, const SOURCELEN sourceLen, const DES ** de
 
 namespace HTTPRESPONSEREADY
 {
-	static const char *http11bodyToLong{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nBody length is too long" };
+	static const char* http11bodyToLong{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nBody length is too long" };
 	static size_t http11bodyToLongLen{ strlen(http11bodyToLong) };
 
 	////////////////////////////////////////////////
 
-	static const char *http11OK{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:18\r\n\r\nHTTP request is OK" };
+	static const char* http11OK{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:18\r\n\r\nHTTP request is OK" };
 	static size_t http11OKLen{ strlen(http11OK) };
 
 
 	//////////////////////////////////////////////////////////
 
-	static const char *http11OKNoBodyJson{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
+	static const char* http11OKNoBodyJson{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:13\r\n\r\n{\"result\":\"\"}" };
 	static size_t http11OKNoBodyJsonLen{ strlen(http11OKNoBodyJson) };
 
 
-	static const char *http11OKNoBody{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:0\r\n\r\n" };
+	static const char* http11OKNoBody{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:0\r\n\r\n" };
 	static size_t http11OKNoBodyLen{ strlen(http11OKNoBody) };
 
-	static const char *http11OKContentLength{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\nConnection::keep-alive\r\n\r\n" };
+	static const char* http11OKContentLength{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:0\r\nConnection::keep-alive\r\n\r\n" };
 	static size_t http11OKContentLengthLen{ strlen(http11OKContentLength) };
 
 
 	//////////////////////////////////////////////////
 
-	static const char *http11invaild{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nHTTP request is invaild" };
+	static const char* http11invaild{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nHTTP request is invaild" };
 	static size_t http11invaildLen{ strlen(http11invaild) };
 
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////
 
-	static const char *http11sqlRow0{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nRow number is 0" };
+	static const char* http11sqlRow0{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nRow number is 0" };
 	static size_t http11sqlRow0Len{ strlen(http11sqlRow0) };
 
 
 	///////////////////////////////////////////////////////////////////////////////
 
-	static const char *http11sqlField0{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nField number is 0" };
+	static const char* http11sqlField0{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nField number is 0" };
 	static size_t http11sqlField0Len{ strlen(http11sqlField0) };
 
 
 	///////////////////////////////////////////////////////////////////////////////
 
-	static const char *http11sqlError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:9\r\n\r\nSql error" };
+	static const char* http11sqlError{ "HTTP/1.0 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:9\r\n\r\nSql error" };
 	static size_t http11sqlErrorLen{ strlen(http11sqlError) };
 
 
 	//////////////////////////////////////////////////////////////////////////////////
 
-	static const char *http11sqlSizeTooBig{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSql size is too big" };
+	static const char* http11sqlSizeTooBig{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSql size is too big" };
 	static size_t http11sqlSizeTooBigLen{ strlen(http11sqlSizeTooBig) };
 
 
 	///////////////////////////////////////////////////////////////////////////////////
 
 
-	static const char *http11Pong{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:4\r\n\r\nPong" };
+	static const char* http11Pong{ "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:4\r\n\r\nPong" };
 	static size_t http11PongLen{ strlen(http11Pong) };
 
 
-	static const char *http11SqlQueryError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL query error" };
+	static const char* http11SqlQueryError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL query error" };
 	static size_t http11SqlQueryErrorLen{ strlen(http11SqlQueryError) };
 
 
-	static const char *http11SqlNetAsyncError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSQL net async error" };
+	static const char* http11SqlNetAsyncError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSQL net async error" };
 	static size_t http11SqlNetAsyncErrorLen{ strlen(http11SqlNetAsyncError) };
 
 
-	static const char *http11SqlResNull{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL res is null" };
+	static const char* http11SqlResNull{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL res is null" };
 	static size_t http11SqlResNullLen{ strlen(http11SqlResNull) };
 
 
-	static const char *http11SqlQueryRowZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nSQL query row zero" };
+	static const char* http11SqlQueryRowZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nSQL query row zero" };
 	static size_t http11SqlQueryRowZeroLen{ strlen(http11SqlQueryRowZero) };
 
 
-	static const char *http11SqlQueryFieldZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nSQL query field zero" };
+	static const char* http11SqlQueryFieldZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nSQL query field zero" };
 	static size_t http11SqlQueryFieldZeroLen{ strlen(http11SqlQueryFieldZero) };
 
 
-	static const char *httpUnknownError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nUnknown error" };
+	static const char* httpUnknownError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nUnknown error" };
 	static size_t httpUnknownErrorLen{ strlen(httpUnknownError) };
 
 
-	static const char *httpFailToInsertSql{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nFail to insert Sql" };
+	static const char* httpFailToInsertSql{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nFail to insert Sql" };
 	static size_t httpFailToInsertSqlLen{ strlen(httpFailToInsertSql) };
 
-	static const char *httpFailToInsertRedis{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nFail to insert Redis" };
+	static const char* httpFailToInsertRedis{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nFail to insert Redis" };
 	static size_t httpFailToInsertRedisLen{ strlen(httpFailToInsertRedis) };
 
 
-	static const char *httpInsertSqlWrite{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:31\r\n\r\nSuccess to insert sqlWrite list" };
+	static const char* httpInsertSqlWrite{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:31\r\n\r\nSuccess to insert sqlWrite list" };
 	static size_t httpInsertSqlWriteLen{ strlen(httpInsertSqlWrite) };
 
-	static const char *httpSTDException{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:13\r\n\r\nSTD exception" };
+	static const char* httpSTDException{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:13\r\n\r\nSTD exception" };
 	static size_t httpSTDExceptionLen{ strlen(httpSTDException) };
 
 
-	static const char *httpPasswordIsWrong{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nPassword is wrong" };
+	static const char* httpPasswordIsWrong{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nPassword is wrong" };
 	static size_t httpPasswordIsWrongLen{ strlen(httpPasswordIsWrong) };
 
 
-	static const char *httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis async write error" };
+	static const char* httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis async write error" };
 	static size_t httpREDIS_ASYNC_WRITE_ERRORLen{ strlen(httpREDIS_ASYNC_WRITE_ERROR) };
 
 
-	static const char *httpREDIS_ASYNC_READ_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nRedis async read error" };
+	static const char* httpREDIS_ASYNC_READ_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nRedis async read error" };
 	static size_t httpREDIS_ASYNC_READ_ERRORLen{ strlen(httpREDIS_ASYNC_READ_ERROR) };
 
 
-	static const char *httpCHECK_REDIS_MESSAGE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:25\r\n\r\nCheck redis message error" };
+	static const char* httpCHECK_REDIS_MESSAGE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:25\r\n\r\nCheck redis message error" };
 	static size_t httpCHECK_REDIS_MESSAGE_ERRORLen{ strlen(httpCHECK_REDIS_MESSAGE_ERROR) };
 
 
-	static const char *httpREDIS_READY_QUERY_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis ready query error" };
+	static const char* httpREDIS_READY_QUERY_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis ready query error" };
 	static size_t httpREDIS_READY_QUERY_ERRORLen{ strlen(httpREDIS_READY_QUERY_ERROR) };
 
-	static const char *httpNO_KEY{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:6\r\n\r\nNo key" };
+	static const char* httpNO_KEY{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:6\r\n\r\nNo key" };
 	static size_t httpNO_KEYLen{ strlen(httpNO_KEY) };
 
 
-	static const char *httpNoMessage{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:10\r\n\r\nNo message" };
+	static const char* httpNoMessage{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:10\r\n\r\nNo message" };
 	static size_t httpNoMessageLen{ strlen(httpNoMessage) };
 
-	static const char *httpFileGetError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFile get error" };
+	static const char* httpFileGetError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFile get error" };
 	static size_t httpFileGetErrorLen{ strlen(httpFileGetError) };
 
 
 
 
 
-	static const char *http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:0\r\n\r\n" };
+	static const char* http404Nofile{ "HTTP/1.1 404 NOFILE\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:0\r\n\r\n" };
 	static size_t http404NofileLen{ strlen(http404Nofile) };
 
 
-	static const char *httpNoRecordInSql{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nNo record in sql" };
+	static const char* httpNoRecordInSql{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nNo record in sql" };
 	static size_t httpNoRecordInSqlLen{ strlen(httpNoRecordInSql) };
 
 
-	static const char *http11WrongPublicKey{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nWrong publicKey" };
+	static const char* http11WrongPublicKey{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nWrong publicKey" };
 	static size_t http11WrongPublicKeyLen{ strlen(http11WrongPublicKey) };
 
 
-	static const char *http11InvaildHash{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:12\r\n\r\nInvaild hash" };
+	static const char* http11InvaildHash{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:12\r\n\r\nInvaild hash" };
 	static size_t http11InvaildHashLen{ strlen(http11InvaildHash) };
 
 
-	static const char *httpRSAencryptFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA encrypt fail" };
+	static const char* httpRSAencryptFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA encrypt fail" };
 	static size_t httpRSAencryptFailLen{ strlen(httpRSAencryptFail) };
 
 
-	static const char *httpRSAdecryptFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA decrypt fail" };
+	static const char* httpRSAdecryptFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:16\r\n\r\nRSA decrypt fail" };
 	static size_t httpRSAdecryptFailLen{ strlen(httpRSAdecryptFail) };
 
 
-	static const char *httpAESsetKeyFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nFail to set AES key" };
+	static const char* httpAESsetKeyFail{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nFail to set AES key" };
 	static size_t httpAESsetKeyFailLen{ strlen(httpAESsetKeyFail) };
 
 
-	static const char *httpFailToVerify{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFail to verify" };
+	static const char* httpFailToVerify{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:14\r\n\r\nFail to verify" };
 	static size_t httpFailToVerifyLen{ strlen(httpFailToVerify) };
 
-	static const char *httpFailToMakeFilePath{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:21\r\n\r\nFail to make filePath" };
+	static const char* httpFailToMakeFilePath{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:21\r\n\r\nFail to make filePath" };
 	static size_t httpFailToMakeFilePathLen{ strlen(httpFailToMakeFilePath) };
 
-	static const char *httpFailToOpenFile{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nFail to open file" };
+	static const char* httpFailToOpenFile{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nFail to open file" };
 	static size_t httpFailToOpenFileLen{ strlen(httpFailToOpenFile) };
 
 
-	static const char *httpFailToGetFileSize{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:21\r\n\r\nFail to get file size" };
+	static const char* httpFailToGetFileSize{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:21\r\n\r\nFail to get file size" };
 	static size_t httpFailToGetFileSizeLen{ strlen(httpFailToGetFileSize) };
 
-	static const char *httpFailToMakeHttpFront{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nFail to make httpFront" };
+	static const char* httpFailToMakeHttpFront{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nFail to make httpFront" };
 	static size_t httpFailToMakeHttpFrontLen{ strlen(httpFailToMakeHttpFront) };
 
 
@@ -1922,7 +1938,7 @@ namespace HTTPRESPONSEREADY
 
 	//用于对100-continue做出处理
 	//https://blog.csdn.net/taoshihan/article/details/104273017?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-4.no_search_link
-	static const char *http100Continue{ "HTTP/1.1 100 Continue\r\n\r\n" };
+	static const char* http100Continue{ "HTTP/1.1 100 Continue\r\n\r\n" };
 	static size_t http100ContinueLen{ strlen(http100Continue) };
 }
 
@@ -1949,7 +1965,7 @@ struct READFROMREDIS
 
 };
 
-static const char *randomString{"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" };
+static const char* randomString{ "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" };
 static size_t randomStringLen{ strlen(randomString) };
 
 
@@ -1957,6 +1973,5 @@ static std::mt19937 rdEngine{ std::chrono::high_resolution_clock::now().time_sin
 
 
 static size_t maxAESKeyLen{ 32 };
-
 
 

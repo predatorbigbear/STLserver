@@ -154,6 +154,14 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 					m_fileMap,
 					socketNum, timeOut, m_checkSecond, m_timeWheel));
 			}
+			else
+			{
+				m_httpsListener.reset(new HTTPSlistener(ioPool, m_multiSqlReadSWPoolMaster,
+					m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
+					m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
+					m_fileMap,
+					socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey));
+			}
 			m_hasSetListener = true;
 		}
 		m_mutex.unlock();
@@ -164,6 +172,111 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 		success = false;
 		m_mutex.unlock();
 	}
+}
+
+
+
+
+
+void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string& tcpAddress, 
+	const std::string& doc_root, std::vector<std::string>&& fileVec, const int socketNum, const int timeOut,
+	const char* cert, const char* privateKey)
+{
+	m_mutex.lock();
+	if (!success)
+	{
+		m_mutex.unlock();
+		return;
+	}
+	try
+	{
+		if (socketNum <= 0)
+			throw std::runtime_error("socketNum is invaild");
+		if (doc_root.empty() || *(doc_root.rbegin()) == '/')
+			throw std::runtime_error("doc_root is invaild");
+		if (!fs::exists(doc_root))
+			throw std::runtime_error("doc_root is invaild path");
+
+		if (!cert || !fs::exists(cert))
+			throw std::runtime_error("cert is invaild path");
+		if (!privateKey || !fs::exists(privateKey))
+			throw std::runtime_error("privateKey is invaild path");
+
+
+		m_fileVec = fileVec;
+		m_fileMap.reset(new std::unordered_map<std::string_view, std::string>{});
+		if (!m_fileVec.empty())
+		{
+			char* fileBuf{};
+			std::string fileFullName;
+			std::string sendStr;
+			unsigned int fileSize{};
+			unsigned int bufSize{};
+			std::string output;
+			std::string_view fileView;
+			for (auto& fileName : m_fileVec)
+			{
+				if (fileName.empty())
+					throw std::runtime_error("fileName is empty");
+				fileFullName = doc_root + "/" + fileName;
+				if (!fs::exists(fileFullName))
+					throw std::runtime_error(fileFullName + " is invaild path");
+				fileSize = fs::file_size(fileFullName);
+				if (!fileSize)
+					throw std::runtime_error(fileFullName + " size is 0");
+				if (fileSize > bufSize)
+				{
+					bufSize = fileSize;
+					if (fileBuf)
+						delete[] fileBuf;
+					fileBuf = new char[fileSize];
+				}
+				file.open(fileFullName, std::ios::binary);
+				if (!file)
+					throw std::runtime_error("open " + fileFullName + " fail");
+				file.read(fileBuf, fileSize);
+				file.close();
+
+				sendStr.assign("HTTP/1.1 200 OK\r\n");
+				sendStr.append("Connection:keep-alive\r\n");
+				sendStr.append("Keep-Alive:timeout=30\r\n");
+				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
+
+				if (gzip(fileBuf, fileSize, output))
+				{
+					fileView = std::string_view(output.c_str(), output.size());
+					sendStr.append("Content-Encoding:gzip\r\n");
+				}
+				else
+					fileView = std::string_view(fileBuf, fileSize);
+
+				sendStr.append("Content-Length:");
+				sendStr.append(std::to_string(fileView.size()));
+				sendStr.append("\r\n\r\n");
+				sendStr.append(fileView);
+
+				m_fileMap->insert(std::make_pair(std::string_view(fileName.c_str(), fileName.size()), sendStr));
+			}
+		}
+
+		if (!m_hasSetListener && m_logPool)
+		{
+			m_webListener.reset(new WEBSERVICELISTENER(ioPool, m_multiSqlReadSWPoolMaster,
+				m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
+				m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
+				m_fileMap,
+				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey));
+			m_hasSetListener = true;
+		}
+		m_mutex.unlock();
+	}
+	catch (const std::exception& e)
+	{
+		cout << e.what() << "  ,please restart server\n";
+		success = false;
+		m_mutex.unlock();
+	}
+
 }
 
 
