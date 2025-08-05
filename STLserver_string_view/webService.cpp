@@ -9,13 +9,13 @@ WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG
 	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
+	const std::shared_ptr<std::vector<std::string>>fileVec,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 	const unsigned int bufNum
 )
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
-	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileMap(fileMap), m_clearFunction(cleanFun),
+	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileVec(fileVec), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
 {
@@ -188,26 +188,39 @@ void WEBSERVICE::switchPOSTInterface()
 //读取文件接口
 //读取存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile
 //读取不存在文件  wrk -t1 -c100 -d60  http://127.0.0.1:8085/webfile1
+//比查map更快的获取文件数据的方式，将网页文件路径定义为数字
 void WEBSERVICE::testGet()
 {
-	if (m_buffer->getView().target().empty() || m_buffer->getView().target().size() < 2)
+	if (m_buffer->getView().target().empty())
 		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
-	std::unordered_map<std::string_view, std::string>::const_iterator iter;
+	if(m_fileVec->empty())
+		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
-	int len{};
-	UrlDecodeWithTransChinese(m_buffer->getView().target().data() + 1, m_buffer->getView().target().size() - 1, len);
+	if (m_buffer->getView().target().size() == 1)
+		return startWrite((*m_fileVec)[0].data(), (*m_fileVec)[0].size());
 
-	//GET接口在读取文件时就设置了Connection 为keep-alive,为了性能考虑，这里就不修改内容直接发送出去了
-	//反正检测到close的情况下，发送完http响应之后就会停止接收新消息，问题不大
-	//不能直接改变里面的字符串，否则多线程操作会引起问题，如果需要改变的话，把这个字符串拷贝出来再进行修改
-	iter = m_fileMap->find(std::string_view(m_buffer->getView().target().data() + 1, len));
-	if (iter != m_fileMap->cend())
+	int index{ -1 }, num{ 1 }, sum{};
+	//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
+	if (!std::all_of(std::make_reverse_iterator(m_buffer->getView().target().cend()), std::make_reverse_iterator(m_buffer->getView().target().cbegin() + 1), [&index, &num, &sum](const char ch)
 	{
-		startWrite(iter->second.c_str(), iter->second.size());
-	}
-	else
-		startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+		if (!std::isdigit(ch))
+		{
+			return false;
+		}
+		if (++index)
+			num *= 10;
+		sum += (ch - '0') * num;
+		return true;
+	}))
+		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+	if (sum >= m_fileVec->size())
+		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+	return startWrite((*m_fileVec)[sum].data(), (*m_fileVec)[sum].size());
+
+
 }
 
 
@@ -490,7 +503,7 @@ void WEBSERVICE::sslShutdownLoop()
 		//Broken pipe
 		if (err != boost::asio::error::eof &&
 			err != boost::asio::ssl::error::stream_truncated && 
-			err.value() != 167772567 && err.value() != 32
+			err.value() != 167772567 && err.value() != 32 && err
 			)
 		{
 			m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message());
