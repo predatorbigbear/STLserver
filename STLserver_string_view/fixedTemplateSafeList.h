@@ -64,12 +64,16 @@ struct FIXEDTEMPLATESAFELIST
 				--m_checkBegin;
 				*m_checkBegin = buffer;
 				buffer->setListIter(m_checkBegin);
+				//在插入成功时立即设置状态位，避免马上进行超时检测被回收的情况
+				buffer->setRecvTrue();
 			}
 			else if (m_checkEnd != m_checkMax)   
 			{
 				//如果末尾位置不是空间最大值位置
 				*m_checkEnd = buffer;
 				buffer->setListIter(m_checkEnd);
+				//在插入成功时立即设置状态位，避免马上进行超时检测被回收的情况
+				buffer->setRecvTrue();
 				++m_checkEnd;
 			}
 			else

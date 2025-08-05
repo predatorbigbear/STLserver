@@ -2036,6 +2036,13 @@ void HTTPSERVICE::clean()
 
 
 
+void HTTPSERVICE::setRecvTrue()
+{
+	m_hasRecv.store(true);
+}
+
+
+
 void HTTPSERVICE::shutdownLoop()
 {
 	if (ec.value() != 107 && ec.value())

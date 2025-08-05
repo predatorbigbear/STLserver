@@ -2033,6 +2033,15 @@ void HTTPSSERVICE::clean()
 
 
 
+void HTTPSSERVICE::setRecvTrue()
+{
+	m_hasRecv.store(true);
+}
+
+
+
+
+
 void HTTPSSERVICE::sslShutdownLoop()
 {
 	ec = {};

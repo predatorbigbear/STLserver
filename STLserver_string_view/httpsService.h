@@ -49,6 +49,9 @@ struct HTTPSSERVICE
 
 	std::unique_ptr<ReadBuffer> m_buffer{};
 
+	//在成功插入超时检测时调用，解决插入超时检测队列后瞬间被回收问题
+	void setRecvTrue();
+
 
 
 
