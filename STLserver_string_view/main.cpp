@@ -72,15 +72,15 @@ int main()
 		//{}是一个vector，可以为空
 		
 		//启动HTTP示例
-		m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
+		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
 		
 		//启动HTTPS可以仿照以下示例
 		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", { "webfile" }, 1024, 30, 
 		//	false, "/home/certs/web.crt", "/home/certs/web.key");
 
-
-		//m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", { "webfile" }, 1024, 60,
-		//		"/home/certs/web.crt", "/home/certs/web.key");
+		
+		m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/kongweb", { "0" }, 1024, 60,
+				"/home/certs/web.crt", "/home/certs/web.key");
 		if (!success)
 		{
 			m1.freeMysql();

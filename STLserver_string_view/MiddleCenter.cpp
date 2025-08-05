@@ -204,7 +204,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 
 
 		m_fileVec = fileVec;
-		m_fileMap.reset(new std::unordered_map<std::string_view, std::string>{});
+		m_webFileVec.reset(new std::vector<std::string>{});
 		if (!m_fileVec.empty())
 		{
 			char* fileBuf{};
@@ -255,7 +255,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				sendStr.append("\r\n\r\n");
 				sendStr.append(fileView);
 
-				m_fileMap->insert(std::make_pair(std::string_view(fileName.c_str(), fileName.size()), sendStr));
+				m_webFileVec->emplace_back(sendStr);
 			}
 		}
 
@@ -264,7 +264,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 			m_webListener.reset(new WEBSERVICELISTENER(ioPool, m_multiSqlReadSWPoolMaster,
 				m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
 				m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
-				m_fileMap,
+				m_webFileVec,
 				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey));
 			m_hasSetListener = true;
 		}

@@ -6,12 +6,12 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(std::shared_ptr<IOcontextPool> ioPool,
 	std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	const std::string &tcpAddress, const std::string &doc_root, std::shared_ptr<LOGPOOL> logPool,
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
+	const std::shared_ptr<std::vector<std::string>>fileVec,
 	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
 	const char* cert, const char* privateKey
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
-	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileMap(fileMap),
+	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileVec(fileVec),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
 	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
@@ -42,7 +42,7 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(std::shared_ptr<IOcontextPool> ioPool,
 		
 		m_httpServicePool.reset(new FixedWEBSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
-			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileMap,
+			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileVec,
 			m_timeOut, m_clearFunction,
 			m_socketNum));
 		if (!m_httpServicePool->ready())

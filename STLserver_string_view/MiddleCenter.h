@@ -115,6 +115,8 @@ private:
 	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};       //文件缓存map，用于GET方法时获取文件使用
 	std::vector<std::string>m_fileVec{};               //文件名vector，只需要传入doc_root目录下的文件名即可，不可以清空
 
+	std::shared_ptr<std::vector<std::string>>m_webFileVec{};       //文件缓存map，用于GET方法时获取文件使用
+
 	std::ifstream file;
 
 

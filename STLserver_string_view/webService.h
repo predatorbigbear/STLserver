@@ -29,7 +29,7 @@ struct WEBSERVICE
 		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 		std::shared_ptr<STLTimeWheel> timeWheel,
-		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
+		const std::shared_ptr<std::vector<std::string>>fileMap,
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const unsigned int bufNum = 4096
@@ -76,7 +76,7 @@ private:
 
 	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
 
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
+	const std::shared_ptr<std::vector<std::string>>m_fileVec{};
 
 	std::chrono::_V2::system_clock::time_point m_time{ std::chrono::high_resolution_clock::now() };
 

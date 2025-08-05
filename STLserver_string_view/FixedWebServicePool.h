@@ -19,7 +19,7 @@ struct FixedWEBSERVICEPOOL
 		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	    std::shared_ptr<std::function<void()>>reAccept, std::shared_ptr<LOGPOOL> logPool, std::shared_ptr<STLTimeWheel> timeWheel,
-		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
+		const std::shared_ptr<std::vector<std::string>>fileVec,
 		const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		int beginSize = 200);
 
@@ -46,7 +46,7 @@ private:
 	std::shared_ptr<WEBSERVICE> *m_iterNow{};
 	std::shared_ptr<WEBSERVICE> *m_iterEnd{};
 	std::shared_ptr<STLTimeWheel> m_timeWheel{};
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
+	const std::shared_ptr<std::vector<std::string>>m_fileVec{};
 
 	bool m_success{};
 
