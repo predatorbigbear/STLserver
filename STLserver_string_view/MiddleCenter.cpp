@@ -92,7 +92,7 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 		m_fileMap.reset(new std::unordered_map<std::string_view, std::string>{});
 		if (!m_fileVec.empty())
 		{
-			char* fileBuf{};
+			std::unique_ptr<char[]> fileBuf{};
 			std::string fileFullName;
 			std::string sendStr;
 			unsigned int fileSize{};
@@ -112,14 +112,12 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 				if (fileSize > bufSize)
 				{
 					bufSize = fileSize;
-					if (fileBuf)
-						delete[] fileBuf;
-					fileBuf = new char[fileSize];
+					fileBuf.reset(new char[fileSize]);
 				}
 				file.open(fileFullName, std::ios::binary);
 				if(!file)
 					throw std::runtime_error("open "+ fileFullName +" fail");
-				file.read(fileBuf, fileSize);
+				file.read(fileBuf.get(), fileSize);
 				file.close();
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
@@ -127,13 +125,13 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 				sendStr.append("Keep-Alive:timeout=30\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
-				if (gzip(fileBuf, fileSize, output))
+				if (gzip(fileBuf.get(), fileSize, output))
 				{
 					fileView = std::string_view(output.c_str(), output.size());
 					sendStr.append("Content-Encoding:gzip\r\n");
 				}
 				else
-					fileView = std::string_view(fileBuf, fileSize);
+					fileView = std::string_view(fileBuf.get(), fileSize);
 
 				sendStr.append("Content-Length:");
 				sendStr.append(std::to_string(fileView.size()));
@@ -217,7 +215,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 		m_webFileVec.reset(new std::vector<std::string>{});
 		if (!fileVec.empty())
 		{
-			char* fileBuf{};
+			std::unique_ptr<char[]> fileBuf{};
 			std::string fileFullName;
 			std::string sendStr;
 			unsigned int fileSize{};
@@ -237,14 +235,12 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				if (fileSize > bufSize)
 				{
 					bufSize = fileSize;
-					if (fileBuf)
-						delete[] fileBuf;
-					fileBuf = new char[fileSize];
+					fileBuf.reset(new char[fileSize]);
 				}
 				file.open(fileFullName, std::ios::binary);
 				if (!file)
 					throw std::runtime_error("open " + fileFullName + " fail");
-				file.read(fileBuf, fileSize);
+				file.read(fileBuf.get(), fileSize);
 				file.close();
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
@@ -252,13 +248,13 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				sendStr.append("Keep-Alive:timeout=30\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
-				if (gzip(fileBuf, fileSize, output))
+				if (gzip(fileBuf.get(), fileSize, output))
 				{
 					fileView = std::string_view(output.c_str(), output.size());
 					sendStr.append("Content-Encoding:gzip\r\n");
 				}
 				else
-					fileView = std::string_view(fileBuf, fileSize);
+					fileView = std::string_view(fileBuf.get(), fileSize);
 
 				sendStr.append("Content-Length:");
 				sendStr.append(std::to_string(fileView.size()));
@@ -274,7 +270,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 		m_webBGFileVec.reset(new std::vector<std::string>{});
 		if (!backGroundFileVec.empty())
 		{
-			char* fileBuf{};
+			std::unique_ptr<char[]> fileBuf{};
 			std::string fileFullName;
 			std::string sendStr;
 			unsigned int fileSize{};
@@ -294,14 +290,12 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				if (fileSize > bufSize)
 				{
 					bufSize = fileSize;
-					if (fileBuf)
-						delete[] fileBuf;
-					fileBuf = new char[fileSize];
+					fileBuf.reset(new char[fileSize]);
 				}
 				file.open(fileFullName, std::ios::binary);
 				if (!file)
 					throw std::runtime_error("open " + fileFullName + " fail");
-				file.read(fileBuf, fileSize);
+				file.read(fileBuf.get(), fileSize);
 				file.close();
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
@@ -309,13 +303,13 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				sendStr.append("Keep-Alive:timeout=30\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
-				if (gzip(fileBuf, fileSize, output))
+				if (gzip(fileBuf.get(), fileSize, output))
 				{
 					fileView = std::string_view(output.c_str(), output.size());
 					sendStr.append("Content-Encoding:gzip\r\n");
 				}
 				else
-					fileView = std::string_view(fileBuf, fileSize);
+					fileView = std::string_view(fileBuf.get(), fileSize);
 
 				sendStr.append("Content-Length:");
 				sendStr.append(std::to_string(fileView.size()));
