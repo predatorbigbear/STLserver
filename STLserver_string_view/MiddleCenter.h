@@ -41,8 +41,9 @@ struct MiddleCenter
 
 
 	//webservice分支启动函数
-	void setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string& tcpAddress, const std::string& doc_root,
-		std::vector<std::string>&& fileVec,
+	void setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string& tcpAddress, 
+		const std::string& doc_root, const std::vector<std::string>&& fileVec,
+		const std::string& backGround, const std::vector<std::string>&& backGroundFileVec,
 		const int socketNum, const int timeOut,
 		const char* cert , const char* privateKey);
 
@@ -115,7 +116,9 @@ private:
 	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};       //文件缓存map，用于GET方法时获取文件使用
 	std::vector<std::string>m_fileVec{};               //文件名vector，只需要传入doc_root目录下的文件名即可，不可以清空
 
-	std::shared_ptr<std::vector<std::string>>m_webFileVec{};       //文件缓存map，用于GET方法时获取文件使用
+	std::shared_ptr<std::vector<std::string>>m_webFileVec{};       //文件缓存vector，用于GET方法时获取文件使用
+	std::shared_ptr<std::vector<std::string>>m_webBGFileVec{};     //网页后台管理页面文件缓存vector，用于GET方法时获取文件使用
+	                                                               //通过存储在两个不同的容器中，根据权限状态实现访问彻底隔离
 
 	std::ifstream file;
 

@@ -192,13 +192,15 @@ namespace STATICSTRING
 
 	static const char* key{ "key" };
 
-
+	static const char* answer{ "answer" };
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
 	static size_t serverRSASize{ 128 };
 
 	static size_t serverHashLen{ 32 };
+
+	static size_t answerLen{ strlen(answer) };
 
 	static size_t noResultLen{ strlen(noResult) };
 

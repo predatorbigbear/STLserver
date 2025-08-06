@@ -10,11 +10,12 @@ WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG
 	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::shared_ptr<std::vector<std::string>>fileVec,
+	const std::shared_ptr<std::vector<std::string>>BGfileVec,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 	const unsigned int bufNum
 )
-	:m_ioc(ioc), m_log(log), m_doc_root(doc_root),
+	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec),
 	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileVec(fileVec), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
@@ -69,8 +70,24 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 
 	m_mySelf = other;
 	m_hasClean.store(false);
+	hasLoginBack = false;
 
-	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
+	boost::system::error_code ec;
+	boost::asio::ip::tcp::endpoint remote_ep = m_buffer->getSSLSock()->lowest_layer().remote_endpoint(ec);
+
+	if (!ec)
+	{
+		m_IP = remote_ep.address().to_string();
+		m_port = remote_ep.port();
+	}
+	else
+	{
+		m_IP.clear();
+		m_port = 0;
+	}
+
+
+	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
 
 	run();
 }
@@ -174,6 +191,18 @@ void WEBSERVICE::switchPOSTInterface()
 		testSuccessUpload();
 		break;
 
+		//登陆后台
+	case WEBSERVICEINTERFACE::web_loginBack:
+		loginBackGround();
+		break;
+
+
+		//退出管理后台
+	case WEBSERVICEINTERFACE::web_exitBack:
+		exitBack();
+		break;
+
+
 
 		//默认，不匹配任何接口情况
 	default:
@@ -194,33 +223,61 @@ void WEBSERVICE::testGet()
 	if (m_buffer->getView().target().empty())
 		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
-	if(m_fileVec->empty())
-		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-
-	if (m_buffer->getView().target().size() == 1)
-		return startWrite((*m_fileVec)[0].data(), (*m_fileVec)[0].size());
-
-	int index{ -1 }, num{ 1 }, sum{};
-	//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
-	if (!std::all_of(std::make_reverse_iterator(m_buffer->getView().target().cend()), std::make_reverse_iterator(m_buffer->getView().target().cbegin() + 1), [&index, &num, &sum](const char ch)
+	//没有登录后台
+	if (!hasLoginBack)
 	{
-		if (!std::isdigit(ch))
+		if (m_buffer->getView().target().size() == 1)
+			return startWrite((*m_fileVec)[0].data(), (*m_fileVec)[0].size());
+
+		int index{ -1 }, num{ 1 }, sum{};
+		//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
+		if (!std::all_of(std::make_reverse_iterator(m_buffer->getView().target().cend()), std::make_reverse_iterator(m_buffer->getView().target().cbegin() + 1), [&index, &num, &sum](const char ch)
 		{
-			return false;
-		}
-		if (++index)
-			num *= 10;
-		sum += (ch - '0') * num;
-		return true;
-	}))
-		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+			if (!std::isdigit(ch))
+			{
+				return false;
+			}
+			if (++index)
+				num *= 10;
+			sum += (ch - '0') * num;
+			return true;
+		}))
+			return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
-	if (sum >= m_fileVec->size())
-		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+		if (sum >= m_fileVec->size())
+			return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
-	return startWrite((*m_fileVec)[sum].data(), (*m_fileVec)[sum].size());
+		return startWrite((*m_fileVec)[sum].data(), (*m_fileVec)[sum].size());
+	}
+	else
+	{
+		//已经登录后台
+
+		if (m_buffer->getView().target().size() == 1)
+			return startWrite((*m_BGfileVec)[0].data(), (*m_BGfileVec)[0].size());
+
+		int index{ -1 }, num{ 1 }, sum{};
+		//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
+		if (!std::all_of(std::make_reverse_iterator(m_buffer->getView().target().cend()), std::make_reverse_iterator(m_buffer->getView().target().cbegin() + 1), [&index, &num, &sum](const char ch)
+		{
+			if (!std::isdigit(ch))
+			{
+				return false;
+			}
+			if (++index)
+				num *= 10;
+			sum += (ch - '0') * num;
+			return true;
+		}))
+			return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+		if (sum >= m_BGfileVec->size())
+			return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+		return startWrite((*m_BGfileVec)[sum].data(), (*m_BGfileVec)[sum].size());
 
 
+	}
 }
 
 
@@ -308,6 +365,7 @@ void WEBSERVICE::resetVerifyData()
 {
 	std::fill(m_verifyData.get(), m_verifyData.get() + VerifyDataPos::maxBufferSize, nullptr);
 }
+
 
 
 
@@ -463,7 +521,7 @@ void WEBSERVICE::clean()
 	if (!m_hasClean.load())
 	{
 		m_hasClean.store(true);
-		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
+		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP,m_port);
 
 
 		m_startPos = 0;
@@ -502,8 +560,10 @@ void WEBSERVICE::sslShutdownLoop()
 		//shutdown while in init (SSL routines)
 		//Broken pipe
 		if (err != boost::asio::error::eof &&
-			err != boost::asio::ssl::error::stream_truncated && 
-			err.value() != 167772567 && err.value() != 32 && err
+			err != boost::asio::ssl::error::stream_truncated &&
+			err.value() != 167772567 && err.value() != 32 &&
+			err != boost::asio::error::connection_reset &&
+			err
 			)
 		{
 			m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message());
@@ -754,8 +814,7 @@ void WEBSERVICE::handShake()
 		{
 			if (err != boost::asio::error::operation_aborted)
 			{
-				//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
-
+				m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message(), m_IP, m_port);
 			}
 		}
 		else
@@ -4427,9 +4486,142 @@ after_parse_Content_Type:
 
 
 
+//后台登录接口
+void WEBSERVICE::loginBackGround()
+{
+	if (m_httpresult.isBodyEmpty())
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	std::string_view bodyView{ m_httpresult.getBody() };
+	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::answer, STATICSTRING::answerLen))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	std::string_view keyView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
+
+	if (keyView.empty())
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+	redisResultTypeSW& thisRequest{ *redisRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+	//获取后台密码
+	//从redis获取密码进行比对，再做后续操作，避免SQL注入，可以根据需要进行加盐操作
+	static std::string_view bgp{ "bgp" };
+
+	command.clear();
+	commandSize.clear();
+	resultVec.clear();
+	resultNumVec.clear();
+	try
+	{
+		command.emplace_back(std::string_view(REDISNAMESPACE::get, REDISNAMESPACE::getLen));
+		command.emplace_back(bgp);
+		commandSize.emplace_back(2);
+
+		std::get<1>(thisRequest) = 1;
+		std::get<3>(thisRequest) = 1;
+		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleloginBackGround, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
+
+}
 
 
 
+void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	if (result)
+	{
+		if (!resultVec.empty())
+		{
+			const char** BodyBuffer{ m_buffer->bodyPara() };
+
+			std::string_view keyView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
+
+			
+			if (std::equal(keyView.cbegin(), keyView.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
+			{
+				//密码比对正确
+				hasLoginBack = true;
+
+				return startWrite((*m_BGfileVec)[0].data(), (*m_BGfileVec)[0].size());
+			}
+			else
+			{
+				//密码比对错误
+				if (m_fileVec->size() < 2)
+					return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+				return startWrite((*m_fileVec)[1].data(), (*m_fileVec)[1].size());
+
+			}
+		}
+		else
+		{
+			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		}
+	}
+	else
+	{
+		if (em == ERRORMESSAGE::REDIS_ERROR)
+		{
+			STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+			if (!resultVec.empty())
+			{
+				st1.reset();
+
+				if (!st1.clear())
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+				makeSendJson(st1);
+			}
+			else
+			{
+				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			}
+		}
+		else
+			handleERRORMESSAGE(em);
+	}
+
+
+}
+
+
+//退出网页管理后台
+void WEBSERVICE::exitBack()
+{
+	hasLoginBack = false;
+
+	if (m_fileVec->size() < 2)
+		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+
+	return startWrite((*m_fileVec)[1].data(), (*m_fileVec)[1].size());
+}
 
 
 

@@ -2048,8 +2048,10 @@ void HTTPSSERVICE::sslShutdownLoop()
 		//shutdown while in init (SSL routines)
 		//Broken pipe
 		if (err != boost::asio::error::eof &&
-			err != boost::asio::ssl::error::stream_truncated && 
-			err.value() != 167772567 && err.value() != 32 && err
+			err != boost::asio::ssl::error::stream_truncated &&
+			err.value() != 167772567 && err.value() != 32 &&
+			err != boost::asio::error::connection_reset &&
+			err
 			)
 		{
 			m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message());

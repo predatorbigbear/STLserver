@@ -29,7 +29,8 @@ struct WEBSERVICE
 		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
 		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
 		std::shared_ptr<STLTimeWheel> timeWheel,
-		const std::shared_ptr<std::vector<std::string>>fileMap,
+		const std::shared_ptr<std::vector<std::string>>fileVec,
+		const std::shared_ptr<std::vector<std::string>>BGfileVec,
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const unsigned int bufNum = 4096
@@ -58,6 +59,11 @@ struct WEBSERVICE
 
 
 private:
+	bool hasLoginBack{ false };          //是否成功登录了后台
+
+	std::string m_IP{};                  //本次连接IP地址
+	unsigned int m_port{};               //本次连接端口
+
 	const unsigned int m_serviceNum{};
 
 	const std::string& m_doc_root;
@@ -76,7 +82,9 @@ private:
 
 	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
 
-	const std::shared_ptr<std::vector<std::string>>m_fileVec{};
+	const std::shared_ptr<std::vector<std::string>>m_fileVec{};                //普通网页html
+
+	const std::shared_ptr<std::vector<std::string>>m_BGfileVec{};              //网页管理后台html
 
 	std::chrono::_V2::system_clock::time_point m_time{ std::chrono::high_resolution_clock::now() };
 
@@ -583,12 +591,14 @@ private:
 	/////////////////////////////////////////////////////////////
 	//                   业务逻辑区
 
+	//登录后台管理
+	void loginBackGround();
+
+	void handleloginBackGround(bool result, ERRORMESSAGE em);
 
 
-
-
-
-
+	//退出后台管理
+	void exitBack();
 
 
 

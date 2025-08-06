@@ -79,8 +79,8 @@ int main()
 		//	false, "/home/certs/web.crt", "/home/certs/web.key");
 
 		
-		m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/kongweb", { "0" }, 1024, 60,
-				"/home/certs/web.crt", "/home/certs/web.key");
+		m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/kongweb", { "0","1" },
+			"/home/backWeb", {"0"}, 1024, 60, "/home/certs/web.crt", "/home/certs/web.key");
 		if (!success)
 		{
 			m1.freeMysql();

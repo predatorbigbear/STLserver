@@ -7,11 +7,12 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(std::shared_ptr<IOcontextPool> ioPool,
 	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 	const std::string &tcpAddress, const std::string &doc_root, std::shared_ptr<LOGPOOL> logPool,
 	const std::shared_ptr<std::vector<std::string>>fileVec,
+	const std::shared_ptr<std::vector<std::string>>BGfileVec,
 	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
 	const char* cert, const char* privateKey
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
-	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileVec(fileVec),
+	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileVec(fileVec), m_BGfileVec(BGfileVec),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
 	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
@@ -29,20 +30,26 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(std::shared_ptr<IOcontextPool> ioPool,
 		m_timeOutTimer.reset(new boost::asio::steady_timer(*(m_ioPool->getIoNext())));
         // ulimit -a
 
-		m_sslContext.reset(new boost::asio::ssl::context(boost::asio::ssl::context::sslv23));
+		//因IOS系统已全面禁用SSLv3协议，所以改为TLS协议
+		m_sslContext.reset(new boost::asio::ssl::context(boost::asio::ssl::context::tls_server));
 		m_sslContext->set_options(
 			boost::asio::ssl::context::default_workarounds
+			| boost::asio::ssl::context::no_sslv3
 			| boost::asio::ssl::context::no_sslv2
+			| boost::asio::ssl::context::no_tlsv1
+			| boost::asio::ssl::context::no_tlsv1_1
 			| boost::asio::ssl::context::single_dh_use);
 		m_sslContext->use_certificate_chain_file(cert);
 		m_sslContext->use_private_key_file(privateKey, boost::asio::ssl::context::pem);
+
+		//可以百度boost asio服务端可以不设置set_verify_mode(boost::asio::ssl::verify_peer)吗，根据需要进行设置
 
 		//m_sslContext->set_password_callback(std::bind(&server::get_password, this));
 		
 		
 		m_httpServicePool.reset(new FixedWEBSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
-			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileVec,
+			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileVec, m_BGfileVec,
 			m_timeOut, m_clearFunction,
 			m_socketNum));
 		if (!m_httpServicePool->ready())

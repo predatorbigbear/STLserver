@@ -289,7 +289,11 @@ enum WEBSERVICEINTERFACE
 {
 	web_testMultiPartFormData = 0,
 
-	web_successUpload = 1
+	web_successUpload = 1,
+
+	web_loginBack = 2,
+
+	web_exitBack = 3
 
 
 
@@ -1783,7 +1787,7 @@ namespace HTTPRESPONSEREADY
 
 	//////////////////////////////////////////////////
 
-	static const char* http11invaild{ "HTTP/1.1 400 bad request\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nHTTP request is invaild" };
+	static const char* http11invaild{ "HTTP/1.1 400 bad request\r\nConnection::keep-alive\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nHTTP request is invaild" };
 	static size_t http11invaildLen{ strlen(http11invaild) };
 
 

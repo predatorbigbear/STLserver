@@ -27,6 +27,7 @@ struct WEBSERVICELISTENER
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
 		const std::string &tcpAddress, const std::string &doc_root , std::shared_ptr<LOGPOOL> logPool ,
 		const std::shared_ptr<std::vector<std::string>>fileVec,
+		const std::shared_ptr<std::vector<std::string>>BGfileVec,
 		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
 		const char *cert , const char *privateKey
 		);
@@ -65,7 +66,11 @@ private:
 
 	std::unique_ptr<boost::asio::steady_timer> m_timeOutTimer{};       //  这个用于检查超时，不要乱用
 
-	std::shared_ptr<std::vector<std::string>>m_fileVec{};
+	std::shared_ptr<std::vector<std::string>>m_fileVec{};              //普通网页页面html
+	 
+	std::shared_ptr<std::vector<std::string>>m_BGfileVec{};            //后台管理页面html
+
+
 
 
 	std::shared_ptr<ASYNCLOG> m_log{};
