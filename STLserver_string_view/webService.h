@@ -59,6 +59,8 @@ struct WEBSERVICE
 
 
 private:
+	std::vector<std::string_view> keyVec;         //存储body结果的vector
+
 	bool hasLoginBack{ false };          //是否成功登录了后台
 
 	std::string m_IP{};                  //本次连接IP地址

@@ -12,6 +12,7 @@
 #include "STLTimeWheel.h"
 #include<unordered_map>
 #include <zlib.h>
+#include <brotli/encode.h>
 
 struct MiddleCenter
 {
@@ -151,5 +152,8 @@ private:
 private:
 	//因为主流浏览器，手机都默认支持gzip，所以首先在一开始对文件资源全部进行gzip最高等级压缩
 	bool gzip(const char* source, const int sourLen, std::string& outPut);
+
+	//因为主流浏览器，手机都默认支持brotli，所以首先在一开始对文件资源全部进行brotli最高等级压缩
+	bool brotli_compress(const char* source, const int sourLen, std::string& outPut);
 
 };

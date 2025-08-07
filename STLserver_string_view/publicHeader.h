@@ -1811,7 +1811,7 @@ namespace HTTPRESPONSEREADY
 
 	//////////////////////////////////////////////////////////////////////////////////
 
-	static const char* http11sqlSizeTooBig{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSql size is too big" };
+	static const char* http11sqlSizeTooBig{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:19\r\n\r\nSql size is too big" };
 	static size_t http11sqlSizeTooBigLen{ strlen(http11sqlSizeTooBig) };
 
 
@@ -1822,27 +1822,27 @@ namespace HTTPRESPONSEREADY
 	static size_t http11PongLen{ strlen(http11Pong) };
 
 
-	static const char* http11SqlQueryError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL query error" };
+	static const char* http11SqlQueryError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:15\r\n\r\nSQL query error" };
 	static size_t http11SqlQueryErrorLen{ strlen(http11SqlQueryError) };
 
 
-	static const char* http11SqlNetAsyncError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:19\r\n\r\nSQL net async error" };
+	static const char* http11SqlNetAsyncError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:19\r\n\r\nSQL net async error" };
 	static size_t http11SqlNetAsyncErrorLen{ strlen(http11SqlNetAsyncError) };
 
 
-	static const char* http11SqlResNull{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:15\r\n\r\nSQL res is null" };
+	static const char* http11SqlResNull{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:15\r\n\r\nSQL res is null" };
 	static size_t http11SqlResNullLen{ strlen(http11SqlResNull) };
 
 
-	static const char* http11SqlQueryRowZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:18\r\n\r\nSQL query row zero" };
+	static const char* http11SqlQueryRowZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:18\r\n\r\nSQL query row zero" };
 	static size_t http11SqlQueryRowZeroLen{ strlen(http11SqlQueryRowZero) };
 
 
-	static const char* http11SqlQueryFieldZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:20\r\n\r\nSQL query field zero" };
+	static const char* http11SqlQueryFieldZero{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:20\r\n\r\nSQL query field zero" };
 	static size_t http11SqlQueryFieldZeroLen{ strlen(http11SqlQueryFieldZero) };
 
 
-	static const char* httpUnknownError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:13\r\n\r\nUnknown error" };
+	static const char* httpUnknownError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:13\r\n\r\nUnknown error" };
 	static size_t httpUnknownErrorLen{ strlen(httpUnknownError) };
 
 
@@ -1859,27 +1859,30 @@ namespace HTTPRESPONSEREADY
 	static const char* httpSTDException{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:13\r\n\r\nSTD exception" };
 	static size_t httpSTDExceptionLen{ strlen(httpSTDException) };
 
+	static const char* httpRedisError{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-Length:11\r\n\r\nredis error" };
+	static size_t httpRedisErrorLen{ strlen(httpRedisError) };
+
 
 	static const char* httpPasswordIsWrong{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:17\r\n\r\nPassword is wrong" };
 	static size_t httpPasswordIsWrongLen{ strlen(httpPasswordIsWrong) };
 
 
-	static const char* httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis async write error" };
+	static const char* httpREDIS_ASYNC_WRITE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:23\r\n\r\nRedis async write error" };
 	static size_t httpREDIS_ASYNC_WRITE_ERRORLen{ strlen(httpREDIS_ASYNC_WRITE_ERROR) };
 
 
-	static const char* httpREDIS_ASYNC_READ_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:22\r\n\r\nRedis async read error" };
+	static const char* httpREDIS_ASYNC_READ_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:22\r\n\r\nRedis async read error" };
 	static size_t httpREDIS_ASYNC_READ_ERRORLen{ strlen(httpREDIS_ASYNC_READ_ERROR) };
 
 
-	static const char* httpCHECK_REDIS_MESSAGE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:25\r\n\r\nCheck redis message error" };
+	static const char* httpCHECK_REDIS_MESSAGE_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:25\r\n\r\nCheck redis message error" };
 	static size_t httpCHECK_REDIS_MESSAGE_ERRORLen{ strlen(httpCHECK_REDIS_MESSAGE_ERROR) };
 
 
-	static const char* httpREDIS_READY_QUERY_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:23\r\n\r\nRedis ready query error" };
+	static const char* httpREDIS_READY_QUERY_ERROR{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:23\r\n\r\nRedis ready query error" };
 	static size_t httpREDIS_READY_QUERY_ERRORLen{ strlen(httpREDIS_READY_QUERY_ERROR) };
 
-	static const char* httpNO_KEY{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nContent-Length:6\r\n\r\nNo key" };
+	static const char* httpNO_KEY{ "HTTP/1.1 500 Internal Server Error\r\nAccess-Control-Allow-Origin:*\r\nConnection::keep-alive\r\nContent-Length:6\r\n\r\nNo key" };
 	static size_t httpNO_KEYLen{ strlen(httpNO_KEY) };
 
 

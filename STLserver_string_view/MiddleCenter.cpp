@@ -248,10 +248,10 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				sendStr.append("Keep-Alive:timeout=30\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
-				if (gzip(fileBuf.get(), fileSize, output))
+				if (brotli_compress(fileBuf.get(), fileSize, output))
 				{
 					fileView = std::string_view(output.c_str(), output.size());
-					sendStr.append("Content-Encoding:gzip\r\n");
+					sendStr.append("Content-Encoding:br\r\n");
 				}
 				else
 					fileView = std::string_view(fileBuf.get(), fileSize);
@@ -303,10 +303,10 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				sendStr.append("Keep-Alive:timeout=30\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
-				if (gzip(fileBuf.get(), fileSize, output))
+				if (brotli_compress(fileBuf.get(), fileSize, output))
 				{
 					fileView = std::string_view(output.c_str(), output.size());
-					sendStr.append("Content-Encoding:gzip\r\n");
+					sendStr.append("Content-Encoding:br\r\n");
 				}
 				else
 					fileView = std::string_view(fileBuf.get(), fileSize);
@@ -526,6 +526,71 @@ bool MiddleCenter::gzip(const char* source, const int sourLen, std::string& outP
 			return false;
 		break;
 	}
+
+	if (outPut.size() > sourLen)
+		return false;
+	return true;
+}
+
+bool MiddleCenter::brotli_compress(const char* source, const int sourLen, std::string& outPut)
+{
+	if (!source || !sourLen)
+		return false;
+	outPut.clear();
+
+	// 初始化输出缓冲区（预估最大压缩大小）
+	size_t max_compressed_size = BrotliEncoderMaxCompressedSize(sourLen);
+
+	try
+	{
+		outPut.resize(max_compressed_size);
+	}
+	catch (...)
+	{
+		return false;
+	}
+
+	// 创建Brotli编码器实例
+	BrotliEncoderState* encoder = BrotliEncoderCreateInstance(nullptr, nullptr, nullptr);
+	if (!encoder)
+		return false;
+
+	// 设置最高压缩等级（11）
+	if (BrotliEncoderSetParameter(encoder, BROTLI_PARAM_QUALITY, 11) != BROTLI_TRUE)
+		return false;
+	// 设置窗口大小为最大（24）
+	if(BrotliEncoderSetParameter(encoder, BROTLI_PARAM_LGWIN, 24) != BROTLI_TRUE)
+		return false;
+
+	size_t available_in = sourLen;
+	const uint8_t* next_in = reinterpret_cast<const uint8_t*>(source);
+	size_t available_out = outPut.size();
+	uint8_t* next_out = reinterpret_cast<uint8_t*>(outPut.data());
+
+	// 执行压缩
+	BROTLI_BOOL result = BrotliEncoderCompressStream(
+		encoder,
+		BROTLI_OPERATION_FINISH,
+		&available_in,
+		&next_in,
+		&available_out,
+		&next_out,
+		nullptr
+	);
+
+	// 检查压缩结果
+	if (result != BROTLI_TRUE) 
+	{
+		BrotliEncoderDestroyInstance(encoder);
+		return false;
+	}
+
+	// 获取实际压缩后大小
+	size_t compressed_size = outPut.size() - available_out;
+	outPut.resize(compressed_size);
+
+	// 清理资源
+	BrotliEncoderDestroyInstance(encoder);
 
 	if (outPut.size() > sourLen)
 		return false;

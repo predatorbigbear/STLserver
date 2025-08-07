@@ -504,6 +504,11 @@ void WEBSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 		break;
 
 
+	case ERRORMESSAGE::REDIS_ERROR:
+		startWrite(HTTPRESPONSEREADY::httpRedisError, HTTPRESPONSEREADY::httpRedisErrorLen);
+		break;
+
+
 	default:
 		startWrite(HTTPRESPONSEREADY::httpUnknownError, HTTPRESPONSEREADY::httpUnknownErrorLen);
 		break;
@@ -563,6 +568,7 @@ void WEBSERVICE::sslShutdownLoop()
 			err != boost::asio::ssl::error::stream_truncated &&
 			err.value() != 167772567 && err.value() != 32 &&
 			err != boost::asio::error::connection_reset &&
+			err.value() != 167772451 &&
 			err
 			)
 		{
@@ -802,6 +808,7 @@ void WEBSERVICE::prepare()
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
+	keyVec.resize(10, {});
 }
 
 
@@ -4498,7 +4505,9 @@ void WEBSERVICE::loginBackGround()
 
 	const char** BodyBuffer{ m_buffer->bodyPara() };
 
-	std::string_view keyView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
+	//对于需要反复使用的场景，使用keyVec里面的string_view来存储参数解析结果
+	std::string_view& keyView{ keyVec[0] };
+	keyView=std::string_view( *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) );
 
 	if (keyView.empty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -4554,9 +4563,7 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 	{
 		if (!resultVec.empty())
 		{
-			const char** BodyBuffer{ m_buffer->bodyPara() };
-
-			std::string_view keyView{ *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) };
+			std::string_view& keyView{ keyVec[0] };
 
 			
 			if (std::equal(keyView.cbegin(), keyView.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
@@ -4583,31 +4590,8 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 	}
 	else
 	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				st1.reset();
-
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
+		handleERRORMESSAGE(em);
 	}
-
 
 }
 

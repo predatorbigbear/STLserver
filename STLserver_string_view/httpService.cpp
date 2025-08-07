@@ -1015,29 +1015,7 @@ void HTTPSERVICE::handleMultiRedisReadLOT_SIZE_STRING(bool result, ERRORMESSAGE 
 	}
 	else
 	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				st1.reset();
-
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
+		handleERRORMESSAGE(em);
 	}
 }
 
@@ -1170,27 +1148,7 @@ void HTTPSERVICE::handleMultiRedisReadINTERGER(bool result, ERRORMESSAGE em)
 	}
 	else
 	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
+		handleERRORMESSAGE(em);
 	}
 }
 
@@ -1313,27 +1271,7 @@ void HTTPSERVICE::handleMultiRedisReadARRAY(bool result, ERRORMESSAGE em)
 	}
 	else
 	{
-		if (em == ERRORMESSAGE::REDIS_ERROR)
-		{
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			if (!resultVec.empty())
-			{
-				if (!st1.clear())
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, &*(resultVec[0].cbegin()), &*(resultVec[0].cend())))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-				makeSendJson(st1);
-			}
-			else
-			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-			}
-		}
-		else
-			handleERRORMESSAGE(em);
+		handleERRORMESSAGE(em);
 	}
 
 }
