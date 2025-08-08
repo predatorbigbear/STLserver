@@ -2062,7 +2062,7 @@ void HTTPSERVICE::cleanData()
 				//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 				if (err != boost::asio::error::operation_aborted)
 				{
-
+					clean();
 				}
 			}
 			else
@@ -2221,7 +2221,7 @@ void HTTPSERVICE::startRead()
 				if (err != boost::asio::error::operation_aborted)
 				{
 					//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
-
+					clean();
 				}
 			}
 			else
@@ -2240,6 +2240,10 @@ void HTTPSERVICE::startRead()
 				}
 			}
 		});
+	}
+	else
+	{
+		clean();
 	}
 }
 
