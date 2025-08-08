@@ -71,6 +71,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	m_mySelf = other;
 	m_hasClean.store(false);
 	hasLoginBack = false;
+	m_requestTime = 0;
 
 	boost::system::error_code ec;
 	boost::asio::ip::tcp::endpoint remote_ep = m_buffer->getSSLSock()->lowest_layer().remote_endpoint(ec);
@@ -79,17 +80,24 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	{
 		m_IP = remote_ep.address().to_string();
 		m_port = remote_ep.port();
+		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
+		//判断是否是中国境内公网ip地址，不是则启动回收socket操作
+		if (REGEXFUNCTION::is_china_ip(m_IP))
+		{
+			run();
+		}
+		else
+		{
+			clean();
+		}	
 	}
 	else
 	{
 		m_IP.clear();
 		m_port = 0;
+		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
+		clean();
 	}
-
-
-	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
-
-	run();
 }
 
 
@@ -526,7 +534,7 @@ void WEBSERVICE::clean()
 	if (!m_hasClean.load())
 	{
 		m_hasClean.store(true);
-		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP,m_port);
+		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port, m_requestTime);
 
 
 		m_startPos = 0;
@@ -667,7 +675,7 @@ void WEBSERVICE::cleanData()
 				//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 				if (err != boost::asio::error::operation_aborted)
 				{
-
+					clean();
 				}
 			}
 			else
@@ -822,6 +830,7 @@ void WEBSERVICE::handShake()
 			if (err != boost::asio::error::operation_aborted)
 			{
 				m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message(), m_IP, m_port);
+				clean();
 			}
 		}
 		else
@@ -847,7 +856,7 @@ void WEBSERVICE::startRead()
 				if (err != boost::asio::error::operation_aborted)
 				{
 					//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
-
+					clean();
 				}
 			}
 			else
@@ -866,6 +875,10 @@ void WEBSERVICE::startRead()
 				}
 			}
 		});
+	}
+	else
+	{
+		clean();
 	}
 }
 
@@ -4576,10 +4589,10 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 			else
 			{
 				//密码比对错误
-				if (m_fileVec->size() < 2)
+				if (m_fileVec->size() < 3)
 					return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
-				return startWrite((*m_fileVec)[1].data(), (*m_fileVec)[1].size());
+				return startWrite((*m_fileVec)[2].data(), (*m_fileVec)[2].size());
 
 			}
 		}

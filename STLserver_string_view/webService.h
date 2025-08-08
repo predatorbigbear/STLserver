@@ -59,6 +59,8 @@ struct WEBSERVICE
 
 
 private:
+	int m_requestTime{};                            //总请求次数
+
 	std::vector<std::string_view> keyVec;         //存储body结果的vector
 
 	bool hasLoginBack{ false };          //是否成功登录了后台
@@ -727,6 +729,8 @@ inline void WEBSERVICE::startWrite(const char* source, const int size)
 template<typename SENDMODE>
 inline void WEBSERVICE::startWriteLoop(const char* source, const int size)
 {
+	//每次成功发送一条消息累计请求数
+	++m_requestTime;
 	boost::asio::async_write(*m_buffer->getSSLSock(), boost::asio::buffer(source, size), [this](const boost::system::error_code& err, std::size_t size)
 	{
 		if (err)
@@ -734,7 +738,7 @@ inline void WEBSERVICE::startWriteLoop(const char* source, const int size)
 			//超时时clean函数会调用cancel,触发operation_aborted错误  修复发生错误时不会触发回收的情况
 			if (err != boost::asio::error::operation_aborted)
 			{
-
+				clean();
 			}
 
 			//发生错误时等待超时回收，clean函数内会对内存池进行重置
