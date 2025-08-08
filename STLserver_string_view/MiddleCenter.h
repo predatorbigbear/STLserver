@@ -3,6 +3,7 @@
 
 #include "httpslistener.h"
 #include "webservicelistener.h"
+#include "CheckIP.h"
 #include "listener.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
@@ -96,6 +97,10 @@ struct MiddleCenter
 	void setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool &success , const unsigned int checkSecond = 1, const unsigned int wheelNum = 120, const unsigned int everySecondFunctionNumber = 100);
 
 
+	//保存文件位置
+	//执行更新命令
+	void setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextPool> ioPool, const char* command, bool& result, const unsigned int checkTime = 3600 * 24);
+
 private:
 	std::unique_ptr<listener>m_listener{};
 
@@ -112,6 +117,7 @@ private:
 	bool m_initSql{ false };
 
 	
+	std::shared_ptr<CHECKIP>m_checkIP{};
 	std::shared_ptr<LOGPOOL>m_logPool{};                                        //日志池
 	std::shared_ptr<function<void()>>m_unlockFun{};
 	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};       //文件缓存map，用于GET方法时获取文件使用

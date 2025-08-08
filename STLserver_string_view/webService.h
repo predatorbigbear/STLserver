@@ -16,6 +16,7 @@
 #include "STLTimeWheel.h"
 #include "httpResult.h"
 #include "commonStruct.h"
+#include "CheckIP.h"
 
 
 #include<ctype.h>
@@ -33,6 +34,7 @@ struct WEBSERVICE
 		const std::shared_ptr<std::vector<std::string>>BGfileVec,
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
+		const std::shared_ptr<CHECKIP>checkIP,
 		const unsigned int bufNum = 4096
 	);
 
@@ -59,6 +61,8 @@ struct WEBSERVICE
 
 
 private:
+	const std::shared_ptr<CHECKIP>m_checkIP{};
+
 	int m_requestTime{};                            //总请求次数
 
 	std::vector<std::string_view> keyVec;         //存储body结果的vector

@@ -10,11 +10,12 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, 
 	const std::shared_ptr<std::vector<std::string>>fileVec,
 	const std::shared_ptr<std::vector<std::string>>BGfileVec,
 	const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>> &cleanFun,
+	const std::shared_ptr<CHECKIP>checkIP,
 	int beginSize):
 	m_ioPool(ioPool), m_reAccept(reAccept), m_logPool(logPool), m_doc_root(doc_root),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_fileVec(fileVec), m_BGfileVec(BGfileVec),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster), m_multiRedisWritePoolMaster(multiRedisWritePoolMaster), m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster),
-	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun)
+	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun), m_checkIP(checkIP)
 {
 	try
 	{
@@ -40,6 +41,8 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, 
 			throw std::runtime_error("doc_root is empty");
 		if(!timeWheel)
 			throw std::runtime_error("timeWheel is nullptr");
+		if(!checkIP)
+			throw std::runtime_error("checkIP is nullptr");
 
 
 		m_log = m_logPool->getLogNext();
@@ -71,7 +74,7 @@ bool FixedWEBSERVICEPOOL::ready()
 					m_multiRedisReadPoolMaster->getRedisNext(),
 					m_multiRedisWritePoolMaster->getRedisNext(), m_multiSqlWriteSWPoolMaster->getSqlNext(),
 					m_timeWheel,m_fileVec, m_BGfileVec,
-					m_timeOut, m_success,i+1, m_cleanFun
+					m_timeOut, m_success,i+1, m_cleanFun, m_checkIP
 					);
 				if (!m_success)
 					break;

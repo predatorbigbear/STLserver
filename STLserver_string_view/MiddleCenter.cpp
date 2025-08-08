@@ -327,7 +327,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 				m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
 				m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
 				m_webFileVec, m_webBGFileVec,
-				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey));
+				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey, m_checkIP));
 			m_hasSetListener = true;
 		}
 		m_mutex.unlock();
@@ -486,6 +486,67 @@ void MiddleCenter::setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool& suc
 	catch (const std::exception& e)
 	{
 		success = false;
+	}
+}
+
+
+
+void MiddleCenter::setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextPool> ioPool, const char* command, bool& success, const unsigned int checkTime)
+{
+	try
+	{
+		m_mutex.lock();
+		if (!success)
+		{
+			m_mutex.unlock();
+			return;
+		}
+		if (!ipFileName)
+		{
+			success = false;
+			return;
+		}
+		if (!ioPool)
+		{
+			success = false;
+			return;
+		}
+		if (!command)
+		{
+			success = false;
+			return;
+		}
+		if (checkTime < 3600)
+		{
+			success = false;
+			return;
+		}
+		if (!ioPool || !m_logPool)
+		{
+			success = false;
+			return;
+		}
+		if (!fs::exists(ipFileName))
+		{
+			std::ofstream file(ipFileName, std::ios::trunc | std::ios::binary);
+			if (!file)
+			{
+				success = false;
+				return;
+			}
+			file << "";
+			file.close();
+		}
+
+		m_checkIP.reset(new CHECKIP(ipFileName, ioPool, command, m_logPool->getLogNext(), checkTime));
+		success = true;
+		m_mutex.unlock();
+	}
+	catch (const std::exception& e)
+	{
+		cout << e.what() << "   ,please restart server\n";
+		success = false;
+		m_mutex.unlock();
 	}
 }
 

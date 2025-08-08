@@ -12,7 +12,7 @@
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
 #include "STLTimeWheel.h"
-
+#include "CheckIP.h"
 
 
 #include<atomic>
@@ -25,16 +25,19 @@ struct WEBSERVICELISTENER
 		std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster,
 		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
 		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
-		const std::string &tcpAddress, const std::string &doc_root , std::shared_ptr<LOGPOOL> logPool ,
+		const std::string& tcpAddress, const std::string& doc_root, std::shared_ptr<LOGPOOL> logPool,
 		const std::shared_ptr<std::vector<std::string>>fileVec,
 		const std::shared_ptr<std::vector<std::string>>BGfileVec,
-		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
-		const char *cert , const char *privateKey
+		const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
+		const char* cert, const char* privateKey,
+		const std::shared_ptr<CHECKIP>checkIP
 		);
 
 
 
 private:
+	const std::shared_ptr<CHECKIP>m_checkIP{};
+
 	std::shared_ptr<io_context> m_ioc{};
 	std::unique_ptr<boost::asio::ip::tcp::acceptor> m_acceptor{};
 	std::unique_ptr<boost::asio::ip::tcp::endpoint>m_endpoint{};

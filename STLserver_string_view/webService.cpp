@@ -13,9 +13,10 @@ WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG
 	const std::shared_ptr<std::vector<std::string>>BGfileVec,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
+	const std::shared_ptr<CHECKIP>checkIP,
 	const unsigned int bufNum
 )
-	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec),
+	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec), m_checkIP(checkIP),
 	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileVec(fileVec), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
@@ -44,6 +45,8 @@ WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG
 			throw std::runtime_error("bufNum is 0");
 		if (!serviceNum)
 			throw std::runtime_error("serviceNum is 0");
+		if(!checkIP)
+			throw std::runtime_error("checkIP is nullptr");
 
 		m_buffer.reset(new ReadBuffer(m_ioc, bufNum));
 
@@ -82,7 +85,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 		m_port = remote_ep.port();
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
 		//判断是否是中国境内公网ip地址，不是则启动回收socket操作
-		if (REGEXFUNCTION::is_china_ip(m_IP))
+		if (m_checkIP->is_china_ipv4(m_IP))
 		{
 			run();
 		}
@@ -570,24 +573,14 @@ void WEBSERVICE::sslShutdownLoop()
 {
 	m_buffer->getSSLSock()->async_shutdown([this](const boost::system::error_code& err)
 	{
-		//shutdown while in init (SSL routines)
-		//Broken pipe
-		if (err != boost::asio::error::eof &&
-			err != boost::asio::ssl::error::stream_truncated &&
-			err.value() != 167772567 && err.value() != 32 &&
-			err != boost::asio::error::connection_reset &&
-			err.value() != 167772451 &&
-			err
-			)
+		//async_shutdown调用之后，无论成功与否，都可以进行下面的处理
+		if (err)
 		{
 			m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message());
 		}
-		else
-		{
-			ec = {};
-			m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
-			m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
-		}
+		ec = {};
+		m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
 	});
 }
 

@@ -10,6 +10,7 @@
 #include "multiRedisReadPool.h"
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
+#include "CheckIP.h"
 
 
 struct FixedWEBSERVICEPOOL
@@ -22,6 +23,7 @@ struct FixedWEBSERVICEPOOL
 		const std::shared_ptr<std::vector<std::string>>fileVec,
 		const std::shared_ptr<std::vector<std::string>>BGfileVec,
 		const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
+		const std::shared_ptr<CHECKIP>checkIP,
 		int beginSize = 200);
 
 	void getNextBuffer(std::shared_ptr<WEBSERVICE> &outBuffer);
@@ -35,6 +37,8 @@ struct FixedWEBSERVICEPOOL
 
 
 private:
+	const std::shared_ptr<CHECKIP>m_checkIP{};
+
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>  m_cleanFun{};
 
 	std::shared_ptr<io_context> m_ioc{};
