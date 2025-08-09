@@ -70,102 +70,83 @@ void CHECKIP::executeCommand()
 
 void CHECKIP::readFile()
 {
+	bool success{ false };
 	try
 	{
-		m_cidr.clear();
 		std::ifstream file;
 		file.open(m_ipFileName, std::ios::binary);
 		if (!file)
 			return;
-		std::string str;
-		while (!file.eof())
-		{
-			std::getline(file, str);
-			if (str.empty())
-				continue;
-			str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-			if (str.empty())
-				continue;
-			m_cidr.emplace_back(str);
-		}
-		file.close();
-	}
-	catch (std::exception& e)
-	{
-		m_cidr.clear();
-	}
-}
-
-
-
-void CHECKIP::makeRecord()
-{
-	bool success{ false };
-	if (!m_cidr.empty())
-	{
 		size_t pos{};
 		uint32_t mask_len{};
 		uint32_t network{};
 		uint32_t mask{};
 		int num{}, index{}, result{};
-		try
+		std::string str;
+		std::string::iterator strEnd{}, strBegin{};
+		const int bufLen{ 100 };
+		std::unique_ptr<char[]>buf{ new char[bufLen] };
+		std::string::iterator numBegin{}, numEnd{};
+		std::vector<std::vector<std::pair<unsigned int, unsigned int>>> temp;
+		temp.resize(256, {});
+		while (!file.eof())
 		{
-			const int bufLen{ 100 };
-			std::unique_ptr<char[]>buf{new char[bufLen]};
-			//std::string net_str{};
-			std::string::const_iterator numBegin{}, numEnd{};
-			std::vector<std::vector<std::pair<unsigned int, unsigned int>>> temp;
-			temp.resize(256, {});
-			for (const auto& cidr : m_cidr)
+			std::getline(file, str);
+			if (str.empty())
+				continue;
+			strBegin = str.begin(), strEnd = str.end();
+			strEnd = std::remove(strBegin, strEnd, ' ');
+			if (strBegin == strEnd)
+				continue;
+
+			numBegin = strBegin;
+			numEnd = std::find(numBegin, strEnd, '.');
+			if (numEnd == strEnd)
+				continue;
+			index = -1, num = 1;
+			result = std::accumulate(std::make_reverse_iterator(numEnd), std::make_reverse_iterator(numBegin), 0, [&](int sum, const char ch)
 			{
-				numBegin = cidr.cbegin();
-				numEnd = std::find(numBegin, cidr.cend(), '.');
-				if (numEnd == cidr.cend())
-					continue;
-				index = -1, num = 1;
-				result = std::accumulate(std::make_reverse_iterator(numEnd), std::make_reverse_iterator(numBegin), 0, [&](int sum, const char ch)
-				{
-					if (++index)
-						num *= 10;
-					return sum += (ch - '0') * num;
-				});
-				if (result < 0 || result>255)
-					continue;
-				numEnd = std::find(numEnd + 1, cidr.cend(), '/');
-				if (numEnd == cidr.cend())
-					continue;
+				if (++index)
+					num *= 10;
+				return sum += (ch - '0') * num;
+			});
+			if (result < 0 || result>255)
+				continue;
+			numEnd = std::find(numEnd + 1, strEnd, '/');
+			if (numEnd == strEnd)
+				continue;
 
-				pos = std::distance(cidr.cbegin(), numEnd);
-				if (pos >= bufLen)
-					continue;
-				std::copy(cidr.cbegin(), numEnd, buf.get());
-				*(buf.get() + pos) = 0;
-				//net_str = cidr.substr(0, pos);
-				index = -1, num = 1;
-				mask_len = std::accumulate(std::make_reverse_iterator(cidr.cend()), std::make_reverse_iterator(numEnd + 1), 0, [&](int sum, const char ch)
-				{
-					if (++index)
-						num *= 10;
-					return sum += (ch - '0') * num;
-				});
+			pos = std::distance(numBegin, numEnd);
+			if (pos >= bufLen)
+				continue;
+			std::copy(numBegin, numEnd, buf.get());
+			*(buf.get() + pos) = 0;
+			index = -1, num = 1;
+			mask_len = std::accumulate(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(numEnd + 1), 0, [&](int sum, const char ch)
+			{
+				if (++index)
+					num *= 10;
+				return sum += (ch - '0') * num;
+			});
 
-				network = ip_to_int_char(buf.get());
-				mask = (0xFFFFFFFF << (32 - mask_len));
+			network = ip_to_int_char(buf.get());
+			mask = (0xFFFFFFFF << (32 - mask_len));
 
-				temp[result].emplace_back(std::make_pair(mask, network & mask));
-			}
-
-			m_mutex.lock();
-			m_vec.swap(temp);
-			m_mutex.unlock();
-			success = true;
+			temp[result].emplace_back(std::make_pair(mask, network & mask));
 		}
-		catch (std::exception &e)
-		{
-			//记录日志
-		}
-		m_cidr.clear();
+		file.close();
+		
+
+		m_mutex.lock();
+		m_vec.swap(temp);
+		m_mutex.unlock();
+		success = true;
 	}
+	catch (std::exception& e)
+	{
+		
+	}
+
 	if (success)
 	{
 		m_log->writeLog("update ip success");
@@ -173,6 +154,7 @@ void CHECKIP::makeRecord()
 	else
 		m_log->writeLog("update ip fail");
 }
+
 
 
 
@@ -216,6 +198,5 @@ void CHECKIP::update()
 {
 	executeCommand();
 	readFile();
-	makeRecord();
 	updateLoop();
 }

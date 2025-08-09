@@ -526,17 +526,7 @@ void MiddleCenter::setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextP
 			success = false;
 			return;
 		}
-		if (!fs::exists(ipFileName))
-		{
-			std::ofstream file(ipFileName, std::ios::trunc | std::ios::binary);
-			if (!file)
-			{
-				success = false;
-				return;
-			}
-			file << "";
-			file.close();
-		}
+
 
 		m_checkIP.reset(new CHECKIP(ipFileName, ioPool, command, m_logPool->getLogNext(), checkTime));
 		success = true;

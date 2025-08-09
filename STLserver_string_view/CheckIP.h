@@ -49,9 +49,7 @@ private:
 private:
 	void executeCommand();                                     //从APNIC更新
 
-	void readFile();                                           //读取文件并存储到中间vector中
-
-	void makeRecord();                                         //生成快速查询记录
+	void readFile();                                           //读取文件并生成快速查询记录
 
 	uint32_t ip_to_int(const std::string& ip);                // 将IP字符串转为32位整数
 
