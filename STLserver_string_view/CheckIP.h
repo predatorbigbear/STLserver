@@ -16,6 +16,7 @@
 #include<numeric>
 #include<arpa/inet.h>
 #include<cstdlib>
+#include<memory>
 #include<shared_mutex>
 
 //检查ip模块，定期从APNIC获取更新信息
@@ -39,7 +40,7 @@ private:
 
 	std::vector<std::string>m_cidr{};                              //存储文件中的ip记录
 
-	std::shared_mutex m_mutex;                                   //C++17  读写锁                                 
+	std::shared_mutex m_mutex;                                 //C++17  读写锁
 
 	const char* m_ipFileName{};                                  //从APNIC获取更新信息后保存的日志文件
 
@@ -53,6 +54,8 @@ private:
 	void makeRecord();                                         //生成快速查询记录
 
 	uint32_t ip_to_int(const std::string& ip);                // 将IP字符串转为32位整数
+
+	uint32_t ip_to_int_char(const char *ip);                   // 将IP字符串转为32位整数
 
 	void updateLoop();                                        //定时更新程序
 
