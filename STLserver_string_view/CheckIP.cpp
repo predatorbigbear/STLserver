@@ -528,6 +528,7 @@ void CHECKIP::parseMessage(const size_t len)
 				strBegin = hostNumEnd + 1;
 				continue;
 			}
+			mask_len = 32 - mask_len;
 			network = ip_to_int_char(strBuf.get());
 			mask = (0xFFFFFFFF << (32 - mask_len));
 
@@ -538,7 +539,7 @@ void CHECKIP::parseMessage(const size_t len)
 
 			m_file.write(ipAddressBegin, std::distance(ipAddressBegin, ipAddressEnd));
 			m_file << '/';
-			m_file << (32 - mask_len) << '\n';
+			m_file << mask_len << '\n';
 
 
 
