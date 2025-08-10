@@ -99,7 +99,9 @@ struct MiddleCenter
 
 	//保存文件位置
 	//执行更新命令
-	void setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextPool> ioPool, const char* command, bool& result, const unsigned int checkTime = 3600 * 24);
+	void setCheckIP(std::shared_ptr<IOcontextPool> ioPool, const std::string& host,
+		const std::string& port, const std::string& country,
+		const std::string& saveFile, bool& result, const unsigned int checkTime = 3600 * 24);
 
 private:
 	std::unique_ptr<listener>m_listener{};

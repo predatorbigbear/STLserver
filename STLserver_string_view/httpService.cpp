@@ -2020,7 +2020,7 @@ void HTTPSERVICE::closeLoop()
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
 		m_buffer->getSock()->close(ec);
-		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
+		m_timeWheel->insert([this]() {closeLoop(); }, 5);
 	}
 	else
 	{

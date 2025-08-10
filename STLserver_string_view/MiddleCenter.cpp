@@ -491,7 +491,9 @@ void MiddleCenter::setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool& suc
 
 
 
-void MiddleCenter::setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextPool> ioPool, const char* command, bool& success, const unsigned int checkTime)
+void MiddleCenter::setCheckIP(std::shared_ptr<IOcontextPool> ioPool, const std::string& host,
+	const std::string& port, const std::string& country,
+	const std::string& saveFile, bool& success, const unsigned int checkTime)
 {
 	try
 	{
@@ -501,34 +503,45 @@ void MiddleCenter::setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextP
 			m_mutex.unlock();
 			return;
 		}
-		if (!ipFileName)
+		if (host.empty())
 		{
 			success = false;
+			m_mutex.unlock();
 			return;
 		}
-		if (!ioPool)
+		if (port.empty())
 		{
 			success = false;
+			m_mutex.unlock();
 			return;
 		}
-		if (!command)
+		if (country.empty())
 		{
 			success = false;
+			m_mutex.unlock();
+			return;
+		}
+		if (saveFile.empty())
+		{
+			success = false;
+			m_mutex.unlock();
 			return;
 		}
 		if (checkTime < 3600)
 		{
 			success = false;
+			m_mutex.unlock();
 			return;
 		}
-		if (!ioPool || !m_logPool)
+		if (!ioPool || !m_logPool || !m_timeWheel)
 		{
 			success = false;
+			m_mutex.unlock();
 			return;
 		}
 
 
-		m_checkIP.reset(new CHECKIP(ipFileName, ioPool, command, m_logPool->getLogNext(), checkTime));
+		m_checkIP.reset(new CHECKIP(ioPool, m_logPool->getLogNext(), m_timeWheel, host, port, country, saveFile, checkTime));
 		success = true;
 		m_mutex.unlock();
 	}
@@ -539,6 +552,8 @@ void MiddleCenter::setCheckIP(const char* ipFileName, std::shared_ptr<IOcontextP
 		m_mutex.unlock();
 	}
 }
+
+
 
 bool MiddleCenter::gzip(const char* source, const int sourLen, std::string& outPut)
 {

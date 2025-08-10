@@ -78,8 +78,7 @@ int main()
 		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", { "webfile" }, 1024, 30, 
 		//	false, "/home/certs/web.crt", "/home/certs/web.key");
 
-		m1.setCheckIP("/home/download/china_ipv4_cidr.txt", ioPool,
-			"wget -qO- http://ftp.apnic.net/stats/apnic/delegated-apnic-latest | grep '|CN|ipv4|' |awk -F'|' '{print $4 \"/ \" 32-log($5)/log(2)}' > ", success);
+		m1.setCheckIP(ioPool, "ftp.apnic.net", "80", "CN", "/home/download/ipRecord.txt", success);
 		if (!success)
 		{
 			m1.freeMysql();

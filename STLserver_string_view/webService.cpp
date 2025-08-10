@@ -626,7 +626,7 @@ void WEBSERVICE::closeLoop()
 	{
 		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
 		m_buffer->getSSLSock()->lowest_layer().close(ec);
-		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
+		m_timeWheel->insert([this]() {closeLoop(); }, 5);
 	}
 	else
 	{
