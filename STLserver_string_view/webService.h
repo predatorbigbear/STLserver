@@ -17,6 +17,7 @@
 #include "httpResult.h"
 #include "commonStruct.h"
 #include "CheckIP.h"
+#include "randomCodeGenerator.h"
 
 
 #include<ctype.h>
@@ -35,6 +36,7 @@ struct WEBSERVICE
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const std::shared_ptr<CHECKIP>checkIP,
+		const std::shared_ptr<RandomCodeGenerator>randomCode,
 		const unsigned int bufNum = 4096
 	);
 
@@ -61,6 +63,8 @@ struct WEBSERVICE
 
 
 private:
+	const std::shared_ptr<RandomCodeGenerator>m_randomCode{};
+
 	const std::shared_ptr<CHECKIP>m_checkIP{};
 
 	int m_requestTime{};                            //总请求次数
@@ -609,8 +613,10 @@ private:
 	void exitBack();
 
 
+	//用户注册接口1，填写手机号发送验证码
+	void registration1();
 
-
+	void handleregistration1(bool result, ERRORMESSAGE em);
 
 
 

@@ -1983,24 +1983,14 @@ void HTTPSSERVICE::sslShutdownLoop()
 {
 	m_buffer->getSSLSock()->async_shutdown([this](const boost::system::error_code& err)
 	{
-		//shutdown while in init (SSL routines)
-		//Broken pipe
-		if (err != boost::asio::error::eof &&
-			err != boost::asio::ssl::error::stream_truncated &&
-			err.value() != 167772567 && err.value() != 32 &&
-			err != boost::asio::error::connection_reset &&
-			err.value() != 167772451 &&
-			err
-			)
+		//async_shutdown调用之后，无论成功与否，都可以进行下面的处理
+		if (err)
 		{
 			m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message());
 		}
-		else
-		{
-			ec = {};
-			m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
-			m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
-		}
+		ec = {};
+		m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
 	});
 }
 

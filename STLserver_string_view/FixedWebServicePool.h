@@ -11,6 +11,9 @@
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
 #include "CheckIP.h"
+#include "randomCodeGenerator.h"
+
+
 
 
 struct FixedWEBSERVICEPOOL
@@ -24,6 +27,7 @@ struct FixedWEBSERVICEPOOL
 		const std::shared_ptr<std::vector<std::string>>BGfileVec,
 		const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const std::shared_ptr<CHECKIP>checkIP,
+		const std::shared_ptr<RandomCodeGenerator>randomCode,
 		int beginSize = 200);
 
 	void getNextBuffer(std::shared_ptr<WEBSERVICE> &outBuffer);
@@ -37,6 +41,8 @@ struct FixedWEBSERVICEPOOL
 
 
 private:
+	const std::shared_ptr<RandomCodeGenerator>m_randomCode{};
+
 	const std::shared_ptr<CHECKIP>m_checkIP{};
 
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>  m_cleanFun{};

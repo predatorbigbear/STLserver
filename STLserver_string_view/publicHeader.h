@@ -293,7 +293,9 @@ enum WEBSERVICEINTERFACE
 
 	web_loginBack = 2,
 
-	web_exitBack = 3
+	web_exitBack = 3,
+
+	web_registration1 = 4
 
 
 

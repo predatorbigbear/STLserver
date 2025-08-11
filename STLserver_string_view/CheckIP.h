@@ -47,10 +47,6 @@ private:
 
 	std::shared_mutex m_mutex;                                 //C++17  读写锁
 
-	const char* m_ipFileName{};                                  //从APNIC获取更新信息后保存的日志文件
-
-	std::string m_command{};                                     //执行命令
-
 	std::shared_ptr<boost::asio::io_context>m_ioc{};
 
 	const std::string m_host{};
@@ -83,10 +79,11 @@ private:
 
 	boost::system::error_code m_ec{};
 
-private:
-	void executeCommand();                                     //从APNIC更新
+	const int m_strBufLen{ 100 };
 
-	void readFile();                                           //读取文件并生成快速查询记录
+	std::unique_ptr<char[]>m_strBuf{ new char[m_strBufLen] };
+
+private:
 
 	uint32_t ip_to_int(const std::string& ip);                // 将IP字符串转为32位整数
 

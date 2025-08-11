@@ -67,103 +67,6 @@ bool CHECKIP::is_china_ipv4(const std::string& ip)
 
 
 
-void CHECKIP::executeCommand()
-{
-	system(m_command.c_str());
-}
-
-
-
-void CHECKIP::readFile()
-{
-	bool success{ false };
-	try
-	{
-		std::ifstream file;
-		file.open(m_ipFileName, std::ios::binary);
-		if (!file)
-			return;
-		size_t pos{};
-		uint32_t mask_len{};
-		uint32_t network{};
-		uint32_t mask{};
-		int num{}, index{}, result{};
-		std::string str;
-		std::string::iterator strEnd{}, strBegin{};
-		const int bufLen{ 100 };
-		std::unique_ptr<char[]>buf{ new char[bufLen] };
-		std::string::iterator numBegin{}, numEnd{};
-		std::vector<std::vector<std::pair<unsigned int, unsigned int>>> temp;
-		temp.resize(256, {});
-		while (!file.eof())
-		{
-			std::getline(file, str);
-			if (str.empty())
-				continue;
-			strBegin = str.begin(), strEnd = str.end();
-			strEnd = std::remove(strBegin, strEnd, ' ');
-			if (strBegin == strEnd)
-				continue;
-
-			numBegin = strBegin;
-			numEnd = std::find(numBegin, strEnd, '.');
-			if (numEnd == strEnd)
-				continue;
-			index = -1, num = 1;
-			result = std::accumulate(std::make_reverse_iterator(numEnd), std::make_reverse_iterator(numBegin), 0, [&](int sum, const char ch)
-			{
-				if (++index)
-					num *= 10;
-				return sum += (ch - '0') * num;
-			});
-			if (result < 0 || result>255)
-				continue;
-			numEnd = std::find(numEnd + 1, strEnd, '/');
-			if (numEnd == strEnd)
-				continue;
-
-			pos = std::distance(numBegin, numEnd);
-			if (pos >= bufLen)
-				continue;
-			std::copy(numBegin, numEnd, buf.get());
-			*(buf.get() + pos) = 0;
-			index = -1, num = 1;
-			mask_len = std::accumulate(std::make_reverse_iterator(strEnd), std::make_reverse_iterator(numEnd + 1), 0, [&](int sum, const char ch)
-			{
-				if (++index)
-					num *= 10;
-				return sum += (ch - '0') * num;
-			});
-
-			network = ip_to_int_char(buf.get());
-			mask = (0xFFFFFFFF << (32 - mask_len));
-
-			temp[result].emplace_back(std::make_pair(mask, network & mask));
-		}
-		file.close();
-		
-
-		m_mutex.lock();
-		m_vec.swap(temp);
-		m_mutex.unlock();
-		success = true;
-	}
-	catch (std::exception& e)
-	{
-		
-	}
-
-	if (success)
-	{
-		m_log->writeLog("update ip success");
-	}
-	else
-		m_log->writeLog("update ip fail");
-}
-
-
-
-
 uint32_t CHECKIP::ip_to_int(const std::string& ip) 
 {
 	struct in_addr addr;
@@ -370,23 +273,19 @@ void CHECKIP::parseMessage(const size_t len)
 
 		const char* hostNumBegin{}, * hostNumEnd{};
 
-		static const std::string apnic{ "apnic" }, ipv4{ "ipv4" };
+		static const std::string ipv4{ "ipv4" };
 
 		size_t pos{};
 		uint32_t mask_len{};
 		uint32_t network{};
 		uint32_t mask{};
 		int num{}, index{}, result{};
-		
-		const int strBufLen{ 100 };
-
-		std::unique_ptr<char[]>strBuf{ new char[strBufLen] };
 
 		const char* numBegin{}, *numEnd{};
 		while (strBegin != strEnd)
 		{
 
-			iterBegin = std::find(strBegin, strEnd, 'a');
+			iterBegin = std::find(strBegin, strEnd, *m_country.cbegin());
 			if (iterBegin == strEnd)
 			{
 				m_readLen = 0;
@@ -400,23 +299,7 @@ void CHECKIP::parseMessage(const size_t len)
 				break;
 			}
 
-			if (!std::equal(iterBegin, iterBegin + apnic.size(), apnic.cbegin(), apnic.cend()))
-			{
-				strBegin = iterBegin + 1;
-				continue;
-			}
-
-			//比对国家名称
-			countryBegin = std::find(iterBegin + apnic.size(), strEnd, '|');
-			if (countryBegin == strEnd)
-			{
-				std::copy(iterBegin, strEnd, m_buf.get());
-				m_readLen = std::distance(iterBegin, strEnd);
-				break;
-			}
-
-
-			++countryBegin;
+			countryBegin = iterBegin;
 
 			countryEnd = std::find(countryBegin, strEnd, '|');
 			if (countryEnd == strEnd)
@@ -510,10 +393,10 @@ void CHECKIP::parseMessage(const size_t len)
 		
 
 			pos = std::distance(numBegin, ipAddressEnd);
-			if (pos >= strBufLen)
+			if (pos >= m_strBufLen)
 				continue;
-			std::copy(numBegin, ipAddressEnd, strBuf.get());
-			*(strBuf.get() + pos) = 0;
+			std::copy(numBegin, ipAddressEnd, m_strBuf.get());
+			*(m_strBuf.get() + pos) = 0;
 			index = -1, num = 1;
 			mask_len = std::accumulate(std::make_reverse_iterator(hostNumEnd), std::make_reverse_iterator(hostNumBegin), 0, [&](int sum, const char ch)
 			{
@@ -529,7 +412,7 @@ void CHECKIP::parseMessage(const size_t len)
 				continue;
 			}
 			mask_len = 32 - mask_len;
-			network = ip_to_int_char(strBuf.get());
+			network = ip_to_int_char(m_strBuf.get());
 			mask = (0xFFFFFFFF << (32 - mask_len));
 
 			m_temp[result].emplace_back(std::make_pair(mask, network & mask));
@@ -693,15 +576,15 @@ int CHECKIP::FastLog2(const unsigned int num)
 
 void CHECKIP::resetFile()
 {
+	m_file.open(m_saveFile, std::ios::out);
+	if(!m_file)
+		return logResult();
+	m_file.close();
+
 	m_file.open(m_saveFile, std::ios::app | std::ios::binary);
 	if (!m_file)
-	{
-		logResult();
-	}
-	else
-	{
-		m_file << "start:\n";
-	}
+		return logResult();
+	m_file << "start:\n";
 }
 
 

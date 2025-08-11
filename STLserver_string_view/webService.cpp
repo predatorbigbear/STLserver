@@ -14,9 +14,10 @@ WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 	const std::shared_ptr<CHECKIP>checkIP,
+	const std::shared_ptr<RandomCodeGenerator>randomCode,
 	const unsigned int bufNum
 )
-	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec), m_checkIP(checkIP),
+	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec), m_checkIP(checkIP),m_randomCode(randomCode),
 	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileVec(fileVec), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
@@ -47,6 +48,8 @@ WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG
 			throw std::runtime_error("serviceNum is 0");
 		if(!checkIP)
 			throw std::runtime_error("checkIP is nullptr");
+		if(!randomCode)
+			throw std::runtime_error("randomCode is nullptr");
 
 		m_buffer.reset(new ReadBuffer(m_ioc, bufNum));
 
@@ -213,6 +216,11 @@ void WEBSERVICE::switchPOSTInterface()
 		exitBack();
 		break;
 
+
+		//用户注册接口1，填写手机号发送验证码
+	case WEBSERVICEINTERFACE::web_registration1:
+		registration1();
+		break;
 
 
 		//默认，不匹配任何接口情况
@@ -4611,6 +4619,128 @@ void WEBSERVICE::exitBack()
 		return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
 
 	return startWrite((*m_fileVec)[1].data(), (*m_fileVec)[1].size());
+}
+
+
+
+//用户注册接口1，填写手机号发送验证码
+//测试功能，目前先在管理后台实现，
+//首先进行权限校验，以防止被滥用
+void WEBSERVICE::registration1()
+{
+	if(!hasLoginBack)
+		return startWrite((*m_fileVec)[0].data(), (*m_fileVec)[0].size());
+
+	if (m_httpresult.isBodyEmpty())
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	std::string_view bodyView{ m_httpresult.getBody() };
+	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::phone, STATICSTRING::phoneLen))
+		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	//对于需要反复使用的场景，使用keyVec里面的string_view来存储参数解析结果
+	std::string_view& phoneView{ keyVec[0] };
+	phoneView = std::string_view(*(BodyBuffer), *(BodyBuffer + 1) - *(BodyBuffer));
+
+	//判断是否是非法手机号
+	if (!REGEXFUNCTION::isVaildPhone(phoneView))
+	{
+		if (m_BGfileVec->size() < 3)
+			return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
+		
+		return startWrite((*m_BGfileVec)[2].data(), (*m_BGfileVec)[2].size());
+	}
+
+	std::string_view& ipView{ keyVec[1] };
+	ipView = std::string_view(m_IP.data(), m_IP.size());
+
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+	redisResultTypeSW& thisRequest{ *redisRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+	//获取IP地址与手机号是否存在
+
+	command.clear();
+	commandSize.clear();
+	resultVec.clear();
+	resultNumVec.clear();
+	try
+	{
+		command.emplace_back(std::string_view(REDISNAMESPACE::mget, REDISNAMESPACE::mgetLen));
+		command.emplace_back(phoneView);
+		command.emplace_back(ipView);
+		commandSize.emplace_back(3);
+		command.emplace_back(std::string_view(REDISNAMESPACE::ttl, REDISNAMESPACE::ttlLen));
+		command.emplace_back(phoneView);
+		commandSize.emplace_back(2);
+		command.emplace_back(std::string_view(REDISNAMESPACE::ttl, REDISNAMESPACE::ttlLen));
+		command.emplace_back(ipView);
+		commandSize.emplace_back(2);
+
+		std::get<1>(thisRequest) = 3;
+		std::get<3>(thisRequest) = 3;
+		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleregistration1, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+	}
+}
+
+
+void WEBSERVICE::handleregistration1(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	if (result)
+	{
+		if (resultVec.size() == 4)
+		{
+			//如果IP地址或手机号记录不为空
+			//都为空的情况下，生成验证码，通过验证码模块下发到用户手机，使用setnx 设置IP地址 与 手机号记录，有效时间为8小时
+			//其中IP地址记录值为1 手机号记录为X位验证码    
+			//  IP地址记录表示 在8小时内，已经发送过验证码
+			// 手机号记录表示 在8小时内，已经发送过验证码
+			// 
+			
+			if (resultVec[0].empty() && resultVec[1].empty())
+			{
+				char* buf = m_MemoryPool.getMemory<char*>(6);
+
+				if(!buf)
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			
+				m_randomCode->generate(buf);
+
+				//添加验证码发送模块下发验证码并将信息写入redis中
+
+
+			}
+
+		}
+		else
+		{
+			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		}
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
 }
 
 

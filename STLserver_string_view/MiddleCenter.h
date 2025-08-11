@@ -11,6 +11,9 @@
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
 #include "STLTimeWheel.h"
+#include "randomCodeGenerator.h"
+
+
 #include<unordered_map>
 #include <zlib.h>
 #include <brotli/encode.h>
@@ -119,6 +122,7 @@ private:
 	bool m_initSql{ false };
 
 	
+	std::shared_ptr<RandomCodeGenerator>m_randomCode{};
 	std::shared_ptr<CHECKIP>m_checkIP{};
 	std::shared_ptr<LOGPOOL>m_logPool{};                                        //日志池
 	std::shared_ptr<function<void()>>m_unlockFun{};

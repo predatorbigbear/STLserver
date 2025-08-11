@@ -9,16 +9,17 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(std::shared_ptr<IOcontextPool> ioPool,
 	const std::shared_ptr<std::vector<std::string>>fileVec,
 	const std::shared_ptr<std::vector<std::string>>BGfileVec,
 	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
-	const char* cert, const char* privateKey, const std::shared_ptr<CHECKIP>checkIP
+	const char* cert, const char* privateKey, const std::shared_ptr<CHECKIP>checkIP,
+	const std::shared_ptr<RandomCodeGenerator>randomCode
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
 	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileVec(fileVec), m_BGfileVec(BGfileVec),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),m_checkIP(checkIP),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
-	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
+	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_randomCode(randomCode)
 {
 	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 && checkSecond && m_timeWheel
-		&& m_multiSqlReadSWPoolMaster && m_fileVec && m_BGfileVec
+		&& m_multiSqlReadSWPoolMaster && m_fileVec && m_BGfileVec && m_randomCode
 		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster && m_checkIP
 		)
 	{
@@ -50,7 +51,7 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(std::shared_ptr<IOcontextPool> ioPool,
 		m_httpServicePool.reset(new FixedWEBSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
 			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileVec, m_BGfileVec,
-			m_timeOut, m_clearFunction, m_checkIP,
+			m_timeOut, m_clearFunction, m_checkIP, m_randomCode,
 			m_socketNum));
 		if (!m_httpServicePool->ready())
 		{

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 namespace REDISNAMESPACE
@@ -15,8 +15,10 @@ namespace REDISNAMESPACE
 	static constexpr char* mget{ "mget" };
 	static constexpr char* hget{ "hget" };
 	static constexpr char* getrange{ "getrange" };
+	static constexpr char* ttl{ "ttl" };
 
 
+	static constexpr int ttlLen{ strlen(ttl) };
 	static constexpr int getLen{ strlen(get) };
 	static constexpr int setLen{ strlen(set) };
 	static constexpr int helloWorldLen{ strlen(helloWorld) };

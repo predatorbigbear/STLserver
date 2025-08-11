@@ -13,6 +13,7 @@
 #include "multiSqlWriteSWPool.h"
 #include "STLTimeWheel.h"
 #include "CheckIP.h"
+#include "randomCodeGenerator.h"
 
 
 #include<atomic>
@@ -30,12 +31,14 @@ struct WEBSERVICELISTENER
 		const std::shared_ptr<std::vector<std::string>>BGfileVec,
 		const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
 		const char* cert, const char* privateKey,
-		const std::shared_ptr<CHECKIP>checkIP
+		const std::shared_ptr<CHECKIP>checkIP,
+		const std::shared_ptr<RandomCodeGenerator>randomCode
 		);
 
 
 
 private:
+	const std::shared_ptr<RandomCodeGenerator>m_randomCode{};
 	const std::shared_ptr<CHECKIP>m_checkIP{};
 
 	std::shared_ptr<io_context> m_ioc{};

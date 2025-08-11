@@ -195,6 +195,7 @@ namespace STATICSTRING
 	static const char* answer{ "answer" };
 
 
+
 ////////////////////////////////////////////////////////////////////////////////////////
 	static size_t serverRSASize{ 128 };
 
