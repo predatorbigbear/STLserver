@@ -4,17 +4,20 @@
 
 
 
-WEBSERVICE::WEBSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
-	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
-	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
-	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
-	std::shared_ptr<STLTimeWheel> timeWheel,
-	const std::shared_ptr<std::vector<std::string>>fileVec,
-	const std::shared_ptr<std::vector<std::string>>BGfileVec,
+WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
+	const std::shared_ptr<ASYNCLOG>& log,
+	const std::string& doc_root,
+	const std::shared_ptr<MULTISQLREADSW>& multiSqlReadSWMaster,
+	const std::shared_ptr<MULTIREDISREAD>& multiRedisReadMaster,
+	const std::shared_ptr<MULTIREDISWRITE>& multiRedisWriteMaster,
+	const std::shared_ptr<MULTISQLWRITESW>& multiSqlWriteSWMaster,
+	const std::shared_ptr<STLTimeWheel>& timeWheel,
+	const std::shared_ptr<std::vector<std::string>>& fileVec,
+	const std::shared_ptr<std::vector<std::string>>& BGfileVec,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
-	const std::shared_ptr<CHECKIP>checkIP,
-	const std::shared_ptr<RandomCodeGenerator>randomCode,
+	const std::shared_ptr<CHECKIP>& checkIP,
+	const std::shared_ptr<RandomCodeGenerator>& randomCode,
 	const unsigned int bufNum
 )
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec), m_checkIP(checkIP),m_randomCode(randomCode),
@@ -813,7 +816,7 @@ void WEBSERVICE::prepare()
 	while (++i != 3)
 	{
 		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));
-		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, false, &m_MemoryPool));
+		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, &m_MemoryPool));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
@@ -4401,6 +4404,15 @@ bool WEBSERVICE::parseHttpHeader()
 			strBegin = iter1End;
 		}
 	}
+	else
+	{
+		//http 1.1默认开启持久连接
+		//http 1.0需在请求头中显式声明
+		if (isHttp10)
+			keep_alive = false;
+		else if (isHttp11)
+			keep_alive = true;
+	}
 
 after_parse_Connection:
 	;
@@ -4579,23 +4591,35 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 		{
 			std::string_view& keyView{ keyVec[0] };
 
-			
+			STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+			st1.reset();
+
+			if (!st1.clear())
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+
+			//返回{"result:"","web":""}  
+			//当web不为空字符串时，读取web的值实现跳转页面
+			//否则提示密码错误
+			static std::string_view zero{ "0" }, web{ "web" };
 			if (std::equal(keyView.cbegin(), keyView.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
 			{
 				//密码比对正确
 				hasLoginBack = true;
 
-				return startWrite((*m_BGfileVec)[0].data(), (*m_BGfileVec)[0].size());
+				if (!st1.put(web.cbegin(), web.cend(), zero.cbegin(), zero.cend()))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 			}
 			else
 			{
 				//密码比对错误
-				if (m_fileVec->size() < 3)
-					return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-
-				return startWrite((*m_fileVec)[2].data(), (*m_fileVec)[2].size());
+				if (!st1.put(web.cbegin(), web.cend(), nullptr, nullptr))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
 			}
+
+			makeSendJson(st1);
 		}
 		else
 		{

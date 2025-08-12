@@ -19,13 +19,16 @@
 
 struct listener 
 {
-	listener(std::shared_ptr<IOcontextPool> ioPool,
-		std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster,
-		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
-		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
-		const std::string &tcpAddress, const std::string &doc_root , std::shared_ptr<LOGPOOL> logPool ,
-		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const int socketNum , const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel
+	listener(const std::shared_ptr<IOcontextPool> &ioPool,
+		const std::shared_ptr<MULTISQLREADSWPOOL> &multiSqlReadSWPoolMaster,
+		const std::shared_ptr<MULTIREDISREADPOOL> &multiRedisReadPoolMaster,
+		const std::shared_ptr<MULTIREDISWRITEPOOL> &multiRedisWritePoolMaster, 
+		const std::shared_ptr<MULTISQLWRITESWPOOL> &multiSqlWriteSWPoolMaster,
+		const std::string &tcpAddress, const std::string &doc_root ,
+		const std::shared_ptr<LOGPOOL> &logPool ,
+		const std::shared_ptr<std::unordered_map<std::string_view, std::string>> &fileMap,
+		const int socketNum , const int timeOut, const unsigned int checkSecond,
+		const std::shared_ptr<STLTimeWheel> &timeWheel
 		);
 
 
@@ -45,7 +48,7 @@ private:
 	std::atomic<bool> m_startAccept{ true };
 	
 	
-	std::shared_ptr<IOcontextPool> m_ioPool{};
+	const std::shared_ptr<IOcontextPool> m_ioPool{};
 	
 	
 	std::unique_ptr<FixedHTTPSERVICEPOOL> m_httpServicePool{};
@@ -60,25 +63,25 @@ private:
 
 	std::unique_ptr<boost::asio::steady_timer> m_timeOutTimer{};       //  这个用于检查超时，不要乱用
 
-	std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
+	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
 
 
 	std::shared_ptr<ASYNCLOG> m_log{};
 
-	std::shared_ptr<LOGPOOL> m_logPool{};
+	const std::shared_ptr<LOGPOOL> m_logPool{};
 
-	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   主数据库写入连接池
-	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   主数据库读取连接池
+	const std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   主数据库写入连接池
+	const std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   主数据库读取连接池
 
-	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
-	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
+	const std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
+	const std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
 
-	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
+	const std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
 
 
-	int m_socketNum{};
+	const int m_socketNum{};
 
-	int m_timeOut{};
+	const int m_timeOut{};
 
 	//时间轮检查间隔
 	unsigned int m_checkTurn{};

@@ -4,12 +4,14 @@
 
 
 
-HTTPSERVICE::HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
-	std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
-	std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
-	std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
-	std::shared_ptr<STLTimeWheel> timeWheel,
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
+HTTPSERVICE::HTTPSERVICE(const std::shared_ptr<io_context>& ioc,
+	const std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
+	const std::shared_ptr<MULTISQLREADSW>& multiSqlReadSWMaster,
+	const std::shared_ptr<MULTIREDISREAD>& multiRedisReadMaster,
+	const std::shared_ptr<MULTIREDISWRITE>& multiRedisWriteMaster,
+	const std::shared_ptr<MULTISQLWRITESW>& multiSqlWriteSWMaster,
+	const std::shared_ptr<STLTimeWheel>& timeWheel,
+	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>& fileMap,
 	const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 	const unsigned int bufNum
@@ -2199,7 +2201,7 @@ void HTTPSERVICE::prepare()
 	while (++i != 3)
 	{
 		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));
-		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, false, &m_MemoryPool));
+		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, &m_MemoryPool));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
@@ -5764,6 +5766,15 @@ bool HTTPSERVICE::parseHttpHeader()
 
 			strBegin = iter1End;
 		}
+	}
+	else
+	{
+		//http 1.1默认开启持久连接
+		//http 1.0需在请求头中显式声明
+		if(isHttp10)
+			keep_alive = false;
+		else if(isHttp11)
+			keep_alive = true;
 	}
 
 after_parse_Connection:

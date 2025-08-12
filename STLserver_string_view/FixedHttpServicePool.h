@@ -14,13 +14,18 @@
 
 struct FixedHTTPSERVICEPOOL
 {
-	FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, const std::string &doc_root,
-		std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster, 
-		std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
-		std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
-	    std::shared_ptr<std::function<void()>>reAccept, std::shared_ptr<LOGPOOL> logPool, std::shared_ptr<STLTimeWheel> timeWheel,
-		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-		const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
+	FixedHTTPSERVICEPOOL(const std::shared_ptr<IOcontextPool> &ioPool, 
+		const std::string &doc_root,
+		const std::shared_ptr<MULTISQLREADSWPOOL> &multiSqlReadSWPoolMaster,
+		const std::shared_ptr<MULTIREDISREADPOOL> &multiRedisReadPoolMaster,
+		const std::shared_ptr<MULTIREDISWRITEPOOL> &multiRedisWritePoolMaster, 
+		const std::shared_ptr<MULTISQLWRITESWPOOL> &multiSqlWriteSWPoolMaster,
+	    const std::shared_ptr<std::function<void()>> &reAccept,
+		const std::shared_ptr<LOGPOOL> &logPool, 
+		const std::shared_ptr<STLTimeWheel> &timeWheel,
+		const std::shared_ptr<std::unordered_map<std::string_view, std::string>> &fileMap,
+		const unsigned int timeOut, 
+		const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 		int beginSize = 200);
 
 	void getNextBuffer(std::shared_ptr<HTTPSERVICE> &outBuffer);
@@ -57,14 +62,14 @@ private:
 	std::shared_ptr<std::function<void()>> m_reAccept{};
 
 	std::shared_ptr<ASYNCLOG> m_log{};
-	std::shared_ptr<LOGPOOL>m_logPool{};
-	std::shared_ptr<IOcontextPool> m_ioPool{};
+	const std::shared_ptr<LOGPOOL>m_logPool{};
+	const std::shared_ptr<IOcontextPool> m_ioPool{};
 
-	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   主数据库写入连接池
-	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   主数据库读取连接池
+	const std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   主数据库写入连接池
+	const std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   主数据库读取连接池
 
-	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
-	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
+	const std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
+	const std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
 
 	bool m_startAccept{ true };
 

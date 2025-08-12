@@ -23,12 +23,14 @@
 
 struct HTTPSERVICE
 {
-	HTTPSERVICE(std::shared_ptr<io_context> ioc, std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
-		std::shared_ptr<MULTISQLREADSW>multiSqlReadSWMaster,
-		std::shared_ptr<MULTIREDISREAD>multiRedisReadMaster,
-		std::shared_ptr<MULTIREDISWRITE>multiRedisWriteMaster, std::shared_ptr<MULTISQLWRITESW>multiSqlWriteSWMaster,
-		std::shared_ptr<STLTimeWheel> timeWheel,
-		const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
+	HTTPSERVICE(const std::shared_ptr<io_context> &ioc, 
+		const std::shared_ptr<ASYNCLOG> log, const std::string& doc_root,
+		const std::shared_ptr<MULTISQLREADSW> &multiSqlReadSWMaster,
+		const std::shared_ptr<MULTIREDISREAD> &multiRedisReadMaster,
+		const std::shared_ptr<MULTIREDISWRITE> &multiRedisWriteMaster, 
+		const std::shared_ptr<MULTISQLWRITESW> &multiSqlWriteSWMaster,
+		const std::shared_ptr<STLTimeWheel> &timeWheel,
+		const std::shared_ptr<std::unordered_map<std::string_view, std::string>> &fileMap,
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
 		const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 		const unsigned int bufNum = 4096
@@ -61,19 +63,19 @@ private:
 
 	const std::string& m_doc_root;
 
-	std::shared_ptr<io_context> m_ioc{};
+	const std::shared_ptr<io_context> m_ioc{};
 
 	int m_len{};
 
 	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> m_clearFunction{};
 
-	std::shared_ptr<ASYNCLOG> m_log{};
+	const std::shared_ptr<ASYNCLOG> m_log{};
 
 	std::atomic<std::shared_ptr<HTTPSERVICE>*>mySelfIter{};
 
 	std::shared_ptr<HTTPSERVICE> m_mySelf{};
 
-	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
+	const std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
 
 	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>m_fileMap{};
 
@@ -120,7 +122,7 @@ private:
 	// redis类型
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
-		std::function<void(bool, enum ERRORMESSAGE)>, bool, MEMORYPOOL<>*>;
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
 
 
 
@@ -169,17 +171,17 @@ private:
 
 
 
-	std::shared_ptr<MULTISQLREADSW>m_multiSqlReadSWMaster{};
+	const std::shared_ptr<MULTISQLREADSW>m_multiSqlReadSWMaster{};
 
-	std::shared_ptr<MULTIREDISREAD>m_multiRedisReadMaster{};
+	const std::shared_ptr<MULTIREDISREAD>m_multiRedisReadMaster{};
 
-	std::shared_ptr<MULTIREDISWRITE>m_multiRedisWriteMaster{};
+	const std::shared_ptr<MULTIREDISWRITE>m_multiRedisWriteMaster{};
 
-	std::shared_ptr<MULTISQLWRITESW>m_multiSqlWriteSWMaster{};
+	const std::shared_ptr<MULTISQLWRITESW>m_multiSqlWriteSWMaster{};
 
 
 
-	unsigned int m_timeOut;
+	const unsigned int m_timeOut{};
 
 	unsigned int m_rowNum{};
 

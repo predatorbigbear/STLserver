@@ -14,7 +14,7 @@
 // 日志模块采取直接写入缓存部分的方式以提高性能
 struct LOG
 {
-	LOG(const char *logFileName , std::shared_ptr<IOcontextPool> ioPool ,bool &result , const int overTime=60,const int bufferSize=20480);                                         //构造函数
+	LOG(const char *logFileName ,const std::shared_ptr<IOcontextPool> &ioPool ,bool &result , const int overTime=60,const int bufferSize=20480);                                         //构造函数
 
 
 	template<typename T, size_t N, typename ...ARGS>

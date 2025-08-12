@@ -1,6 +1,6 @@
-﻿#include "multiRedisRead.h"
+﻿#include "multiRedisReadCopy.h"
 
-MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log,
+MULTIREDISREADCOPY::MULTIREDISREADCOPY(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log,
 	std::shared_ptr<std::function<void()>> unlockFun,
 	std::shared_ptr<STLTimeWheel> timeWheel,
 	const std::string& redisIP, const unsigned int redisPort,
@@ -35,10 +35,7 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 
 	m_receiveBuffer.reset(new char[memorySize]);
 
-
 	m_outRangeBuffer.reset(new char[m_outRangeMaxSize]);
-
-
 
 	m_waitMessageList.reset(new std::shared_ptr<redisResultTypeSW>[m_commandMaxSize]);
 	m_waitMessageListMaxSize = m_commandMaxSize;
@@ -71,13 +68,14 @@ MULTIREDISREAD::MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std
 	//     std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 	//     std::function<void(bool, enum ERRORMESSAGE) >> ;
 
-bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redisRequest)
+bool MULTIREDISREADCOPY::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redisRequest)
 {
 	if (!redisRequest)
 		return false;
 
 	redisResultTypeSW& thisRequest{ *redisRequest };
-	if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize
+	if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) || !std::get<7>(thisRequest) 
+		|| std::get<1>(thisRequest) > m_commandMaxSize
 		|| !std::get<3>(thisRequest) || std::get<1>(thisRequest) != std::get<2>(thisRequest).get().size() ||
 		std::accumulate(std::get<2>(thisRequest).get().cbegin(), std::get<2>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size()
 		)
@@ -261,7 +259,7 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redi
 
 
 
-bool MULTIREDISREAD::readyEndPoint()
+bool MULTIREDISREADCOPY::readyEndPoint()
 {
 	try
 	{
@@ -280,7 +278,7 @@ bool MULTIREDISREAD::readyEndPoint()
 
 
 
-bool MULTIREDISREAD::readySocket()
+bool MULTIREDISREADCOPY::readySocket()
 {
 	try
 	{
@@ -299,7 +297,7 @@ bool MULTIREDISREAD::readySocket()
 
 
 
-void MULTIREDISREAD::firstConnect()
+void MULTIREDISREADCOPY::firstConnect()
 {
 	m_sock->async_connect(*m_endPoint, [this](const boost::system::error_code& err)
 	{
@@ -324,7 +322,7 @@ void MULTIREDISREAD::firstConnect()
 
 
 
-void MULTIREDISREAD::reconnect()
+void MULTIREDISREADCOPY::reconnect()
 {
 	m_sock->async_connect(*m_endPoint, [this](const boost::system::error_code& err)
 	{
@@ -348,7 +346,7 @@ void MULTIREDISREAD::reconnect()
 
 
 
-void MULTIREDISREAD::setConnectSuccess()
+void MULTIREDISREADCOPY::setConnectSuccess()
 {
 	m_connect.store(true);
 }
@@ -356,7 +354,7 @@ void MULTIREDISREAD::setConnectSuccess()
 
 
 
-void MULTIREDISREAD::setConnectFail()
+void MULTIREDISREADCOPY::setConnectFail()
 {
 	m_connect.store(false);
 }
@@ -364,7 +362,7 @@ void MULTIREDISREAD::setConnectFail()
 
 
 
-void MULTIREDISREAD::query()
+void MULTIREDISREADCOPY::query()
 {
 
 	boost::asio::async_write(*m_sock, boost::asio::buffer(m_sendMessage, m_sendLen), [this](const boost::system::error_code& err, const std::size_t size)
@@ -390,7 +388,7 @@ void MULTIREDISREAD::query()
 
 
 //接收成功的话进入处理函数
-void MULTIREDISREAD::receive()
+void MULTIREDISREADCOPY::receive()
 {
 	if (m_receiveBufferNowSize == m_receiveBufferMaxSize)
 	{
@@ -413,7 +411,7 @@ void MULTIREDISREAD::receive()
 
 
 
-void MULTIREDISREAD::resetReceiveBuffer()
+void MULTIREDISREADCOPY::resetReceiveBuffer()
 {
 	m_receiveBufferNowSize = m_lastPrasePos = 0;
 }
@@ -431,7 +429,7 @@ void MULTIREDISREAD::resetReceiveBuffer()
 //解析函数
 //PS：所有return的地方调用之前需要将临时变量赋值给相关的类成员变量
 // 临时变量操作速度快，当需要大量使用是在一开始设置临时变量，用类成员变量初始化，在最后退出时将值保存回去
-bool MULTIREDISREAD::parse(const int size)
+bool MULTIREDISREADCOPY::parse(const int size)
 {
 	const char* iterBegin{ }, * iterEnd{ m_receiveBuffer.get() + m_receiveBufferNowSize }, * iterHalfBegin{ m_receiveBuffer.get() },
 		* iterHalfEnd{ m_receiveBuffer.get() + m_receiveBufferMaxSize }, * iterFind{},        // 开始 结束  寻找节点
@@ -592,7 +590,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+								makeCopy(thisRequest, iterStrBegin, len);
 								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
@@ -670,7 +668,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
+						makeCopy(thisRequest, iterLenBegin, iterLenEnd - iterLenBegin);
 						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
@@ -729,7 +727,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(thisRequest).get().emplace_back(std::string_view(errorBegin, errorEnd - errorBegin));
+						makeCopy(thisRequest, errorBegin, errorEnd - errorBegin);
 						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
@@ -788,7 +786,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, iterStrEnd - iterStrBegin));
+						makeCopy(thisRequest, iterStrBegin, iterStrEnd - iterStrBegin);
 						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
@@ -970,7 +968,7 @@ bool MULTIREDISREAD::parse(const int size)
 					{
 						try
 						{
-							m_arrayResult.emplace_back(std::string_view(iterStrBegin, len));
+							makeCopy(m_arrayResult, thisRequest, iterStrBegin, len);
 						}
 						catch (const std::exception& e)
 						{
@@ -1037,7 +1035,7 @@ bool MULTIREDISREAD::parse(const int size)
 	else      //接收数据回环情况
 	{
 
-		
+
 		while (!jump)
 		{
 			iterFind = iterBegin;
@@ -1332,12 +1330,10 @@ bool MULTIREDISREAD::parse(const int size)
 								//可能会触发空指针异常 程序直接崩溃
 									if (len <= m_outRangeMaxSize)
 									{
-										std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-										std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
 
 										try
 										{
-											std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+											makeCopy(thisRequest, iterStrBegin, iterHalfEnd- iterStrBegin, iterHalfBegin, iterStrEnd- iterHalfBegin);
 											std::get<5>(thisRequest).get().emplace_back(1);
 										}
 										catch (const std::exception& e)
@@ -1362,7 +1358,7 @@ bool MULTIREDISREAD::parse(const int size)
 								{
 									try
 									{
-										std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+										makeCopy(thisRequest, iterStrBegin, len);
 										std::get<5>(thisRequest).get().emplace_back(1);
 									}
 									catch (const std::exception& e)
@@ -1451,12 +1447,10 @@ bool MULTIREDISREAD::parse(const int size)
 								//可能会触发空指针异常 程序直接崩溃
 									if (len <= m_outRangeMaxSize)
 									{
-										std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-										std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
 
 										try
 										{
-											std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+											makeCopy(thisRequest, iterStrBegin, iterHalfEnd - iterStrBegin, iterHalfBegin, iterStrEnd - iterHalfBegin);
 											std::get<5>(thisRequest).get().emplace_back(1);
 										}
 										catch (const std::exception& e)
@@ -1481,7 +1475,7 @@ bool MULTIREDISREAD::parse(const int size)
 								{
 									try
 									{
-										std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+										makeCopy(thisRequest, iterStrBegin, len);
 										std::get<5>(thisRequest).get().emplace_back(1);
 									}
 									catch (const std::exception& e)
@@ -1631,12 +1625,10 @@ bool MULTIREDISREAD::parse(const int size)
 					//可能会触发空指针异常 程序直接崩溃
 						if (len <= m_outRangeMaxSize)
 						{
-							std::copy(iterLenBegin, iterHalfEnd, m_outRangeBuffer.get());
-							std::copy(iterHalfBegin, iterLenEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterLenBegin));
 
 							try
 							{
-								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								makeCopy(thisRequest, iterLenBegin, iterHalfEnd - iterLenBegin, iterHalfBegin, iterLenEnd - iterHalfBegin);
 								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
@@ -1661,7 +1653,7 @@ bool MULTIREDISREAD::parse(const int size)
 					{
 						try
 						{
-							std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, len));
+							makeCopy(thisRequest, iterLenBegin, len);
 							std::get<5>(thisRequest).get().emplace_back(1);
 						}
 						catch (const std::exception& e)
@@ -1789,12 +1781,10 @@ bool MULTIREDISREAD::parse(const int size)
 					//可能会触发空指针异常 程序直接崩溃
 						if (len <= m_outRangeMaxSize)
 						{
-							std::copy(errorBegin, iterHalfEnd, m_outRangeBuffer.get());
-							std::copy(iterHalfBegin, errorEnd, m_outRangeBuffer.get() + (iterHalfEnd - errorBegin));
 
 							try
 							{
-								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								makeCopy(thisRequest, errorBegin, iterHalfEnd- errorBegin, iterHalfBegin, errorEnd- iterHalfBegin);
 								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
@@ -1821,7 +1811,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 						try
 						{
-							std::get<4>(thisRequest).get().emplace_back(std::string_view(errorBegin, len));
+							makeCopy(thisRequest, errorBegin, len);
 							std::get<5>(thisRequest).get().emplace_back(1);
 						}
 						catch (const std::exception& e)
@@ -1948,12 +1938,11 @@ bool MULTIREDISREAD::parse(const int size)
 					//可能会触发空指针异常 程序直接崩溃
 						if (len <= m_outRangeMaxSize)
 						{
-							std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-							std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
+							
 
 							try
 							{
-								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								makeCopy(thisRequest, iterStrBegin, iterHalfEnd- iterStrBegin, iterHalfBegin, iterStrEnd- iterHalfBegin);
 								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
@@ -1980,7 +1969,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 						try
 						{
-							std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+							makeCopy(thisRequest, iterStrBegin, len);
 							std::get<5>(thisRequest).get().emplace_back(1);
 						}
 						catch (const std::exception& e)
@@ -2418,12 +2407,11 @@ bool MULTIREDISREAD::parse(const int size)
 						//可能会触发空指针异常 程序直接崩溃
 							if (len <= m_outRangeMaxSize)
 							{
-								std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-								std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
+								
 
 								try
 								{
-									m_arrayResult.emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+									makeCopy(m_arrayResult, thisRequest, iterStrBegin, iterHalfEnd - iterStrBegin, iterHalfBegin, iterStrEnd - iterHalfBegin);
 								}
 								catch (const std::exception& e)
 								{
@@ -2446,7 +2434,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								m_arrayResult.emplace_back(std::string_view(iterStrBegin, len));
+								makeCopy(m_arrayResult, thisRequest, iterStrBegin, len);
 							}
 							catch (const std::exception& e)
 							{
@@ -2468,7 +2456,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
 					try
-					{	
+					{
 						vec.swap(m_arrayResult);
 						std::get<5>(thisRequest).get().emplace_back(vec.size());
 					}
@@ -2638,7 +2626,7 @@ bool MULTIREDISREAD::parse(const int size)
 						{
 							try
 							{
-								std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+								makeCopy(thisRequest, iterStrBegin, len);
 								std::get<5>(thisRequest).get().emplace_back(1);
 							}
 							catch (const std::exception& e)
@@ -2713,7 +2701,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
+						makeCopy(thisRequest, iterLenBegin, iterLenEnd - iterLenBegin);
 						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
@@ -2772,7 +2760,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(thisRequest).get().emplace_back(std::string_view(errorBegin, errorEnd - errorBegin));
+						makeCopy(thisRequest, errorBegin, errorEnd - errorBegin);
 						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
@@ -2831,7 +2819,7 @@ bool MULTIREDISREAD::parse(const int size)
 				{
 					try
 					{
-						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, iterStrEnd - iterStrBegin));
+						makeCopy(thisRequest, iterStrBegin, iterStrEnd - iterStrBegin);
 						std::get<5>(thisRequest).get().emplace_back(1);
 					}
 					catch (const std::exception& e)
@@ -3013,7 +3001,7 @@ bool MULTIREDISREAD::parse(const int size)
 					{
 						try
 						{
-							m_arrayResult.emplace_back(std::string_view(iterStrBegin, len));
+							makeCopy(m_arrayResult, thisRequest, iterStrBegin, len);
 						}
 						catch (const std::exception& e)
 						{
@@ -3094,7 +3082,7 @@ bool MULTIREDISREAD::parse(const int size)
 
 
 
-void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std::size_t size)
+void MULTIREDISREADCOPY::handlelRead(const boost::system::error_code& err, const std::size_t size)
 {
 	if (err)
 	{
@@ -3176,7 +3164,7 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 //如果获取到元素，则遍历计算需要的空间为多少
 //尝试分配空间，分配失败则continue处理
 //成功则copy组合，进入发送命令阶段循环
-void MULTIREDISREAD::readyMessage()
+void MULTIREDISREADCOPY::readyMessage()
 {
 
 	//先将需要用到的关键变量复位，再尝试生成新的请求消息
@@ -3395,7 +3383,7 @@ void MULTIREDISREAD::readyMessage()
 
 
 
-void MULTIREDISREAD::shutdownLoop()
+void MULTIREDISREADCOPY::shutdownLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
@@ -3412,7 +3400,7 @@ void MULTIREDISREAD::shutdownLoop()
 }
 
 
-void MULTIREDISREAD::cancelLoop()
+void MULTIREDISREADCOPY::cancelLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
@@ -3429,7 +3417,7 @@ void MULTIREDISREAD::cancelLoop()
 }
 
 
-void MULTIREDISREAD::closeLoop()
+void MULTIREDISREADCOPY::closeLoop()
 {
 	if (ec.value() != 107 && ec.value())
 	{
@@ -3444,7 +3432,7 @@ void MULTIREDISREAD::closeLoop()
 }
 
 
-void MULTIREDISREAD::resetSocket()
+void MULTIREDISREADCOPY::resetSocket()
 {
 	m_sock.reset(new boost::asio::ip::tcp::socket(*m_ioc));
 	m_sock->set_option(boost::asio::socket_base::keep_alive(true), ec);
@@ -3453,4 +3441,70 @@ void MULTIREDISREAD::resetSocket()
 		firstConnect();
 	else if (m_connectStatus == 2)
 		reconnect();
+}
+
+
+void MULTIREDISREADCOPY::makeCopy(redisResultTypeSW& thisRequest, const char* source, const unsigned int sourceLen)
+{
+	if (!source)
+		return;
+	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(sourceLen) };
+	if (!buf)
+		std::get<4>(thisRequest).get().emplace_back(std::string_view(nullptr, 0));
+	else
+	{
+		std::copy(source, source + sourceLen, buf);
+		std::get<4>(thisRequest).get().emplace_back(std::string_view(buf, sourceLen));
+	}
+}
+
+
+
+void MULTIREDISREADCOPY::makeCopy(redisResultTypeSW& thisRequest, const char* source1, const unsigned int sourceLen1,
+	const char* source2, const unsigned int sourceLen2)
+{
+	if (!source1 || !source2)
+		return;
+	int needLen{ sourceLen1 + sourceLen2 };
+	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(needLen) };
+	if (!buf)
+		std::get<4>(thisRequest).get().emplace_back(std::string_view(nullptr, 0));
+	else
+	{
+		std::copy(source1, source1 + sourceLen1, buf);
+		std::copy(source2, source2 + sourceLen2, buf + sourceLen1);
+		std::get<4>(thisRequest).get().emplace_back(std::string_view(buf, needLen));
+	}
+}
+
+
+
+void MULTIREDISREADCOPY::makeCopy(std::vector<std::string_view>& arrayResult, redisResultTypeSW& thisRequest, const char* source, const unsigned int sourceLen)
+{
+	if (!source)
+		return;
+	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(sourceLen) };
+	if (!buf)
+		arrayResult.emplace_back(std::string_view(nullptr, 0));
+	else
+	{
+		std::copy(source, source + sourceLen, buf);
+		arrayResult.emplace_back(std::string_view(buf, sourceLen));
+	}
+}
+
+void MULTIREDISREADCOPY::makeCopy(std::vector<std::string_view>& arrayResult, redisResultTypeSW& thisRequest, const char* source1, const unsigned int sourceLen1, const char* source2, const unsigned int sourceLen2)
+{
+	if (!source1 || !source2)
+		return;
+	int needLen{ sourceLen1 + sourceLen2 };
+	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(needLen) };
+	if (!buf)
+		arrayResult.emplace_back(std::string_view(nullptr, 0));
+	else
+	{
+		std::copy(source1, source1 + sourceLen1, buf);
+		std::copy(source2, source2 + sourceLen2, buf + sourceLen1);
+		arrayResult.emplace_back(std::string_view(buf, needLen));
+	}
 }

@@ -18,7 +18,7 @@ MiddleCenter::~MiddleCenter()
 
 
 
-void MiddleCenter::setLog(const char * logFileName, std::shared_ptr<IOcontextPool> ioPool , bool& success, const int overTime , const int bufferSize, const int bufferNum)
+void MiddleCenter::setLog(const char * logFileName,const std::shared_ptr<IOcontextPool> &ioPool , bool& success, const int overTime , const int bufferSize, const int bufferNum)
 {
 	//std::lock_guard<std::mutex>l1{ m_mutex };
 	m_mutex.lock();
@@ -56,9 +56,9 @@ void MiddleCenter::setLog(const char * logFileName, std::shared_ptr<IOcontextPoo
 
 
 
-void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress,
+void MiddleCenter::setHTTPServer(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string &tcpAddress,
 	const std::string &doc_root,
-	std::vector<std::string>&& fileVec, 
+	const std::vector<std::string>&& fileVec, 
 	const int socketNum, const int timeOut,
 	const bool isHttp , const char* cert , const char* privateKey )
 {
@@ -176,7 +176,7 @@ void MiddleCenter::setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& su
 
 
 
-void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string& tcpAddress, 
+void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string& tcpAddress, 
 	const std::string& doc_root, const std::vector<std::string>&& fileVec,
 	const std::string& backGround, const std::vector<std::string>&& backGroundFileVec, 
 	const int socketNum, const int timeOut,
@@ -325,7 +325,7 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 		{
 			m_randomCode.reset(new RandomCodeGenerator());
 			m_webListener.reset(new WEBSERVICELISTENER(ioPool, m_multiSqlReadSWPoolMaster,
-				m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
+				m_multiRedisReadPoolMaster, m_multiRedisReadCopyPoolMaster, m_multiRedisWritePoolMaster,
 				m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
 				m_webFileVec, m_webBGFileVec,
 				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey, m_checkIP, m_randomCode));
@@ -344,7 +344,8 @@ void MiddleCenter::setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bo
 
 
 
-void MiddleCenter::setMultiRedisRead(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string & redisIP, const unsigned int redisPort, const unsigned int bufferNum,
+void MiddleCenter::setMultiRedisRead(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string & redisIP,
+	const unsigned int redisPort, const unsigned int bufferNum,
 	const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize)
 {
 	try
@@ -359,6 +360,10 @@ void MiddleCenter::setMultiRedisRead(std::shared_ptr<IOcontextPool> ioPool, bool
 		m_multiRedisReadPoolMaster.reset(new MULTIREDISREADPOOL(ioPool, m_logPool, m_unlockFun,
 			m_timeWheel,
 			redisIP, redisPort, bufferNum, memorySize, outRangeMaxSize, commandSize));
+
+		m_multiRedisReadCopyPoolMaster.reset(new MULTIREDISREADCOPYPOOL(ioPool, m_logPool, m_unlockFun,
+			m_timeWheel,
+			redisIP, redisPort, bufferNum, memorySize, outRangeMaxSize, commandSize));
 		success = true;
 	}
 	catch (const std::exception& e)
@@ -370,7 +375,8 @@ void MiddleCenter::setMultiRedisRead(std::shared_ptr<IOcontextPool> ioPool, bool
 }
 
 
-void MiddleCenter::setMultiRedisWrite(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string & redisIP, const unsigned int redisPort, const unsigned int bufferNum,
+void MiddleCenter::setMultiRedisWrite(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string & redisIP,
+	const unsigned int redisPort, const unsigned int bufferNum,
 	const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize)
 {
 	try
@@ -394,8 +400,10 @@ void MiddleCenter::setMultiRedisWrite(std::shared_ptr<IOcontextPool> ioPool, boo
 
 
 
-void MiddleCenter::setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string & SQLHOST, const std::string & SQLUSER, const std::string & SQLPASSWORD,
-	const std::string & SQLDB, const std::string & SQLPORT, const int bufferNum, const unsigned int commandMaxSize, const unsigned int bufferSize)
+void MiddleCenter::setMultiSqlReadSW(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string & SQLHOST,
+	const std::string & SQLUSER, const std::string & SQLPASSWORD,
+	const std::string & SQLDB, const std::string & SQLPORT, const int bufferNum,
+	const unsigned int commandMaxSize, const unsigned int bufferSize)
 {
 	try
 	{
@@ -418,7 +426,8 @@ void MiddleCenter::setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool
 
 
 
-void MiddleCenter::setMultiSqlWriteSW(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string & SQLHOST, const std::string & SQLUSER, const std::string & SQLPASSWORD,
+void MiddleCenter::setMultiSqlWriteSW(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string & SQLHOST,
+	const std::string & SQLUSER, const std::string & SQLPASSWORD,
 	const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, const int bufferNum)
 {
 	try
@@ -476,7 +485,8 @@ void MiddleCenter::unlock()
 
 
 
-void MiddleCenter::setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool& success, const unsigned int checkSecond, const unsigned int wheelNum, const unsigned int everySecondFunctionNumber)
+void MiddleCenter::setTimeWheel(const std::shared_ptr<IOcontextPool> &ioPool, bool& success,
+	const unsigned int checkSecond, const unsigned int wheelNum, const unsigned int everySecondFunctionNumber)
 {
 	try
 	{
@@ -492,7 +502,7 @@ void MiddleCenter::setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool& suc
 
 
 
-void MiddleCenter::setCheckIP(std::shared_ptr<IOcontextPool> ioPool, const std::string& host,
+void MiddleCenter::setCheckIP(const std::shared_ptr<IOcontextPool> &ioPool, const std::string& host,
 	const std::string& port, const std::string& country,
 	const std::string& saveFile, bool& success, const unsigned int checkTime)
 {

@@ -1,7 +1,8 @@
 ﻿#include "LOG.h"
 
 
-LOG::LOG(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &result ,const int overTime , const int bufferSize ):m_overTime(overTime),m_bufferSize(bufferSize)
+LOG::LOG(const char *logFileName, const std::shared_ptr<IOcontextPool> &ioPool, bool &result ,
+	const int overTime , const int bufferSize ):m_overTime(overTime),m_bufferSize(bufferSize)
 {
 	try
 	{

@@ -1,7 +1,8 @@
 ﻿#include "ASYNCLOG.h"
 
 
-ASYNCLOG::ASYNCLOG(const char* logFileName, std::shared_ptr<IOcontextPool> ioPool, bool& result, const int overTime, const int bufferSize) :
+ASYNCLOG::ASYNCLOG(const char* logFileName, const std::shared_ptr<IOcontextPool> &ioPool, bool& result,
+	const int overTime, const int bufferSize) :
 	m_overTime(overTime), m_bufferSize(bufferSize * 10), m_messageList(100), m_checkSize(bufferSize * 2)
 {
 	try

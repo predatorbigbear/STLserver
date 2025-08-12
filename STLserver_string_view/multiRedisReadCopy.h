@@ -19,26 +19,36 @@
 #include<atomic>
 
 
-struct MULTIREDISREAD
+//将原有redis 零拷贝实现的客户端实现拷贝数据返回有三种方式：
+//第一种是每次返回数据时根据bool值判断，这种在高并发时候会消耗一定资源进行判断
+//第二种是在原有的redis客户端中添加另一套一模一样的变量，实现拷贝版逻辑，但容易出问题
+//第三种是另起一个同样的类实现，仅在解析函数内实现拷贝逻辑更替
+//目前采用第三种实现
+//而且确保目前实现的请求类型与原redis 零拷贝中的请求类型一致
+
+
+struct MULTIREDISREADCOPY
 {
 	/*
-	执行命令string_view集
-	执行命令个数
-	每条命令的词语个数（方便根据redis RESP进行拼接）
-	获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
+	0  执行命令string_view集
+	1  执行命令个数
+	2  每条命令的词语个数（方便根据redis RESP进行拼接）
+	3  获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
 
-	返回结果string_view
-	每个结果的词语个数
+	4  返回结果string_view
+	5  每个结果的词语个数
 
-	回调函数
+	6  回调函数
+	7  拷贝内存用的内存池
 	*/
 	// 
-	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
+	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, 
+		std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
 
 
-	MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log, std::shared_ptr<std::function<void()>>unlockFun,
+	MULTIREDISREADCOPY(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log, std::shared_ptr<std::function<void()>>unlockFun,
 		std::shared_ptr<STLTimeWheel> timeWheel,
 		const std::string &redisIP, const unsigned int redisPort,
 		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
@@ -199,4 +209,18 @@ private:
 
 
 	void resetSocket();
+
+	//拷贝数据保存函数
+	void makeCopy(redisResultTypeSW& thisRequest, const char* source, const unsigned int sourceLen);
+
+	//拷贝数据保存函数
+	void makeCopy(redisResultTypeSW& thisRequest, const char* source1, const unsigned int sourceLen1, 
+		const char* source2, const unsigned int sourceLen2);
+
+	//拷贝数据保存函数
+	void makeCopy(std::vector<std::string_view>& arrayResult, redisResultTypeSW& thisRequest, const char* source, const unsigned int sourceLen);
+
+	//拷贝数据保存函数
+	void makeCopy(std::vector<std::string_view>& arrayResult, redisResultTypeSW& thisRequest, const char* source1, const unsigned int sourceLen1,
+		const char* source2, const unsigned int sourceLen2);
 };

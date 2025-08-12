@@ -1,14 +1,18 @@
 ﻿#include "FixedHttpServicePool.h"
 
 
-FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(std::shared_ptr<IOcontextPool> ioPool, const std::string &doc_root,
-	std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster,
-	std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
-	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
-	std::shared_ptr<std::function<void()>>reAccept,
-	std::shared_ptr<LOGPOOL> logPool, std::shared_ptr<STLTimeWheel> timeWheel,
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const unsigned int timeOut, const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>> &cleanFun,
+FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(const std::shared_ptr<IOcontextPool>& ioPool,
+	const std::string& doc_root,
+	const std::shared_ptr<MULTISQLREADSWPOOL>& multiSqlReadSWPoolMaster,
+	const std::shared_ptr<MULTIREDISREADPOOL>& multiRedisReadPoolMaster,
+	const std::shared_ptr<MULTIREDISWRITEPOOL>& multiRedisWritePoolMaster,
+	const std::shared_ptr<MULTISQLWRITESWPOOL>& multiSqlWriteSWPoolMaster,
+	const std::shared_ptr<std::function<void()>>& reAccept,
+	const std::shared_ptr<LOGPOOL>& logPool,
+	const std::shared_ptr<STLTimeWheel>& timeWheel,
+	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>& fileMap,
+	const unsigned int timeOut,
+	const std::shared_ptr<std::function<void(std::shared_ptr<HTTPSERVICE>&)>>& cleanFun,
 	int beginSize):
 	m_ioPool(ioPool), m_reAccept(reAccept), m_logPool(logPool), m_doc_root(doc_root),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_fileMap(fileMap),

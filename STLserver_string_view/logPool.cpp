@@ -1,6 +1,7 @@
 ﻿#include "logPool.h"
 
-LOGPOOL::LOGPOOL(const char * logFileName, std::shared_ptr<IOcontextPool> ioPool, bool& success, const int overTime, const int bufferSize, const int bufferNum):
+LOGPOOL::LOGPOOL(const char * logFileName, const std::shared_ptr<IOcontextPool> &ioPool, bool& success,
+	const int overTime, const int bufferSize, const int bufferNum):
 	m_logFileName(logFileName),m_ioPool(ioPool),m_overTime(overTime),m_bufferSize(bufferSize),m_bufferNum(bufferNum)
 {
 	if (!logFileName)
@@ -39,9 +40,13 @@ bool LOGPOOL::readyReadyList()
 	try
 	{
 		bool result{};
+		//取当前年月日时分秒字符串拼接在日志名中，实现每次重启服务时写入到不同的日志文件中
+		char buffer[50];
+		std::time_t t = std::time(nullptr);
+		std::strftime(buffer, 50, "%Y-%m-%d %H:%M:%S", std::localtime(&t));
 		for (int i = 0; i != m_bufferNum; ++i)
 		{
-			m_logPool.emplace_back(std::make_shared<ASYNCLOG>((m_logFileName + std::to_string(i)).c_str(), m_ioPool, result , m_overTime + i, m_bufferSize));
+			m_logPool.emplace_back(std::make_shared<ASYNCLOG>((m_logFileName + std::string(buffer) + std::to_string(i)).c_str(), m_ioPool, result , m_overTime + i, m_bufferSize));
 			if (!result)
 				return false;
 		}

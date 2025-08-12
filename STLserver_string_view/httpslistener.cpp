@@ -1,18 +1,22 @@
 ﻿#include "httpslistener.h"
 
 
-HTTPSlistener::HTTPSlistener(std::shared_ptr<IOcontextPool> ioPool,
-	std::shared_ptr<MULTISQLREADSWPOOL>multiSqlReadSWPoolMaster,
-	std::shared_ptr<MULTIREDISREADPOOL>multiRedisReadPoolMaster,
-	std::shared_ptr<MULTIREDISWRITEPOOL>multiRedisWritePoolMaster, std::shared_ptr<MULTISQLWRITESWPOOL>multiSqlWriteSWPoolMaster,
-	const std::string &tcpAddress, const std::string &doc_root, std::shared_ptr<LOGPOOL> logPool,
-	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>fileMap,
-	const int socketNum, const int timeOut, const unsigned int checkSecond, std::shared_ptr<STLTimeWheel> timeWheel,
+HTTPSlistener::HTTPSlistener(const std::shared_ptr<IOcontextPool>& ioPool,
+	const std::shared_ptr<MULTISQLREADSWPOOL>& multiSqlReadSWPoolMaster,
+	const std::shared_ptr<MULTIREDISREADPOOL>& multiRedisReadPoolMaster,
+	const std::shared_ptr<MULTIREDISWRITEPOOL>& multiRedisWritePoolMaster,
+	const std::shared_ptr<MULTISQLWRITESWPOOL>& multiSqlWriteSWPoolMaster,
+	const std::string& tcpAddress,
+	const std::string& doc_root,
+	const std::shared_ptr<LOGPOOL>& logPool,
+	const std::shared_ptr<std::unordered_map<std::string_view, std::string>>& fileMap,
+	const int socketNum, const int timeOut, const unsigned int checkSecond,
+	const std::shared_ptr<STLTimeWheel>& timeWheel,
 	const char* cert, const char* privateKey
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
 	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileMap(fileMap),
-	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),
+	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_logPool(logPool),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
 	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
 {
@@ -21,7 +25,6 @@ HTTPSlistener::HTTPSlistener(std::shared_ptr<IOcontextPool> ioPool,
 		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster
 		)
 	{
-		m_logPool = logPool;
 		m_log = m_logPool->getLogNext();
 
 		m_startFunction.reset(new std::function<void()>(std::bind(&HTTPSlistener::reAccept, this)));

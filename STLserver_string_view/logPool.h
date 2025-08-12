@@ -3,17 +3,19 @@
 
 
 #include "ASYNCLOG.h"
+#include <ctime>
 
 
 struct LOGPOOL
 {
-	LOGPOOL(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &success,  const int overTime = 60, const int bufferSize = 20480, const int bufferNum = 16);
+	LOGPOOL(const char *logFileName, const std::shared_ptr<IOcontextPool> &ioPool, bool &success,
+		const int overTime = 60, const int bufferSize = 20480, const int bufferNum = 16);
 
 	std::shared_ptr<ASYNCLOG> getLogNext();
 	
 
 private:
-	std::shared_ptr<IOcontextPool> m_ioPool{};
+	const std::shared_ptr<IOcontextPool> m_ioPool{};
 	int m_overTime{};
 	int m_bufferSize{};
 	int m_bufferNum{};

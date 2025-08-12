@@ -1,6 +1,7 @@
-#include "STLTimeWheel.h"
+ï»¿#include "STLTimeWheel.h"
 
-STLTimeWheel::STLTimeWheel(std::shared_ptr<boost::asio::io_context> ioc, const unsigned int checkSecond, const unsigned int wheelNum, const unsigned int everySecondFunctionNumber)
+STLTimeWheel::STLTimeWheel(const std::shared_ptr<boost::asio::io_context> &ioc, const unsigned int checkSecond, 
+	const unsigned int wheelNum, const unsigned int everySecondFunctionNumber)
 	: m_checkSecond(checkSecond), m_wheelNum(wheelNum), m_everySecondFunctionNumber(everySecondFunctionNumber)
 {
 	if (m_hasInit)
@@ -22,7 +23,7 @@ STLTimeWheel::STLTimeWheel(std::shared_ptr<boost::asio::io_context> ioc, const u
 		int totalFunctionNumber{ m_wheelNum * m_everySecondFunctionNumber };
 
 
-		//³õÊ¼»¯×°ÔØ´æ´¢ÂÖÅÌĞÅÏ¢µÄÊı×é
+		//åˆå§‹åŒ–è£…è½½å­˜å‚¨è½®ç›˜ä¿¡æ¯çš„æ•°ç»„
 
 		m_WheelInformationPtr.reset(new WheelInformation[m_wheelNum]);
 
@@ -59,11 +60,11 @@ STLTimeWheel::STLTimeWheel(std::shared_ptr<boost::asio::io_context> ioc, const u
 
 
 
-//Ã¿´Î¶Ôµ±Ç°ÂÖÅÌÄÚµÄ»Øµ÷º¯Êı½øĞĞ¼ì²é£¬µ±Ç°Ö¸Õë²»µÈÓÚÊ×Ö¸ÕëÔò½øĞĞ´¦Àí£¬È»ºó¸´Î»£¬
-//Ëæºó½«ÂÖÅÌÖ¸ÕëÏòÇ°+1
+//æ¯æ¬¡å¯¹å½“å‰è½®ç›˜å†…çš„å›è°ƒå‡½æ•°è¿›è¡Œæ£€æŸ¥ï¼Œå½“å‰æŒ‡é’ˆä¸ç­‰äºé¦–æŒ‡é’ˆåˆ™è¿›è¡Œå¤„ç†ï¼Œç„¶åå¤ä½ï¼Œ
+//éšåå°†è½®ç›˜æŒ‡é’ˆå‘å‰+1
 void STLTimeWheel::start()
 {
-	//²åÈëº¯ÊıÓÀÔ¶²»ÄÜ²åÈëµ±Ç°ÂÖÅÌÄÚµÄ»Øµ÷º¯Êı¸ñ×Ó£¬ÔòÕâÀï´¦Àí¹ı³Ì¿ÉÒÔ²»½øĞĞ¼ÓËø´¦Àí
+	//æ’å…¥å‡½æ•°æ°¸è¿œä¸èƒ½æ’å…¥å½“å‰è½®ç›˜å†…çš„å›è°ƒå‡½æ•°æ ¼å­ï¼Œåˆ™è¿™é‡Œå¤„ç†è¿‡ç¨‹å¯ä»¥ä¸è¿›è¡ŒåŠ é”å¤„ç†
 	std::function<void()> *begin{ }, *end{ }, *iter{ };
 
 	struct WheelInformation &refWheelInfo{ *m_WheelInfoIter };
@@ -143,7 +144,7 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 
 	m_mutex.lock();
 
-	//¼ÆËãÌø×ªµ½ÊÊµ±µÄÂÖÅÌÎ»ÖÃ
+	//è®¡ç®—è·³è½¬åˆ°é€‚å½“çš„è½®ç›˜ä½ç½®
 	thisWheelInfo = m_WheelInfoIter + turnNum;
 
 	if (std::distance(m_WheelInfoBegin, thisWheelInfo) >= m_wheelNum)
@@ -151,14 +152,14 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 
 	struct WheelInformation &refWheelInfo{ *thisWheelInfo };
 
-	//³¢ÊÔÔÚµ±Ç°ÂÖÅÌ¸ñ×ÓÄÚ²åÈë
-	//Èç¹ûµ±Ç°¸ñ×ÓÄÚ²»ÄÜ²åÈë£¬
-	//Ôò³¢ÊÔÔÚµ±Ç°ÂÖÅÌÄÚ¿ª±ÙĞÂ½Úµã±£´æ
-	//Èç¹ûÊ§°Ü£¬Ôò´Óµ±Ç°Ìø×ªµ½µÄÂÖÅÌÎ»ÖÃµ½ m_WheelInfoIterÖ®¼äÑ°ÕÒ¿ÕÎ»ÖÃ²åÈë£¬
-	//Èç¹û»¹ÊÇÃ»ÓĞ£¬·µ»ØÊ§°Ü
+	//å°è¯•åœ¨å½“å‰è½®ç›˜æ ¼å­å†…æ’å…¥
+	//å¦‚æœå½“å‰æ ¼å­å†…ä¸èƒ½æ’å…¥ï¼Œ
+	//åˆ™å°è¯•åœ¨å½“å‰è½®ç›˜å†…å¼€è¾Ÿæ–°èŠ‚ç‚¹ä¿å­˜
+	//å¦‚æœå¤±è´¥ï¼Œåˆ™ä»å½“å‰è·³è½¬åˆ°çš„è½®ç›˜ä½ç½®åˆ° m_WheelInfoIterä¹‹é—´å¯»æ‰¾ç©ºä½ç½®æ’å…¥ï¼Œ
+	//å¦‚æœè¿˜æ˜¯æ²¡æœ‰ï¼Œè¿”å›å¤±è´¥
 	if (refWheelInfo.listIter != refWheelInfo.functionList.cend())
 	{
-		//Èç¹ûfunctionÖ¸ÕëÎ»ÖÃÖ¸ÏòµÄ²»ÊÇµ±Ç°½ÚµãÄÚfunctionÖ¸ÕëÎ»ÖÃµÄÎ²²¿
+		//å¦‚æœfunctionæŒ‡é’ˆä½ç½®æŒ‡å‘çš„ä¸æ˜¯å½“å‰èŠ‚ç‚¹å†…functionæŒ‡é’ˆä½ç½®çš„å°¾éƒ¨
 		if (refWheelInfo.bufferIter != (refWheelInfo.listIter->get() + m_everySecondFunctionNumber))
 		{
 			*(refWheelInfo.bufferIter)++ = callBack;
@@ -178,7 +179,7 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 		}
 	}
 
-	//³¢ÊÔ½øĞĞ¿ª±ÙĞÂ½Úµã£¬È»ºó±£´æ
+	//å°è¯•è¿›è¡Œå¼€è¾Ÿæ–°èŠ‚ç‚¹ï¼Œç„¶åä¿å­˜
 
 	try
 	{
@@ -196,8 +197,8 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 	}
 	catch (const std::exception &e)
 	{
-		//·ÖÅäÄÚ´æÊ§°Ü£¬Ôò³¢ÊÔÌøµ½ÏÂÒ»¸ö½Úµã½øĞĞ´¦Àí£¬Ö±ÖÁÌøµ½m_WheelInfoIter
-		//thisWheelInfo¿ÉÄÜÔÚm_WheelInfoIterÖ®ºó£¬ĞèÒªÅĞ¶ÏÎ²²¿Çé¿ö
+		//åˆ†é…å†…å­˜å¤±è´¥ï¼Œåˆ™å°è¯•è·³åˆ°ä¸‹ä¸€ä¸ªèŠ‚ç‚¹è¿›è¡Œå¤„ç†ï¼Œç›´è‡³è·³åˆ°m_WheelInfoIter
+		//thisWheelInfoå¯èƒ½åœ¨m_WheelInfoIterä¹‹åï¼Œéœ€è¦åˆ¤æ–­å°¾éƒ¨æƒ…å†µ
 		if (thisWheelInfo > m_WheelInfoIter)
 		{
 			while (++thisWheelInfo != m_WheelInfoEnd)
@@ -206,7 +207,7 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 
 				if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
 				{
-					//Èç¹ûfunctionÖ¸ÕëÎ»ÖÃÖ¸ÏòµÄ²»ÊÇµ±Ç°½ÚµãÄÚfunctionÖ¸ÕëÎ»ÖÃµÄÎ²²¿
+					//å¦‚æœfunctionæŒ‡é’ˆä½ç½®æŒ‡å‘çš„ä¸æ˜¯å½“å‰èŠ‚ç‚¹å†…functionæŒ‡é’ˆä½ç½®çš„å°¾éƒ¨
 					if (everyWheelInfo.bufferIter != (everyWheelInfo.listIter->get() + m_everySecondFunctionNumber))
 					{
 						*(everyWheelInfo.bufferIter)++ = callBack;
@@ -227,7 +228,7 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 				}
 			}
 
-			//thisWheelInfo > m_WheelInfoIter£¬ÄÇÃ´²»ÅÅ³ım_WheelInfoIter¾ÍÔÚm_WheelInfoBeginÎ»ÖÃ
+			//thisWheelInfo > m_WheelInfoIterï¼Œé‚£ä¹ˆä¸æ’é™¤m_WheelInfoIterå°±åœ¨m_WheelInfoBeginä½ç½®
 			if (m_WheelInfoIter == m_WheelInfoBegin)
 			{
 				m_mutex.unlock();
@@ -236,12 +237,12 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 
 			thisWheelInfo = m_WheelInfoBegin;
 
-			//¶Ôm_WheelInfoBeginÇé¿öÌØÊâ´¦Àí
+			//å¯¹m_WheelInfoBeginæƒ…å†µç‰¹æ®Šå¤„ç†
 			struct WheelInformation &everyWheelInfo{ *thisWheelInfo };
 
 			if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
 			{
-				//Èç¹ûfunctionÖ¸ÕëÎ»ÖÃÖ¸ÏòµÄ²»ÊÇµ±Ç°½ÚµãÄÚfunctionÖ¸ÕëÎ»ÖÃµÄÎ²²¿
+				//å¦‚æœfunctionæŒ‡é’ˆä½ç½®æŒ‡å‘çš„ä¸æ˜¯å½“å‰èŠ‚ç‚¹å†…functionæŒ‡é’ˆä½ç½®çš„å°¾éƒ¨
 				if (everyWheelInfo.bufferIter != (everyWheelInfo.listIter->get() + m_everySecondFunctionNumber))
 				{
 					*(everyWheelInfo.bufferIter)++ = callBack;
@@ -268,7 +269,7 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 
 			if (everyWheelInfo.listIter != everyWheelInfo.functionList.cend())
 			{
-				//Èç¹ûfunctionÖ¸ÕëÎ»ÖÃÖ¸ÏòµÄ²»ÊÇµ±Ç°½ÚµãÄÚfunctionÖ¸ÕëÎ»ÖÃµÄÎ²²¿
+				//å¦‚æœfunctionæŒ‡é’ˆä½ç½®æŒ‡å‘çš„ä¸æ˜¯å½“å‰èŠ‚ç‚¹å†…functionæŒ‡é’ˆä½ç½®çš„å°¾éƒ¨
 				if (everyWheelInfo.bufferIter != (everyWheelInfo.listIter->get() + m_everySecondFunctionNumber))
 				{
 					*(everyWheelInfo.bufferIter)++ = callBack;
@@ -294,6 +295,7 @@ bool STLTimeWheel::insert(const std::function<void()>& callBack, const unsigned 
 
 	}
 
+	m_mutex.unlock();
 	return false;
 }
 

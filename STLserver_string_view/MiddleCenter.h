@@ -8,6 +8,7 @@
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
 #include "multiRedisReadPool.h"
+#include "multiRedisReadCopyPool.h"
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
 #include "STLTimeWheel.h"
@@ -29,7 +30,7 @@ struct MiddleCenter
 	// 检测写入文件的定时时间
 	// 临时存储日志数据的buffer空间大小
 	// log池内元素大小
-	void setLog(const char *logFileName, std::shared_ptr<IOcontextPool> ioPool, bool &success , const int overTime = 60 ,const int bufferSize = 80960, const int bufferNum = 1);
+	void setLog(const char *logFileName,const std::shared_ptr<IOcontextPool> &ioPool, bool &success , const int overTime = 60 ,const int bufferSize = 80960, const int bufferNum = 1);
 
 	// 默认网页文件目录
 	// http处理池内元素个数
@@ -38,15 +39,15 @@ struct MiddleCenter
 	//isHttp默认为true，表示http   false表示https
 	//cert为证书文件
 	//privateKey为私钥文件
-	void setHTTPServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &tcpAddress, const std::string &doc_root ,
-		std::vector<std::string> &&fileVec,
+	void setHTTPServer(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string &tcpAddress, const std::string &doc_root ,
+		const std::vector<std::string> &&fileVec,
 		const int socketNum , const int timeOut,
 		const bool isHttp = true, const char* cert = nullptr, const char* privateKey = nullptr);
 
 
 
 	//webservice分支启动函数
-	void setWebserviceServer(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string& tcpAddress, 
+	void setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string& tcpAddress, 
 		const std::string& doc_root, const std::vector<std::string>&& fileVec,
 		const std::string& backGround, const std::vector<std::string>&& backGroundFileVec,
 		const int socketNum, const int timeOut,
@@ -62,13 +63,15 @@ struct MiddleCenter
 	// 存放redis数据的buffer大小
 	// 存放回环情况下跨越内存首尾数据buffer的大小
 	// 最大一次性处理的命令大小
-	void setMultiRedisRead(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &redisIP, const unsigned int redisPort, const unsigned int bufferNum = 1,
+	void setMultiRedisRead(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string &redisIP,
+		const unsigned int redisPort, const unsigned int bufferNum = 1,
 		const unsigned int memorySize = 819200, const unsigned int outRangeMaxSize = 65535, const unsigned int commandSize = 50
 	);
 
 
 	// 
-	void setMultiRedisWrite(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &redisIP, const unsigned int redisPort, const unsigned int bufferNum = 1,
+	void setMultiRedisWrite(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string &redisIP,
+		const unsigned int redisPort, const unsigned int bufferNum = 1,
 		const unsigned int memorySize = 4096, const unsigned int outRangeMaxSize = 65535, const unsigned int commandSize = 50
 	);
 
@@ -80,14 +83,17 @@ struct MiddleCenter
 	// 是否是主sql
 	// 最大一次性处理的命令大小
 	// 连接sql的连接数
-	void setMultiSqlReadSW(std::shared_ptr<IOcontextPool> ioPool, bool& success, const std::string &SQLHOST, const std::string &SQLUSER,
+	void setMultiSqlReadSW(const std::shared_ptr<IOcontextPool> &ioPool, bool& success, const std::string &SQLHOST,
+		const std::string &SQLUSER,
 		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, 
 		const int bufferNum = 1, const unsigned int commandMaxSize = 50,  const unsigned int bufferSize = 819200);
 
 
 
-	void setMultiSqlWriteSW(std::shared_ptr<IOcontextPool> ioPool, bool &success , const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize = 50, const int bufferNum = 1);
+	void setMultiSqlWriteSW(const std::shared_ptr<IOcontextPool> &ioPool, bool &success , const std::string &SQLHOST,
+		const std::string &SQLUSER,
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT,
+		const unsigned int commandMaxSize = 50, const int bufferNum = 1);
 
 
 	void initMysql(bool& success);
@@ -97,12 +103,13 @@ struct MiddleCenter
 	void unlock();
 
 	//参数设置详细看STLTimeWheel.h内说明
-	void setTimeWheel(std::shared_ptr<IOcontextPool> ioPool, bool &success , const unsigned int checkSecond = 1, const unsigned int wheelNum = 120, const unsigned int everySecondFunctionNumber = 100);
+	void setTimeWheel(const std::shared_ptr<IOcontextPool> &ioPool, bool &success , 
+		const unsigned int checkSecond = 1, const unsigned int wheelNum = 120, const unsigned int everySecondFunctionNumber = 100);
 
 
 	//保存文件位置
 	//执行更新命令
-	void setCheckIP(std::shared_ptr<IOcontextPool> ioPool, const std::string& host,
+	void setCheckIP(const std::shared_ptr<IOcontextPool> &ioPool, const std::string& host,
 		const std::string& port, const std::string& country,
 		const std::string& saveFile, bool& result, const unsigned int checkTime = 3600 * 24);
 
@@ -141,6 +148,7 @@ private:
 
 	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
 	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
+	std::shared_ptr<MULTIREDISREADCOPYPOOL>m_multiRedisReadCopyPoolMaster{};   //   主redis读取连接池(Copy数据返回类型)
 
 	std::shared_ptr<STLTimeWheel>m_timeWheel{};                                 //时间轮定时器
 

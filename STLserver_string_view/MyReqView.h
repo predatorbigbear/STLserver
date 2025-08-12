@@ -19,36 +19,33 @@ struct MYREQVIEW
 
 	void setMethod(const char *ch, const size_t len)
 	{
-		std::string_view s1{ ch, len };
-		methodStr.swap(s1);
+		methodStr = std::string_view(ch, len);
 	}
 
 
 	void setVersion(const char *ch, const size_t len)
 	{
-		std::string_view s1{ ch, len };
-		versionStr.swap(s1);
+		versionStr = std::string_view(ch, len);
 	}
 
 	void setTarget(const char *ch, const size_t len)
 	{
-		std::string_view s1{ ch, len };
-		targetStr.swap(s1);
+		targetStr = std::string_view(ch, len);
 	}
 
 	const std::string_view& method()const
 	{
-		return { methodStr };
+		return methodStr;
 	}
 
 	const std::string_view& version()const
 	{
-		return { versionStr };
+		return versionStr;
 	}
 
 	const std::string_view& target()const
 	{
-		return { targetStr };
+		return targetStr;
 	}
 
 	int & method()

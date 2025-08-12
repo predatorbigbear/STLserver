@@ -22,7 +22,8 @@
 // 发送给无锁队列的为string_view，不作拷贝，根据一个临界值大小来保证数据不被覆写
 struct ASYNCLOG
 {
-	ASYNCLOG(const char* logFileName, std::shared_ptr<IOcontextPool> ioPool, bool& result, const int overTime = 60, const int bufferSize = 20480);                                         //构造函数
+	ASYNCLOG(const char* logFileName,const std::shared_ptr<IOcontextPool> &ioPool, bool& result,
+		const int overTime = 60, const int bufferSize = 20480);                                         //构造函数
 
 
 	template<typename T, size_t N, typename ...ARGS>
