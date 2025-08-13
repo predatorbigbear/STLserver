@@ -189,10 +189,9 @@ inline bool VERIFYCODE::insertVerifyCode(const char* verifyCode, const unsigned 
 	{
 		if constexpr (std::is_same_v<T, REALVERIFYCODE>)
 		{
-			std::copy(verifyCode, verifyCode + verifyCodeLen, m_verifyCode.begin());
-			std::copy(phone.cbegin(), phone.cend(), m_verifyCode.begin() + verifyCodeLen);
+			
 
-			if (!m_messageList.try_enqueue(std::make_shared<std::pair<std::string, bool>>(m_verifyCode, true)))
+			if (!m_messageList.try_enqueue(std::make_shared<std::pair<std::string, bool>>(std::string(verifyCode,verifyCode+verifyCodeLen).append(phone), true)))
 				return false;
 		}
 		else
