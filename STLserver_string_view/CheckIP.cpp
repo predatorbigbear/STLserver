@@ -46,7 +46,7 @@ bool CHECKIP::is_china_ipv4(const std::string& ip)
 	if (num < 0 || num>255)
 		return false;
 
-	uint32_t target_ip = ip_to_int(ip);
+	unsigned int target_ip = ip_to_int(ip);
 
 	m_mutex.lock_shared();
 
@@ -67,7 +67,7 @@ bool CHECKIP::is_china_ipv4(const std::string& ip)
 
 
 
-uint32_t CHECKIP::ip_to_int(const std::string& ip) 
+unsigned int CHECKIP::ip_to_int(const std::string& ip)
 {
 	struct in_addr addr;
 	inet_pton(AF_INET, ip.c_str(), &addr);
@@ -75,7 +75,7 @@ uint32_t CHECKIP::ip_to_int(const std::string& ip)
 }
 
 
-uint32_t CHECKIP::ip_to_int_char(const char* ip)
+unsigned int CHECKIP::ip_to_int_char(const char* ip)
 {
 	struct in_addr addr;
 	inet_pton(AF_INET, ip, &addr);
@@ -276,9 +276,9 @@ void CHECKIP::parseMessage(const size_t len)
 		static const std::string ipv4{ "ipv4" };
 
 		size_t pos{};
-		uint32_t mask_len{};
-		uint32_t network{};
-		uint32_t mask{};
+		unsigned int mask_len{};
+		unsigned int network{};
+		unsigned int mask{};
 		int num{}, index{}, result{};
 
 		const char* numBegin{}, *numEnd{};

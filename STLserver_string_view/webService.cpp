@@ -9,6 +9,7 @@ WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
 	const std::string& doc_root,
 	const std::shared_ptr<MULTISQLREADSW>& multiSqlReadSWMaster,
 	const std::shared_ptr<MULTIREDISREAD>& multiRedisReadMaster,
+	const std::shared_ptr<MULTIREDISREADCOPY>& multiRedisReadCopyMaster,
 	const std::shared_ptr<MULTIREDISWRITE>& multiRedisWriteMaster,
 	const std::shared_ptr<MULTISQLWRITESW>& multiSqlWriteSWMaster,
 	const std::shared_ptr<STLTimeWheel>& timeWheel,
@@ -18,12 +19,14 @@ WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 	const std::shared_ptr<CHECKIP>& checkIP,
 	const std::shared_ptr<RandomCodeGenerator>& randomCode,
+	const std::shared_ptr<VERIFYCODE>& verifyCode,
 	const unsigned int bufNum
 )
 	:m_ioc(ioc), m_log(log), m_doc_root(doc_root), m_BGfileVec(BGfileVec), m_checkIP(checkIP),m_randomCode(randomCode),
 	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileVec(fileVec), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
-	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum)
+	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum),
+	m_multiRedisReadCopyMaster(multiRedisReadCopyMaster), m_verifyCode(verifyCode)
 {
 	try
 	{
@@ -53,6 +56,10 @@ WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
 			throw std::runtime_error("checkIP is nullptr");
 		if(!randomCode)
 			throw std::runtime_error("randomCode is nullptr");
+		if(!multiRedisReadCopyMaster)
+			throw std::runtime_error("multiRedisReadCopyMaster is nullptr");
+		if(!verifyCode)
+			throw std::runtime_error("verifyCode is nullptr");
 
 		m_buffer.reset(new ReadBuffer(m_ioc, bufNum));
 
@@ -346,6 +353,8 @@ void WEBSERVICE::readyParseMultiPartFormData()
 void WEBSERVICE::testMultiPartFormData()
 {
 	STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+	st1.reset();
 
 	if (!st1.clear())
 		return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
@@ -4652,8 +4661,8 @@ void WEBSERVICE::exitBack()
 //首先进行权限校验，以防止被滥用
 void WEBSERVICE::registration1()
 {
-	if(!hasLoginBack)
-		return startWrite((*m_fileVec)[0].data(), (*m_fileVec)[0].size());
+	if (!hasLoginBack)
+		return clean();
 
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -4711,7 +4720,7 @@ void WEBSERVICE::registration1()
 		std::get<3>(thisRequest) = 3;
 		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleregistration1, this, std::placeholders::_1, std::placeholders::_2);
 
-		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+		if (!m_multiRedisReadCopyMaster->insertRedisRequest(redisRequest))
 			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
 	}
 	catch (const std::exception& e)
@@ -4740,6 +4749,18 @@ void WEBSERVICE::handleregistration1(bool result, ERRORMESSAGE em)
 			//  IP地址记录表示 在8小时内，已经发送过验证码
 			// 手机号记录表示 在8小时内，已经发送过验证码
 			// 
+
+			std::string_view& phoneView{ keyVec[0] };
+			std::string_view& ipView{ keyVec[1] };
+
+			STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+			st1.reset();
+
+			if (!st1.clear())
+				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+
+			static std::string_view result{ "result" }, one{ "1" };
 			
 			if (resultVec[0].empty() && resultVec[1].empty())
 			{
@@ -4751,8 +4772,13 @@ void WEBSERVICE::handleregistration1(bool result, ERRORMESSAGE em)
 				m_randomCode->generate(buf);
 
 				//添加验证码发送模块下发验证码并将信息写入redis中
+				if(!m_verifyCode->insertVerifyCode(buf, 6, phoneView))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
+				if (!st1.put(result.cbegin(), result.cend(), one.cbegin(), one.cend()))
+					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
 
+				return makeSendJson(st1);
 			}
 
 		}

@@ -15,7 +15,7 @@
 #include "STLTimeWheel.h"
 #include "CheckIP.h"
 #include "randomCodeGenerator.h"
-
+#include "verifyCode.h"
 
 #include<atomic>
 
@@ -37,12 +37,14 @@ struct WEBSERVICELISTENER
 		const std::shared_ptr<STLTimeWheel> &timeWheel,
 		const char* cert, const char* privateKey,
 		const std::shared_ptr<CHECKIP> &checkIP,
-		const std::shared_ptr<RandomCodeGenerator> &randomCode
+		const std::shared_ptr<RandomCodeGenerator> &randomCode,
+		const std::shared_ptr<VERIFYCODE> &verifyCode
 		);
 
 
 
 private:
+	const std::shared_ptr<VERIFYCODE> m_verifyCode{};
 	const std::shared_ptr<RandomCodeGenerator>m_randomCode{};
 	const std::shared_ptr<CHECKIP>m_checkIP{};
 

@@ -13,6 +13,7 @@
 #include "multiSqlWriteSWPool.h"
 #include "STLTimeWheel.h"
 #include "randomCodeGenerator.h"
+#include "verifyCode.h"
 
 
 #include<unordered_map>
@@ -113,6 +114,11 @@ struct MiddleCenter
 		const std::string& port, const std::string& country,
 		const std::string& saveFile, bool& result, const unsigned int checkTime = 3600 * 24);
 
+
+	void setVerifyCode(const std::shared_ptr<IOcontextPool>& ioPool, bool &success , const unsigned int listSize = 1024,
+		const unsigned int codeLen = 6,
+		const unsigned int checkTime = 110);
+
 private:
 	std::unique_ptr<listener>m_listener{};
 
@@ -122,6 +128,7 @@ private:
 	std::unique_ptr<WEBSERVICELISTENER>m_webListener{};
 
 
+	std::shared_ptr<VERIFYCODE>m_verifyCode{};
 
 
 	bool m_hasSetLog{ false };

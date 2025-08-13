@@ -328,7 +328,7 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 				m_multiRedisReadPoolMaster, m_multiRedisReadCopyPoolMaster, m_multiRedisWritePoolMaster,
 				m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
 				m_webFileVec, m_webBGFileVec,
-				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey, m_checkIP, m_randomCode));
+				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey, m_checkIP, m_randomCode, m_verifyCode));
 			m_hasSetListener = true;
 		}
 		m_mutex.unlock();
@@ -553,6 +553,45 @@ void MiddleCenter::setCheckIP(const std::shared_ptr<IOcontextPool> &ioPool, cons
 
 
 		m_checkIP.reset(new CHECKIP(ioPool, m_logPool->getLogNext(), m_timeWheel, host, port, country, saveFile, checkTime));
+		success = true;
+		m_mutex.unlock();
+	}
+	catch (const std::exception& e)
+	{
+		cout << e.what() << "   ,please restart server\n";
+		success = false;
+		m_mutex.unlock();
+	}
+}
+
+
+
+void MiddleCenter::setVerifyCode(const std::shared_ptr<IOcontextPool>& ioPool, bool& success, 
+	const unsigned int listSize, const unsigned int codeLen, const unsigned int checkTime)
+{
+	try
+	{
+		m_mutex.lock();
+		if (!success)
+		{
+			m_mutex.unlock();
+			return;
+		}
+		if (!ioPool || !m_logPool || !m_timeWheel)
+		{
+			success = false;
+			m_mutex.unlock();
+			return;
+		}
+		if (!listSize || !codeLen || !checkTime)
+		{
+			success = false;
+			m_mutex.unlock();
+			return;
+		}
+
+
+		m_verifyCode.reset(new VERIFYCODE(ioPool->getIoNext(), m_logPool->getLogNext(), m_timeWheel, listSize, codeLen, checkTime));
 		success = true;
 		m_mutex.unlock();
 	}

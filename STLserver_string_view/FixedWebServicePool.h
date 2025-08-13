@@ -8,11 +8,12 @@
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
 #include "multiRedisReadPool.h"
+#include "multiRedisReadCopyPool.h"
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
 #include "CheckIP.h"
 #include "randomCodeGenerator.h"
-
+#include "verifyCode.h"
 
 
 
@@ -22,6 +23,7 @@ struct FixedWEBSERVICEPOOL
 		const std::string& doc_root,
 		const std::shared_ptr<MULTISQLREADSWPOOL>& multiSqlReadSWPoolMaster,
 		const std::shared_ptr<MULTIREDISREADPOOL>& multiRedisReadPoolMaster,
+		const std::shared_ptr<MULTIREDISREADCOPYPOOL>& multiRedisReadCopyPoolMaster,
 		const std::shared_ptr<MULTIREDISWRITEPOOL>& multiRedisWritePoolMaster,
 		const std::shared_ptr<MULTISQLWRITESWPOOL>& multiSqlWriteSWPoolMaster,
 		const std::shared_ptr<std::function<void()>>& reAccept,
@@ -33,6 +35,7 @@ struct FixedWEBSERVICEPOOL
 		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const std::shared_ptr<CHECKIP>& checkIP,
 		const std::shared_ptr<RandomCodeGenerator>& randomCode,
+		const std::shared_ptr<VERIFYCODE>& verifyCode,
 		int beginSize = 200);
 
 	void getNextBuffer(std::shared_ptr<WEBSERVICE> &outBuffer);
@@ -46,6 +49,10 @@ struct FixedWEBSERVICEPOOL
 
 
 private:
+	const std::shared_ptr<VERIFYCODE> m_verifyCode{};
+
+	const std::shared_ptr<MULTIREDISREADCOPYPOOL> m_multiRedisReadCopyPoolMaster{};
+
 	const std::shared_ptr<RandomCodeGenerator>m_randomCode{};
 
 	const std::shared_ptr<CHECKIP>m_checkIP{};

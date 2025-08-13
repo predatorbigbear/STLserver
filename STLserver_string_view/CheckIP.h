@@ -35,9 +35,9 @@ struct CHECKIP
 
 
 private:
-	std::shared_ptr<ASYNCLOG>m_log{};                                 //日志模块
+	const std::shared_ptr<ASYNCLOG>m_log{};                                 //日志模块
 
-	unsigned int m_checkTime{};                                       //更新时间间隔
+	const unsigned int m_checkTime{};                                       //更新时间间隔
 
 	std::unique_ptr<boost::asio::steady_timer>m_timer{};            //定时器
 
@@ -85,9 +85,9 @@ private:
 
 private:
 
-	uint32_t ip_to_int(const std::string& ip);                // 将IP字符串转为32位整数
+	unsigned int ip_to_int(const std::string& ip);                // 将IP字符串转为32位整数
 
-	uint32_t ip_to_int_char(const char *ip);                   // 将IP字符串转为32位整数
+	unsigned int ip_to_int_char(const char *ip);                   // 将IP字符串转为32位整数
 
 	void updateLoop();                                        //定时更新程序
 

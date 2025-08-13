@@ -18,3 +18,10 @@ struct HTTPSSERVER
 {
 
 };
+
+
+//真验证码
+struct REALVERIFYCODE
+{
+
+};

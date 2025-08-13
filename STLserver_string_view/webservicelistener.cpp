@@ -15,18 +15,19 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(const std::shared_ptr<IOcontextPool> &ioP
     const std::shared_ptr<STLTimeWheel> &timeWheel,
 	const char* cert, const char* privateKey, 
 	const std::shared_ptr<CHECKIP> &checkIP,
-	const std::shared_ptr<RandomCodeGenerator> &randomCode
+	const std::shared_ptr<RandomCodeGenerator> &randomCode,
+	const std::shared_ptr<VERIFYCODE>& verifyCode
 	) :
 	m_ioPool(ioPool), m_socketNum(socketNum), m_timeOut(timeOut), m_timeWheel(timeWheel),
 	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileVec(fileVec), m_BGfileVec(BGfileVec),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),m_checkIP(checkIP), m_logPool(logPool),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
 	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_randomCode(randomCode),
-	m_multiRedisReadCopyPoolMaster(multiRedisReadCopyPoolMaster)
+	m_multiRedisReadCopyPoolMaster(multiRedisReadCopyPoolMaster), m_verifyCode(verifyCode)
 {
 	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 && checkSecond && m_timeWheel
 		&& m_multiSqlReadSWPoolMaster && m_fileVec && m_BGfileVec && m_randomCode && multiRedisReadCopyPoolMaster
-		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster && m_checkIP
+		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster && m_checkIP && m_verifyCode
 		)
 	{
 		m_log = m_logPool->getLogNext();
@@ -54,9 +55,9 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(const std::shared_ptr<IOcontextPool> &ioP
 		
 		
 		m_httpServicePool.reset(new FixedWEBSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
-			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
-			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileVec, m_BGfileVec,
-			m_timeOut, m_clearFunction, m_checkIP, m_randomCode,
+			m_multiRedisReadPoolMaster, m_multiRedisReadCopyPoolMaster, m_multiRedisWritePoolMaster,
+			m_multiSqlWriteSWPoolMaster, m_startFunction, m_logPool, m_timeWheel, m_fileVec, m_BGfileVec,
+			m_timeOut, m_clearFunction, m_checkIP, m_randomCode, m_verifyCode,
 			m_socketNum));
 		if (!m_httpServicePool->ready())
 		{

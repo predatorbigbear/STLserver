@@ -9,6 +9,7 @@
 #include "mysql/mysql.h"
 #include "httpinterface.h"
 #include "multiRedisRead.h"
+#include "multiRedisReadCopy.h"
 #include "multiRedisWrite.h"
 #include "STLtreeFast.h"
 #include "randomParse.h"
@@ -18,6 +19,10 @@
 #include "commonStruct.h"
 #include "CheckIP.h"
 #include "randomCodeGenerator.h"
+#include "verifyCode.h"
+
+
+
 
 
 #include<ctype.h>
@@ -31,6 +36,7 @@ struct WEBSERVICE
 		const std::string& doc_root,
 		const std::shared_ptr<MULTISQLREADSW> &multiSqlReadSWMaster,
 		const std::shared_ptr<MULTIREDISREAD> &multiRedisReadMaster,
+		const std::shared_ptr<MULTIREDISREADCOPY>& multiRedisReadCopyMaster,
 		const std::shared_ptr<MULTIREDISWRITE> &multiRedisWriteMaster, 
 		const std::shared_ptr<MULTISQLWRITESW> &multiSqlWriteSWMaster,
 		const std::shared_ptr<STLTimeWheel> &timeWheel,
@@ -40,6 +46,7 @@ struct WEBSERVICE
 		const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>>& cleanFun,
 		const std::shared_ptr<CHECKIP> &checkIP,
 		const std::shared_ptr<RandomCodeGenerator> &randomCode,
+		const std::shared_ptr<VERIFYCODE>& verifyCode,
 		const unsigned int bufNum = 4096
 	);
 
@@ -66,6 +73,10 @@ struct WEBSERVICE
 
 
 private:
+	const std::shared_ptr<VERIFYCODE> m_verifyCode{};
+
+	const std::shared_ptr<MULTIREDISREADCOPY> m_multiRedisReadCopyMaster{};
+
 	const std::shared_ptr<RandomCodeGenerator>m_randomCode{};
 
 	const std::shared_ptr<CHECKIP>m_checkIP{};

@@ -85,6 +85,14 @@ int main()
 			return -10;
 		}
 		
+
+		m1.setVerifyCode(ioPool, success);
+		if (!success)
+		{
+			m1.freeMysql();
+			return -10;
+		}
+
 		
 		m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/kongweb", { "0","1"},
 			"/home/backWeb", { "0","1","2","3" }, 50, 60, "/home/certs/web.crt", "/home/certs/web.key");

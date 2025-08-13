@@ -164,7 +164,7 @@ private:
 	///////////////////////////////////////////////////////////////////
 	// 
 	//待投递队列，未/等待拼凑消息的队列
-	//使用开源无所队列进一步提升qps ，这是github地址  https://github.com/cameron314/concurrentqueue
+	//使用开源无锁队列进一步提升qps ，这是github地址  https://github.com/cameron314/concurrentqueue
 	moodycamel::ConcurrentQueue<std::shared_ptr<resultTypeSW>>m_messageList;
 
 

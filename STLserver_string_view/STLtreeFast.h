@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "openssl/aes.h"
 
 #include "memoryPool.h"
 
@@ -158,12 +157,6 @@ namespace MAKEJSON
 
 
 struct TRANSFORMTYPE
-{
-
-};
-
-
-struct AESECB
 {
 
 };

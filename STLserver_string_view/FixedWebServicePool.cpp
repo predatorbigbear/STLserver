@@ -5,6 +5,7 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(const std::shared_ptr<IOcontextPool> &i
 	const std::string &doc_root,
 	const std::shared_ptr<MULTISQLREADSWPOOL> &multiSqlReadSWPoolMaster,
 	const std::shared_ptr<MULTIREDISREADPOOL> &multiRedisReadPoolMaster,
+	const std::shared_ptr<MULTIREDISREADCOPYPOOL>& multiRedisReadCopyPoolMaster,
 	const std::shared_ptr<MULTIREDISWRITEPOOL> &multiRedisWritePoolMaster, 
 	const std::shared_ptr<MULTISQLWRITESWPOOL> &multiSqlWriteSWPoolMaster,
 	const std::shared_ptr<std::function<void()>> &reAccept,
@@ -16,11 +17,12 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(const std::shared_ptr<IOcontextPool> &i
 	const std::shared_ptr<std::function<void(std::shared_ptr<WEBSERVICE>&)>> &cleanFun,
 	const std::shared_ptr<CHECKIP> &checkIP,
 	const std::shared_ptr<RandomCodeGenerator> &randomCode,
+	const std::shared_ptr<VERIFYCODE>& verifyCode,
 	int beginSize):
 	m_ioPool(ioPool), m_reAccept(reAccept), m_logPool(logPool), m_doc_root(doc_root),m_randomCode(randomCode),
-	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_fileVec(fileVec), m_BGfileVec(BGfileVec),
+	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_fileVec(fileVec), m_BGfileVec(BGfileVec), m_verifyCode(verifyCode),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster), m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
-	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster),
+	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_multiRedisReadCopyPoolMaster(multiRedisReadCopyPoolMaster),
 	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun), m_checkIP(checkIP)
 {
 	try
@@ -51,6 +53,10 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(const std::shared_ptr<IOcontextPool> &i
 			throw std::runtime_error("checkIP is nullptr");
 		if(!randomCode)
 			throw std::runtime_error("randomCode is nullptr");
+		if(!multiRedisReadCopyPoolMaster)
+			throw std::runtime_error("multiRedisReadCopyPoolMaster is nullptr");
+		if(!verifyCode)
+			throw std::runtime_error("verifyCode is nullptr");
 
 
 		m_log = m_logPool->getLogNext();
@@ -80,9 +86,10 @@ bool FixedWEBSERVICEPOOL::ready()
 				*m_iterNow++ = std::make_shared<WEBSERVICE>(m_ioPool->getIoNext(), m_logPool->getLogNext(), m_doc_root,
 					m_multiSqlReadSWPoolMaster->getSqlNext(),
 					m_multiRedisReadPoolMaster->getRedisNext(),
+					m_multiRedisReadCopyPoolMaster->getRedisNext(),
 					m_multiRedisWritePoolMaster->getRedisNext(), m_multiSqlWriteSWPoolMaster->getSqlNext(),
 					m_timeWheel,m_fileVec, m_BGfileVec,
-					m_timeOut, m_success,i+1, m_cleanFun, m_checkIP, m_randomCode
+					m_timeOut, m_success,i+1, m_cleanFun, m_checkIP, m_randomCode, m_verifyCode
 					);
 				if (!m_success)
 					break;
