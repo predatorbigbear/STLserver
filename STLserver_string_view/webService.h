@@ -85,7 +85,8 @@ private:
 
 	std::vector<std::string_view> keyVec;         //存储body结果的vector
 
-	bool hasLoginBack{ false };          //是否成功登录了后台
+	bool hasLoginBack{ false };               //是否成功登录了后台
+	bool hasVerifyRegister{ false };          //是否成功在用户注册验证了手机号
 
 	std::string m_IP{};                  //本次连接IP地址
 	unsigned int m_port{};               //本次连接端口
@@ -630,12 +631,18 @@ private:
 	//用户注册接口1，填写手机号发送验证码
 	void registration1();
 
+
 	void handleregistration1(bool result, ERRORMESSAGE em);
 
 
+	void handleregistration11(bool result, ERRORMESSAGE em);
 
 
+	//检查手机号与验证码接口
+	void checkVerifyCode();
 
+
+	void handlecheckVerifyCode(bool result, ERRORMESSAGE em);
 
 
 
@@ -829,7 +836,7 @@ inline void WEBSERVICE::makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite, un
 			}
 			else
 			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 			}
 		}
 		else
@@ -849,13 +856,13 @@ inline void WEBSERVICE::makeSendJson(STLtreeFast& st, HTTPFUNCTION httpWrite, un
 			}
 			else
 			{
-				startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 			}
 		}
 	}
 	else
 	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		startWrite(WEBSERVICEANSWER::result2request.data(), WEBSERVICEANSWER::result2request.size());
 	}
 }
 

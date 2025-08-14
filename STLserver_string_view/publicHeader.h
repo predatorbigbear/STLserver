@@ -295,7 +295,9 @@ enum WEBSERVICEINTERFACE
 
 	web_exitBack = 3,
 
-	web_registration1 = 4
+	web_registration1 = 4,
+
+	web_checkVerifyCode = 5
 
 
 
@@ -1951,6 +1953,95 @@ namespace HTTPRESPONSEREADY
 	static size_t http100ContinueLen{ strlen(http100Continue) };
 }
 
+
+
+namespace WEBSERVICEANSWER
+{
+	//以下回复为post接口业务接口使用，get接口  文件缺失需返回404响应
+	//为提升服务器响应性能以及在内存不足的情况下依然保持响应，，在这里定义通用回复字符串
+	//webservice 统一回复
+	//result值
+	//0      参数异常     包括参数缺失   body为空    参数传递错误    参数内容非法   参数解析错误   参数比对错误
+	//1      正常响应，收到1后根据具体业务接口解析获取后面的数据字段获取正确数据在前端显示处理
+	// 只有在正常获得结果的情况下才需要进行封装消息返回，其余情况通通直接返回通用回复字符串
+	// 
+	//2      服务器异常   比如内存不足    插入消息队列错误   查询错误    后面带有error字段返回异常类型   目前有memory  mysql   redis  verifyCode
+	//3      没有此接口
+	//4      权限不足 
+
+
+	/*
+	
+	HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"0\"}
+	
+	*/
+	
+	//0      参数异常     包括参数缺失   body为空    参数传递错误    参数内容非法   参数解析错误   参数比对错误
+	static std::string_view result0{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"0\"}" };
+
+	//1      默认正确应答
+	static std::string_view result1{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"1\"}" };
+
+
+	//2      服务器异常    内存不足
+	static std::string_view result2memory{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:31\r\n\r\n{\"result\":\"2\",\"error\":\"memory\"}" };
+
+
+	//2      服务器异常    mysql问题
+	static std::string_view result2mysql{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:30\r\n\r\n{\"result\":\"2\",\"error\":\"mysql\"}" };
+
+
+	//2      服务器异常    redis问题
+	static std::string_view result2redis{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:30\r\n\r\n{\"result\":\"2\",\"error\":\"redis\"}" };
+
+
+	//2      服务器异常    短信验证码问题
+	static std::string_view result2verifyCode{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:35\r\n\r\n{\"result\":\"2\",\"error\":\"verifyCode\"}" };
+
+
+	//2      服务器异常    异常问题    STL异常
+	static std::string_view result2stl{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:28\r\n\r\n{\"result\":\"2\",\"error\":\"stl\"}" };
+
+
+	//2      服务器异常    响应无法生成
+	static std::string_view result2request{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:32\r\n\r\n{\"result\":\"2\",\"error\":\"request\"}" };
+
+
+	//2      服务器异常    未定义错误
+	static std::string_view result2unknown{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:32\r\n\r\n{\"result\":\"2\",\"error\":\"unknown\"}" };
+
+
+	//3      没有此接口
+	static std::string_view result3{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"3\"}" };
+
+
+	//4      权限不足
+	static std::string_view result4{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"4\"}" };
+
+
+	//5      自定义命令接口不同意义不同
+	static std::string_view result5{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"5\"}" };
+
+
+	//6      自定义命令接口不同意义不同
+	static std::string_view result6{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"6\"}" };
+
+
+	//7      自定义命令接口不同意义不同
+	static std::string_view result7{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"7\"}" };
+
+
+	//8      自定义命令接口不同意义不同
+	static std::string_view result8{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"8\"}" };
+
+
+	//9      自定义命令接口不同意义不同
+	static std::string_view result9{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"9\"}" };
+
+
+	//10      自定义命令接口不同意义不同
+	static std::string_view result10{ "HTTP/1.0 200 OK\r\nAccess-Control-Allow-Origin:*\r\nConnection:keep-alive\r\nContent-type:application/json\r\nContent-length:14\r\n\r\n{\"result\":\"10\"}" };
+}
 
 
 

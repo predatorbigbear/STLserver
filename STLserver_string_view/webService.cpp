@@ -87,6 +87,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	m_mySelf = other;
 	m_hasClean.store(false);
 	hasLoginBack = false;
+	hasVerifyRegister = false;
 	m_requestTime = 0;
 
 	boost::system::error_code ec;
@@ -186,7 +187,7 @@ void WEBSERVICE::checkMethod()
 
 	default:
 
-		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		startWrite(WEBSERVICEANSWER::result3.data(), WEBSERVICEANSWER::result3.size());
 		break;
 	}
 }
@@ -233,9 +234,15 @@ void WEBSERVICE::switchPOSTInterface()
 		break;
 
 
+		//检查手机号与验证码接口
+	case WEBSERVICEINTERFACE::web_checkVerifyCode:
+		checkVerifyCode();
+		break;
+
+
 		//默认，不匹配任何接口情况
 	default:
-		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		startWrite(WEBSERVICEANSWER::result3.data(), WEBSERVICEANSWER::result3.size());
 		break;
 	}
 }
@@ -480,68 +487,60 @@ void WEBSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 {
 	switch (em)
 	{
-	case ERRORMESSAGE::OK:
-		startWrite(HTTPRESPONSEREADY::http11OK, HTTPRESPONSEREADY::http11OKLen);
-		break;
-
 	case ERRORMESSAGE::SQL_QUERY_ERROR:
-		startWrite(HTTPRESPONSEREADY::http11SqlQueryError, HTTPRESPONSEREADY::http11SqlQueryErrorLen);
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
 	case ERRORMESSAGE::SQL_NET_ASYNC_ERROR:
-		startWrite(HTTPRESPONSEREADY::http11SqlNetAsyncError, HTTPRESPONSEREADY::http11SqlNetAsyncErrorLen);
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
 	case ERRORMESSAGE::SQL_MYSQL_RES_NULL:
-		startWrite(HTTPRESPONSEREADY::http11SqlResNull, HTTPRESPONSEREADY::http11SqlResNullLen);
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
 	case ERRORMESSAGE::SQL_QUERY_ROW_ZERO:
-		startWrite(HTTPRESPONSEREADY::http11SqlQueryRowZero, HTTPRESPONSEREADY::http11SqlQueryRowZeroLen);
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
 	case ERRORMESSAGE::SQL_QUERY_FIELD_ZERO:
-		startWrite(HTTPRESPONSEREADY::http11SqlQueryFieldZero, HTTPRESPONSEREADY::http11SqlQueryFieldZeroLen);
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
 	case ERRORMESSAGE::SQL_RESULT_TOO_LAGGE:
-		startWrite(HTTPRESPONSEREADY::http11sqlSizeTooBig, HTTPRESPONSEREADY::http11sqlSizeTooBigLen);
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
 	case ERRORMESSAGE::REDIS_ASYNC_WRITE_ERROR:
-		startWrite(HTTPRESPONSEREADY::httpREDIS_ASYNC_WRITE_ERROR, HTTPRESPONSEREADY::httpREDIS_ASYNC_WRITE_ERRORLen);
+		startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		break;
 
 	case ERRORMESSAGE::REDIS_ASYNC_READ_ERROR:
-		startWrite(HTTPRESPONSEREADY::httpREDIS_ASYNC_READ_ERROR, HTTPRESPONSEREADY::httpREDIS_ASYNC_READ_ERRORLen);
+		startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		break;
 
 	case ERRORMESSAGE::CHECK_REDIS_MESSAGE_ERROR:
-		startWrite(HTTPRESPONSEREADY::httpCHECK_REDIS_MESSAGE_ERROR, HTTPRESPONSEREADY::httpCHECK_REDIS_MESSAGE_ERRORLen);
+		startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		break;
 
 
 	case ERRORMESSAGE::REDIS_READY_QUERY_ERROR:
-		startWrite(HTTPRESPONSEREADY::httpREDIS_READY_QUERY_ERROR, HTTPRESPONSEREADY::httpREDIS_READY_QUERY_ERRORLen);
-		break;
-
-	case ERRORMESSAGE::NO_KEY:
-		startWrite(HTTPRESPONSEREADY::httpNO_KEY, HTTPRESPONSEREADY::httpNO_KEYLen);
+		startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		break;
 
 
 	case ERRORMESSAGE::STD_BADALLOC:
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
 		break;
 
 
 	case ERRORMESSAGE::REDIS_ERROR:
-		startWrite(HTTPRESPONSEREADY::httpRedisError, HTTPRESPONSEREADY::httpRedisErrorLen);
+		startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		break;
 
 
 	default:
-		startWrite(HTTPRESPONSEREADY::httpUnknownError, HTTPRESPONSEREADY::httpUnknownErrorLen);
+		startWrite(WEBSERVICEANSWER::result2unknown.data(), WEBSERVICEANSWER::result2unknown.size());
 		break;
 
 	}
@@ -961,7 +960,7 @@ void WEBSERVICE::parseReadData(const char* source, const int size)
 		m_readBuffer = refBuffer.getBuffer();
 		m_maxReadLen = m_defaultReadLen;
 		m_availableLen = refBuffer.getSSLSock()->lowest_layer().available();
-		m_sendBuffer = HTTPRESPONSEREADY::httpSTDException, m_sendLen = HTTPRESPONSEREADY::httpSTDExceptionLen;
+		m_sendBuffer = WEBSERVICEANSWER::result2stl.data(), m_sendLen = WEBSERVICEANSWER::result2stl.size();
 		cleanData();
 	}
 }
@@ -4532,11 +4531,11 @@ after_parse_Content_Type:
 void WEBSERVICE::loginBackGround()
 {
 	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	std::string_view bodyView{ m_httpresult.getBody() };
 	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::answer, STATICSTRING::answerLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	const char** BodyBuffer{ m_buffer->bodyPara() };
 
@@ -4545,7 +4544,7 @@ void WEBSERVICE::loginBackGround()
 	keyView=std::string_view( *(BodyBuffer),*(BodyBuffer + 1) - *(BodyBuffer) );
 
 	if (keyView.empty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -4574,11 +4573,11 @@ void WEBSERVICE::loginBackGround()
 		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleloginBackGround, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+			startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 	}
 	catch (const std::exception& e)
 	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
 	}
 
 }
@@ -4605,26 +4604,27 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 			st1.reset();
 
 			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 
 
-			//返回{"result:"","web":""}  
-			//当web不为空字符串时，读取web的值实现跳转页面
-			//否则提示密码错误
-			static std::string_view zero{ "0" }, web{ "web" };
+			//返回{"result:"1","web":""}  
+			//读取web的值实现跳转页面
+			static std::string_view zero{ "0" }, web{ "web" }, result{ "result" }, one{"1"};
 			if (std::equal(keyView.cbegin(), keyView.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
 			{
 				//密码比对正确
 				hasLoginBack = true;
 
+				if (!st1.put(result.cbegin(), result.cend(), one.cbegin(), one.cend()))
+					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
 				if (!st1.put(web.cbegin(), web.cend(), zero.cbegin(), zero.cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 			}
 			else
 			{
 				//密码比对错误
-				if (!st1.put(web.cbegin(), web.cend(), nullptr, nullptr))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 			}
 
@@ -4632,7 +4632,7 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		}
 	}
 	else
@@ -4659,17 +4659,19 @@ void WEBSERVICE::exitBack()
 //用户注册接口1，填写手机号发送验证码
 //测试功能，目前先在管理后台实现，
 //首先进行权限校验，以防止被滥用
+//限制了中国公网ip才能进行访问之后，
+//在验证码有效期内存储ip和手机号的内存消耗可以控制在很小的消耗范围内
 void WEBSERVICE::registration1()
 {
 	if (!hasLoginBack)
-		return clean();
+		return startWrite(WEBSERVICEANSWER::result4.data(), WEBSERVICEANSWER::result4.size());
 
 	if (m_httpresult.isBodyEmpty())
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	std::string_view bodyView{ m_httpresult.getBody() };
 	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::phone, STATICSTRING::phoneLen))
-		return startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	const char** BodyBuffer{ m_buffer->bodyPara() };
 
@@ -4679,12 +4681,7 @@ void WEBSERVICE::registration1()
 
 	//判断是否是非法手机号
 	if (!REGEXFUNCTION::isVaildPhone(phoneView))
-	{
-		if (m_BGfileVec->size() < 3)
-			return startWrite(HTTPRESPONSEREADY::http404Nofile, HTTPRESPONSEREADY::http404NofileLen);
-		
-		return startWrite((*m_BGfileVec)[2].data(), (*m_BGfileVec)[2].size());
-	}
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	std::string_view& ipView{ keyVec[1] };
 	ipView = std::string_view(m_IP.data(), m_IP.size());
@@ -4709,23 +4706,17 @@ void WEBSERVICE::registration1()
 		command.emplace_back(phoneView);
 		command.emplace_back(ipView);
 		commandSize.emplace_back(3);
-		command.emplace_back(std::string_view(REDISNAMESPACE::ttl, REDISNAMESPACE::ttlLen));
-		command.emplace_back(phoneView);
-		commandSize.emplace_back(2);
-		command.emplace_back(std::string_view(REDISNAMESPACE::ttl, REDISNAMESPACE::ttlLen));
-		command.emplace_back(ipView);
-		commandSize.emplace_back(2);
 
-		std::get<1>(thisRequest) = 3;
-		std::get<3>(thisRequest) = 3;
+		std::get<1>(thisRequest) = 1;
+		std::get<3>(thisRequest) = 1;
 		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleregistration1, this, std::placeholders::_1, std::placeholders::_2);
 
-		if (!m_multiRedisReadCopyMaster->insertRedisRequest(redisRequest))
-			startWrite(HTTPRESPONSEREADY::httpFailToInsertRedis, HTTPRESPONSEREADY::httpFailToInsertRedisLen);
+		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 	}
 	catch (const std::exception& e)
 	{
-		startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+		return startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
 	}
 }
 
@@ -4741,56 +4732,314 @@ void WEBSERVICE::handleregistration1(bool result, ERRORMESSAGE em)
 
 	if (result)
 	{
-		if (resultVec.size() == 4)
+		if (resultVec.size() == 2)
 		{
 			//如果IP地址或手机号记录不为空
-			//都为空的情况下，生成验证码，通过验证码模块下发到用户手机，使用setnx 设置IP地址 与 手机号记录，有效时间为8小时
+			//都为空的情况下，生成验证码，通过验证码模块下发到用户手机，使用setnx 设置IP地址 与 手机号记录，有效时间为1小时
 			//其中IP地址记录值为1 手机号记录为X位验证码    
-			//  IP地址记录表示 在8小时内，已经发送过验证码
-			// 手机号记录表示 在8小时内，已经发送过验证码
+			//  IP地址记录表示 在1小时内，已经发送过验证码
+			// 手机号记录表示 在1小时内，已经发送过验证码
 			// 
+
 
 			std::string_view& phoneView{ keyVec[0] };
 			std::string_view& ipView{ keyVec[1] };
-
-			STLtreeFast& st1{ m_STLtreeFastVec[0] };
-
-			st1.reset();
-
-			if (!st1.clear())
-				return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
-
-			static std::string_view result{ "result" }, one{ "1" };
 			
+			//如果手机号  与   ip同时为空记录
+			//IP记录设置为3表示已下发验证码
+			//手机号填入验证码方便验证
 			if (resultVec[0].empty() && resultVec[1].empty())
 			{
 				char* buf = m_MemoryPool.getMemory<char*>(6);
 
 				if(!buf)
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 			
-				m_randomCode->generate(buf);
+				m_randomCode->generate(buf, 6);
 
-				//添加验证码发送模块下发验证码并将信息写入redis中
-				if(!m_verifyCode->insertVerifyCode(buf, 6, phoneView))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				std::string_view& verifyCodeView{ keyVec[2] };
+				verifyCodeView = std::string_view(buf, 6);
 
-				if (!st1.put(result.cbegin(), result.cend(), one.cbegin(), one.cend()))
-					return startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+				static std::string_view set{ "set" }, EX{ "EX" }, sec3600{ "3600" }, NX{ "NX" }, one{ "1" }, three{ "3" };
 
-				return makeSendJson(st1);
+				////////////////////////////////////////////////////
+
+				std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+				redisResultTypeSW& thisRequest{ *redisRequest };
+
+				std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+				std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+				std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+				std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+				//将手机号与ip地址记录插入redis保存
+
+				command.clear();
+				commandSize.clear();
+				resultVec.clear();
+				resultNumVec.clear();
+				try
+				{
+					command.emplace_back(set);
+					command.emplace_back(ipView);
+					command.emplace_back(three);
+					command.emplace_back(EX);
+					command.emplace_back(sec3600);
+					command.emplace_back(NX);
+					commandSize.emplace_back(6);
+					command.emplace_back(set);
+					command.emplace_back(phoneView);
+					command.emplace_back(verifyCodeView);
+					command.emplace_back(EX);
+					command.emplace_back(sec3600);
+					command.emplace_back(NX);
+					commandSize.emplace_back(6);
+
+					std::get<1>(thisRequest) = 2;
+					std::get<3>(thisRequest) = 2;
+					std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleregistration11, this, std::placeholders::_1, std::placeholders::_2);
+
+					if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+						return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+					return;
+				}
+				catch (const std::exception& e)
+				{
+					return startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+				}
+				///////////////////////////////////////////////////
+			}          
+			
+			 //如果手机号不为空
+			if (!resultVec[0].empty())
+			{
+				//如果手机号记录只有1位，检查是1还是0还是2   
+				// 1表示已经注册，可以直接登录   0表示已列入黑名单   
+				// 如果需要表示多种状态就增加位数，但注意不要与验证码位数一样即可，处理时先判断位数
+				// 再根据位进行判断
+				//如果手机号记录为6位，返回1提示验证码已下发
+				//高效复用手机号这个string  能表示所有状态，最大程度节省redis内存，不用加前缀表示
+				//不要直接比对是不是1位，因为以后会加内容，为了扩展性比对不是验证码长度即可
+				if (resultVec[0].size() != 6)
+				{
+					if(*resultVec[0].cbegin()=='1')
+						return startWrite(WEBSERVICEANSWER::result5.data(), WEBSERVICEANSWER::result5.size());
+					else if (*resultVec[0].cbegin() == '0')
+						return startWrite(WEBSERVICEANSWER::result6.data(), WEBSERVICEANSWER::result6.size());
+					else
+						return startWrite(WEBSERVICEANSWER::result7.data(), WEBSERVICEANSWER::result7.size());
+				}
+				
+				return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
 			}
 
+			//如果手机号为空  IP地址记录不为空，返回1，防止被恶意刷短信api，等待超时回收key后才能发起新验证码请求
+			//短信api与钱直接相关，不能随便发
+			if (!resultVec[1].empty())
+			{
+				return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+			}
+			
 		}
 		else
 		{
-			startWrite(HTTPRESPONSEREADY::httpSTDException, HTTPRESPONSEREADY::httpSTDExceptionLen);
+			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 		}
 	}
 	else
 	{
 		handleERRORMESSAGE(em);
 	}
+}
+
+
+
+void WEBSERVICE::handleregistration11(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	if (result)
+	{
+		if (resultVec.size() != 2 || resultVec[0]!="OK" || resultVec[1]!="OK")
+			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+		
+		std::string_view& verifyCodeView{ keyVec[2] };
+		std::string_view& phoneView{ keyVec[0] };
+		if(!m_verifyCode->insertVerifyCode(verifyCodeView.data(), verifyCodeView.size(), phoneView))
+			return startWrite(WEBSERVICEANSWER::result2verifyCode.data(), WEBSERVICEANSWER::result2verifyCode.size());
+
+		return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+}
+
+
+
+//检查手机号与验证码接口
+//首先检查手机号是否是中国手机号段
+//然后检查验证码是否是6位且字符与验证码生成模块的一致
+//然后发送查询到redis中获取核对
+// 
+//判断手机号记录是否与验证码长度一致
+//一致的情况下才进行判断
+//多次判断也无需重新发送验证码
+//因为短信api接口商都提供自定义短信模板的功能
+//可以根据需要设置指定长度的验证码
+//只要位数足够长，比军事级还安全，在数小时甚至数天内都无法被攻破
+//配合频率限制效果更佳
+//6位验证码仅供参考
+//长远看还可以节省大量验证码发送次数
+
+//测试功能，目前先在管理后台实现，
+//首先进行权限校验，以防止被滥用
+void WEBSERVICE::checkVerifyCode()
+{
+	if (!hasLoginBack)
+		return startWrite(WEBSERVICEANSWER::result4.data(), WEBSERVICEANSWER::result4.size());
+
+	if (m_httpresult.isBodyEmpty())
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	std::string_view bodyView{ m_httpresult.getBody() };
+	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::phone, STATICSTRING::phoneLen, STATICSTRING::verifyCode, STATICSTRING::verifyCodeLen))
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	//对于需要反复使用的场景，使用keyVec里面的string_view来存储参数解析结果
+	std::string_view& phoneView{ keyVec[0] };
+	phoneView = std::string_view(*(BodyBuffer), *(BodyBuffer + 1) - *(BodyBuffer));
+	std::string_view& verifyCodeView{ keyVec[1] };
+	verifyCodeView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
+
+	//判断是否是非法手机号  非法验证码
+	if (!REGEXFUNCTION::isVaildPhone(phoneView) || !REGEXFUNCTION::isVaildVerifyCode(verifyCodeView))
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+	redisResultTypeSW& thisRequest{ *redisRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	command.clear();
+	commandSize.clear();
+	resultVec.clear();
+	resultNumVec.clear();
+	try
+	{
+		command.emplace_back(std::string_view(REDISNAMESPACE::mget, REDISNAMESPACE::mgetLen));
+		command.emplace_back(phoneView);
+		command.emplace_back(m_IP);
+		commandSize.emplace_back(3);
+
+		std::get<1>(thisRequest) = 1;
+		std::get<3>(thisRequest) = 1;
+		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handlecheckVerifyCode, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+			startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+	}
+
+}
+
+
+
+void WEBSERVICE::handlecheckVerifyCode(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	if (result)
+	{
+		if (resultVec.size() != 2)
+			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+
+		   
+		//如果手机号记录为空，
+		// 如果IP也为空，表示手机号信息已经被redis回收掉，返回提示让用户重新发送验证码
+		// 如果IP不为空，则可能为恶意刷短信api或者填写错误注册手机号，返回0即可
+		//分情况判断
+		if (resultVec[0].empty())
+		{
+			if(resultVec[1].empty())
+				return startWrite(WEBSERVICEANSWER::result8.data(), WEBSERVICEANSWER::result8.size());
+			else
+				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		}
+
+		         // 如果手机号记录只有1位，检查是1还是0还是2   
+				// 1表示已经注册，可以直接登录   0表示已列入黑名单  
+				// 如果需要表示多种状态就增加位数，但注意不要与验证码位数一样即可，处理时先判断位数
+				// 再根据位进行判断
+				//如果手机号记录为6位，则进行验证码比对
+		//不要直接比对是不是1位，因为以后会加内容，为了扩展性比对不是验证码长度即可
+		if (resultVec[0].size() != 6)
+		{
+			if (*resultVec[0].cbegin() == '1')
+				return startWrite(WEBSERVICEANSWER::result5.data(), WEBSERVICEANSWER::result5.size());
+			else if (*resultVec[0].cbegin() == '0')
+				return startWrite(WEBSERVICEANSWER::result6.data(), WEBSERVICEANSWER::result6.size());
+			else
+				return startWrite(WEBSERVICEANSWER::result7.data(), WEBSERVICEANSWER::result7.size());
+		}
+		
+		//比对正确时，返回填写用户信息页面，错误时返回默认值0即可
+		if (resultVec[0].size() == 6)
+		{
+			static std::string_view one{ "1" }, web{ "web" }, two{ "2" };
+			std::string_view& verifyCodeView{ keyVec[1] };
+			if (std::equal(resultVec[0].cbegin(), resultVec[0].cend(), verifyCodeView.cbegin(), verifyCodeView.cend()))
+			{
+				STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+				st1.reset();
+
+				if (!st1.clear())
+					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+				if (!st1.put(MAKEJSON::result, MAKEJSON::result + MAKEJSON::resultLen, one.cbegin(), one.cend()))
+					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+				if (!st1.put(web.cbegin(), web.cend(), two.cbegin(), two.cend()))
+					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+				//仅当用户成功验证手机号后才能调用发送用户注册信息接口
+				hasVerifyRegister = true;
+				return makeSendJson(st1);
+			}
+			else
+				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		}
+
+		return startWrite(WEBSERVICEANSWER::result2unknown.data(), WEBSERVICEANSWER::result2unknown.size());
+
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
 }
 
 

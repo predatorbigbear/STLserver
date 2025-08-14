@@ -313,7 +313,7 @@ void MULTIREDISREADCOPY::firstConnect()
 		}
 		else
 		{
-			std::cout << "connect multi RedisRead success\n";
+			std::cout << "connect multi RedisReadCopy success\n";
 			setConnectSuccess();
 			(*m_unlockFun)();
 		}

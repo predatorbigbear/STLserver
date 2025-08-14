@@ -95,7 +95,7 @@ int main()
 
 		
 		m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/kongweb", { "0","1"},
-			"/home/backWeb", { "0","1","2","3" }, 50, 60, "/home/certs/web.crt", "/home/certs/web.key");
+			"/home/backWeb", { "0","1" }, 50, 60, "/home/certs/web.crt", "/home/certs/web.key");
 		if (!success)
 		{
 			m1.freeMysql();

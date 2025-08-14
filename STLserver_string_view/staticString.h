@@ -194,12 +194,14 @@ namespace STATICSTRING
 
 	static const char* answer{ "answer" };
 
-
+	static const char* verifyCode{ "verifyCode" };
 
 ////////////////////////////////////////////////////////////////////////////////////////
 	static size_t serverRSASize{ 128 };
 
 	static size_t serverHashLen{ 32 };
+
+	static size_t verifyCodeLen{ strlen(verifyCode) };
 
 	static size_t answerLen{ strlen(answer) };
 
