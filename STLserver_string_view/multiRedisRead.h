@@ -33,7 +33,8 @@ struct MULTIREDISREAD
 	回调函数
 	*/
 	// 
-	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
+	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, 
+		std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
 

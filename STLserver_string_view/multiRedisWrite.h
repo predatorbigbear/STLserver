@@ -2,40 +2,77 @@
 
 
 #include "ASYNCLOG.h"
-#include "STLtreeFast.h"
-#include "httpResponse.h"
+#include "concurrentqueue.h"
 #include "regexFunction.h"
-#include "safeList.h"
-#include "memoryPool.h"
+#include "httpResponse.h"
 #include "errorMessage.h"
 #include "staticString.h"
+#include "STLTimeWheel.h"
+#include "memoryPool.h"
 
 
+#include <boost/asio.hpp>
+#include <boost/asio/steady_timer.hpp>
+
+#include<numeric>
+#include<forward_list>
+#include<atomic>
 
 
+//这个类执行设置值  删除值等一些不需要读取值返回结果的执行命令
+//对SIMPLE_STRING 和 ERROR 两种类型值做了处理，当返回ERROR类型结果，记录本次执行命令和错误类型进log里
 struct MULTIREDISWRITE
 {
 	/*
 	执行命令string_view集
 	执行命令个数
 	每条命令的词语个数（方便根据redis RESP进行拼接）
-	加锁直接拼接字符串到总string中，发送前加锁取出数据进行发送
+	获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
 
+	返回结果string_view
+	每个结果的词语个数
+
+	回调函数
 	*/
 	// 
-	using redisWriteTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>>;
+	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int,
+		std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
+		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
 
 
-	MULTIREDISWRITE(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>>unlockFun, const std::string &redisIP, const unsigned int redisPort,
-		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
+	//无锁队列插入数据类型
 
 
 	/*
+	执行命令string集
+	执行命令个数
+	每条命令的词语个数（方便根据redis RESP进行拼接）
+	获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
+
+	返回结果string_view
+	每个结果的词语个数
+
+	回调函数
+	*/
+	using redisMessageListTypeSW = std::tuple<std::vector<std::string>, unsigned int,
+		std::vector<unsigned int>, unsigned int,
+		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
+
+
+	MULTIREDISWRITE(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log, std::shared_ptr<std::function<void()>>unlockFun,
+		std::shared_ptr<STLTimeWheel> timeWheel,
+		const std::string& redisIP, const unsigned int redisPort,
+		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
+
+
 	//插入请求，首先判断是否连接redis服务器成功，
 	//如果没有连接，插入直接返回错误
 	//连接成功的情况下，检查请求是否符合要求
-	*/
-	bool insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redisRequest);
+	bool insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redisRequest);
+
+
 
 
 
@@ -45,19 +82,19 @@ struct MULTIREDISWRITE
 
 private:
 	std::shared_ptr<boost::asio::io_context> m_ioc{};
-	std::unique_ptr<boost::asio::steady_timer>m_timer{};
 	boost::system::error_code m_err;
 	std::unique_ptr<boost::asio::ip::tcp::endpoint>m_endPoint{};
 	std::unique_ptr<boost::asio::ip::tcp::socket>m_sock{};
 
-
+	std::shared_ptr<ASYNCLOG> m_log{};
+	std::shared_ptr<STLTimeWheel> m_timeWheel{};
 
 	std::shared_ptr<std::function<void()>> m_unlockFun{};
 	std::string m_redisIP;
 	unsigned int m_redisPort{};
-	const char **m_data{};
 
 
+	int m_connectStatus{};
 
 	std::unique_ptr<char[]>m_receiveBuffer{};               //接收消息的缓存
 	unsigned int m_receiveBufferMaxSize{};                //接收消息内存块总大小
@@ -86,51 +123,46 @@ private:
 	unsigned int m_outRangeNowSize{};
 
 
-	
+	std::atomic<bool>m_connect{ false };                  //判断是否已经建立与redis端的连接
+	std::atomic<bool>m_queryStatus{ false };
 
-
-
-	std::mutex m_mutex;
-	bool m_connect{ false };                  //判断是否已经建立与redis端的连接
-	bool m_queryStatus{ false };                         //判断是否已经启动处理流程，这里的queryStatus不仅仅是请求那么简单，而是包括请求，接收消息，将目前请求全部消化完毕的标志
 
 
 	//待投递队列，未/等待拼凑消息的队列
-	SAFELIST<std::shared_ptr<redisWriteTypeSW>>m_messageList;
+	//使用开源无锁队列进一步提升qps ，这是github地址  https://github.com/cameron314/concurrentqueue
+	moodycamel::ConcurrentQueue<std::shared_ptr<redisMessageListTypeSW>>m_messageList;
+
 
 
 
 	/////////////////////////////////////////////////////////
-	std::unique_ptr<std::shared_ptr<redisWriteTypeSW>[]>m_waitMessageList{};
+
+	//记录每条redis执行语句,发生错误记录进log
+	std::unique_ptr<std::string_view[]>m_logMessage{};
+
+	unsigned int m_logMessageSize{ };
+
+	std::string_view* m_logMessageIter{};
+
+
+
+	////////////////////////////////////////////////////////////
+
+
+
+	std::unique_ptr<std::shared_ptr<redisMessageListTypeSW>[]>m_waitMessageList{};
 
 	unsigned int m_waitMessageListMaxSize{};
 
 	unsigned int m_waitMessageListNowSize{};
 
-	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListBegin{};
+	std::shared_ptr<redisMessageListTypeSW>* m_waitMessageListBegin{};
 
-	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListEnd{};
+	std::shared_ptr<redisMessageListTypeSW>* m_waitMessageListEnd{};
 
-	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListBeforeParse{};      //用来判断解析后位置有没有发生变化
+	std::shared_ptr<redisMessageListTypeSW>* m_waitMessageListBeforeParse{};      //用来判断解析后位置有没有发生变化
 
-	std::shared_ptr<redisWriteTypeSW> *m_waitMessageListAfterParse{};       //用来判断解析后位置有没有发生变化
-
-
-
-	//首先获取判断所需要的空间，尝试进行一次性分配空间，看是否成功
-	//成功的话生成，然后进行发送写入请求
-
-	//在最初的时候，曾经想过，用string_view指引业务层的数据进来插入，在拼装前进行一次copy即可。
-	//但最后考虑过之后，还是选择了在write处进行一次copy，理由是：
-	//使用redis场景下，读多写少，如果源数据在业务层，则业务层每次使用该buffer都需要进行加锁处理（但写可能很少很少发生，长远来看代价不值得）
-	//其次是，源数据可能存在于多个地方的buffer中，这就使得最后所有buffer都可能要加锁使用
-	MEMORYPOOL<> m_charMemoryPool;
-
-	//
-
-
-	
-
+	std::shared_ptr<redisMessageListTypeSW>* m_waitMessageListAfterParse{};       //用来判断解析后位置有没有发生变化
 
 
 	//一次性发送最大的命令个数
@@ -141,7 +173,7 @@ private:
 
 
 	////////////////////////////////////////////////////////
-	//std::string m_message;                     //联合发送命令字符串
+						//联合发送命令字符串
 
 	std::unique_ptr<char[]>m_messageBuffer{};
 
@@ -150,25 +182,32 @@ private:
 	unsigned int m_messageBufferNowSize{};
 
 
-	const char *m_sendMessage{};
+	const char* m_sendMessage{};
 
 	unsigned int m_sendLen{};
 
 	std::vector<std::string_view>m_arrayResult;             //临时存储数组结果的vector
 	//////////////////////////////////////////////////////////////////////////////
 
+	boost::system::error_code ec;
+
+	//用于兼容redis查询模块插入类型使用的空vector
+	std::vector<std::string_view>tempVec1;
+
+	//用于兼容redis查询模块插入类型使用的空vector
+	std::vector<unsigned int>tempVec2;
 
 private:
-
-
-	
 	bool readyEndPoint();
 
 
 	bool readySocket();
 
-	
+
 	void firstConnect();
+
+	//redis客户端和服务器失去连接后重连函数
+	void reconnect();
 
 
 	void setConnectSuccess();
@@ -177,24 +216,36 @@ private:
 	void setConnectFail();
 
 
-	
 	void query();
 
-	
+
 	void receive();
 
 
 	void resetReceiveBuffer();
 
-
-	void handlelRead(const boost::system::error_code &err, const std::size_t size);
-
-
-	bool prase(const int size);
+	//redis返回消息解析算法
+	bool parse(const int size);
 
 
+	void handlelRead(const boost::system::error_code& err, const std::size_t size);
+
+	//发送给redis-server的命令拼装函数
 	void readyMessage();
-	
 
 
+	void shutdownLoop();
+
+
+	void cancelLoop();
+
+
+	void closeLoop();
+
+
+	void resetSocket();
+
+
+	//回调函数记录log使用
+	void logCallBack(bool result, ERRORMESSAGE em);
 };

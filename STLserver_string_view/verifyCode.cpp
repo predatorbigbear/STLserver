@@ -148,7 +148,8 @@ void VERIFYCODE::startResolver()
         }
         else
         {
-            
+            if (m_reConnect)
+                m_timeWheel->insert([this]() {startResolver(); }, 5);
         }
     });
 }
@@ -174,7 +175,8 @@ void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_t
         }
         else
         {
-           
+            if (m_reConnect)
+                m_timeWheel->insert([this]() {startResolver(); }, 5);
         }
     });
 }
@@ -192,15 +194,22 @@ void VERIFYCODE::handshake()
         }
         else
         {
-            
+            if (m_reConnect)
+                sslShutdown();
         }
     });
 }
 
 
 
-void VERIFYCODE::sendVerifyCode(const std::string& request)
+void VERIFYCODE::sendVerifyCode(const std::string& request, bool isRealCode)
 {
+    //记录下本次发送内容是否为真验证码
+    //如果发送失败，则启动回收socket重连
+    //重连完毕后，检查该标志
+    //如果为true，则进行补发并检查无锁队列进行补发
+    //如果为false，则检查无锁队列进行补发
+    m_isRealCode = isRealCode;
     boost::asio::async_write(*m_socket,
         boost::asio::buffer(request),
         [this](const boost::system::error_code& error, std::size_t length)
@@ -212,6 +221,8 @@ void VERIFYCODE::sendVerifyCode(const std::string& request)
         else
         {
             m_connect.store(false);
+            //进入回收socket 并重连阶段
+            sslShutdown();
         }
     });
 }
@@ -226,13 +237,30 @@ void VERIFYCODE::sendFirstVerifyCode()
     {
         if (!error)
         {
-            m_connect.store(true);
-            std::cout << "verifyCode start\n";
-            checkList();
+            if (!m_reConnect)
+            {
+                m_connect.store(true);
+                std::cout << "verifyCode start\n";
+                checkList();
+            }
+            else
+            {
+                m_reConnect = false;
+                m_queryStatus.store(true);
+                m_connect.store(true);
+
+                //重连后，检查m_isRealCode判断是否需要重发上次发送失败的真验证码
+                if (m_isRealCode)
+                    sendVerifyCode(m_realCode, true);
+                else
+                    checkList();
+            }
+            m_log->writeLog("verifyCode start success");
         }
         else
         {
-
+            if (m_reConnect)
+                sslShutdown();
         }
     });
 }
@@ -268,11 +296,11 @@ void VERIFYCODE::checkList()
     {
         makeVerifyCode(m_message->first);
 
-        sendVerifyCode(m_realCode);
+        sendVerifyCode(m_realCode, true);
     }
     else
     {
-        sendVerifyCode(m_forgedCode);
+        sendVerifyCode(m_forgedCode, false);
     }
 }
 
@@ -293,4 +321,96 @@ void VERIFYCODE::runVerifyCode()
 void VERIFYCODE::resetQueryStatus()
 {
     m_queryStatus.store(true);
+}
+
+
+
+
+void VERIFYCODE::resetReConnect()
+{
+    m_reConnect = true;
+}
+
+
+
+void VERIFYCODE::sslShutdown()
+{
+    m_socket->async_shutdown([this](const boost::system::error_code& err)
+    {
+        //async_shutdown调用之后，无论成功与否，都可以进行下面的处理
+      
+        ec = {};
+        m_socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+        m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+    });
+
+}
+
+
+
+
+void VERIFYCODE::shutdownLoop()
+{
+    if (ec.value() != 107 && ec.value())
+    {
+        m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+        m_socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+        m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+    }
+    else
+    {
+        m_socket->lowest_layer().cancel(ec);
+        //等待异步cancel完成
+        m_timeWheel->insert([this]() {cancelLoop(); }, 5);
+    }
+}
+
+
+
+
+void VERIFYCODE::cancelLoop()
+{
+    if (ec.value() != 107 && ec.value())
+    {
+        m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+        m_socket->lowest_layer().cancel(ec);
+        m_timeWheel->insert([this]() {cancelLoop(); }, 5);
+    }
+    else
+    {
+        m_socket->lowest_layer().close(ec);
+        //等待异步cancel完成
+        m_timeWheel->insert([this]() {closeLoop(); }, 5);
+    }
+}
+
+
+
+void VERIFYCODE::closeLoop()
+{
+    if (ec.value() != 107 && ec.value())
+    {
+        m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+        m_socket->lowest_layer().close(ec);
+        m_timeWheel->insert([this]() {closeLoop(); }, 5);
+    }
+    else
+    {
+        tryConnect();
+    }
+}
+
+
+
+
+void VERIFYCODE::tryConnect()
+{
+    resetReConnect();
+    resetVerifyTime();
+    resetResolver();
+    resetSocket();
+    resetConnect();
+    resetQueryStatus();
+    startResolver();
+
 }

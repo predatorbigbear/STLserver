@@ -243,7 +243,7 @@ void MULTISQLREADSW::store()
 		else
 		{
 			std::vector<std::string_view>& vec{ std::get<4>(**m_waitMessageListBegin).get() };
-			static const std::string_view sqlSuccess{ "success to execute" };
+			static const std::string_view sqlSuccess{ "success" };
 			switch (m_status)
 			{
 			case NET_ASYNC_NOT_READY:
@@ -398,7 +398,7 @@ void MULTISQLREADSW::next_result()
 		else
 		{
 			std::vector<std::string_view>& vec{ std::get<4>(**m_waitMessageListBegin).get() };
-			static const std::string sqlFail{ "fail to execute" };
+			static const std::string sqlFail{ "fail" };
 			switch (m_status)
 			{
 			case NET_ASYNC_NOT_READY:
@@ -470,7 +470,7 @@ void MULTISQLREADSW::makeMessage()
 	//waitMessage队列使用
 	std::shared_ptr<resultTypeSW> *waitBegin{}, *waitEnd{}, *waitIter{};
 	//统计字符串总长度，每个节点数据的命令个数
-	unsigned int totalLen{}, everyResult{};
+	unsigned int totalLen{};
 
 	char* bufferIter{}, * bufferBegin{};
 

@@ -297,9 +297,9 @@ enum WEBSERVICEINTERFACE
 
 	web_registration1 = 4,
 
-	web_checkVerifyCode = 5
+	web_checkVerifyCode = 5,
 
-
+	web_registration2 = 6
 
 };
 
@@ -397,7 +397,7 @@ static bool UrlDecodeWithTransChinese(const char* source, const int len, char* d
 	desLen = 0;
 	if (len > 0)
 	{
-		const char* iterBegin{ source }, * iterEnd{ source + len }, * iterFirst{ source }, * iterTemp{ source };
+		const char* iterBegin{ source }, * iterEnd{ source + len }, * iterFirst{ source };
 		decltype(urlMap)::const_iterator iter;
 		int index{}, index1{}, index2{}, index3{}, BeginToEndLen{};
 		char ch0{}, ch1{}, ch2{}, ch3{}, ch4{}, ch5{}, ch6{}, ch7{}, ch8{};
@@ -1071,7 +1071,7 @@ static bool UrlDecodeWithTransChinese(const char* source, const int len, int& de
 	desLen = 0;
 	if (len > 0)
 	{
-		const char* iterBegin{ source }, * iterEnd{ source + len }, * iterFirst{ source }, * iterTemp{ source };
+		const char* iterBegin{ source }, * iterEnd{ source + len }, * iterFirst{ source };
 		desLen = len;
 		decltype(urlMap)::const_iterator iter;
 		int index{}, index1{}, index2{}, index3{}, BeginToEndLen{};
@@ -2069,9 +2069,7 @@ static const char* randomString{ "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJ
 static size_t randomStringLen{ strlen(randomString) };
 
 
-static std::mt19937 rdEngine{ std::chrono::high_resolution_clock::now().time_since_epoch().count() };
 
 
-static size_t maxAESKeyLen{ 32 };
 
 

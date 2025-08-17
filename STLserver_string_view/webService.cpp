@@ -89,6 +89,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	hasLoginBack = false;
 	hasVerifyRegister = false;
 	m_requestTime = 0;
+	m_phone.clear();
 
 	boost::system::error_code ec;
 	boost::asio::ip::tcp::endpoint remote_ep = m_buffer->getSSLSock()->lowest_layer().remote_endpoint(ec);
@@ -237,6 +238,12 @@ void WEBSERVICE::switchPOSTInterface()
 		//检查手机号与验证码接口
 	case WEBSERVICEINTERFACE::web_checkVerifyCode:
 		checkVerifyCode();
+		break;
+
+
+		//提交用户注册信息
+	case WEBSERVICEINTERFACE::web_registration2:
+		registration2();
 		break;
 
 
@@ -4572,6 +4579,7 @@ void WEBSERVICE::loginBackGround()
 		std::get<3>(thisRequest) = 1;
 		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleloginBackGround, this, std::placeholders::_1, std::placeholders::_2);
 
+
 		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
 			startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
 	}
@@ -4988,7 +4996,7 @@ void WEBSERVICE::handlecheckVerifyCode(bool result, ERRORMESSAGE em)
 				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 		}
 
-		         // 如果手机号记录只有1位，检查是1还是0还是2   
+		        // 如果手机号记录只有1位，检查是1还是0还是2   
 				// 1表示已经注册，可以直接登录   0表示已列入黑名单  
 				// 如果需要表示多种状态就增加位数，但注意不要与验证码位数一样即可，处理时先判断位数
 				// 再根据位进行判断
@@ -5008,6 +5016,7 @@ void WEBSERVICE::handlecheckVerifyCode(bool result, ERRORMESSAGE em)
 		if (resultVec[0].size() == 6)
 		{
 			static std::string_view one{ "1" }, web{ "web" }, two{ "2" };
+			std::string_view& phoneView{ keyVec[0] };
 			std::string_view& verifyCodeView{ keyVec[1] };
 			if (std::equal(resultVec[0].cbegin(), resultVec[0].cend(), verifyCodeView.cbegin(), verifyCodeView.cend()))
 			{
@@ -5025,7 +5034,12 @@ void WEBSERVICE::handlecheckVerifyCode(bool result, ERRORMESSAGE em)
 					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 
 				//仅当用户成功验证手机号后才能调用发送用户注册信息接口
+				//保存用户当前手机号，待提交用户信息时一并提交
+				//为了节省用户填写信息时间，建议将用户注册协议等信息在注册手机号页面进行展示
+				//用户填写信息页面仅设置账号名与密码还有确认密码三项即可，
+				//其余信息可以在登录后再进行设置
 				hasVerifyRegister = true;
+				m_phone.assign(phoneView.cbegin(), phoneView.cend());
 				return makeSendJson(st1);
 			}
 			else
@@ -5034,6 +5048,193 @@ void WEBSERVICE::handlecheckVerifyCode(bool result, ERRORMESSAGE em)
 
 		return startWrite(WEBSERVICEANSWER::result2unknown.data(), WEBSERVICEANSWER::result2unknown.size());
 
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+}
+
+
+//提交用户注册信息
+void WEBSERVICE::registration2()
+{
+	if (!hasLoginBack)
+		return startWrite(WEBSERVICEANSWER::result4.data(), WEBSERVICEANSWER::result4.size());
+
+	if(!hasVerifyRegister)
+		return startWrite(WEBSERVICEANSWER::result5.data(), WEBSERVICEANSWER::result5.size());
+
+	if(m_phone.empty())
+		return startWrite(WEBSERVICEANSWER::result5.data(), WEBSERVICEANSWER::result5.size());
+
+	if (m_httpresult.isBodyEmpty())
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	std::string_view bodyView{ m_httpresult.getBody() };
+	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::username, STATICSTRING::usernameLen, STATICSTRING::password, STATICSTRING::passwordLen))
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	//对于需要反复使用的场景，使用keyVec里面的string_view来存储参数解析结果
+	std::string_view& usernameView{ keyVec[0] };
+	usernameView = std::string_view(*(BodyBuffer), *(BodyBuffer + 1) - *(BodyBuffer));
+	std::string_view& passwordView{ keyVec[1] };
+	passwordView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
+
+	//判断是否是非法密码  至少8位长度  且包含数字大小写字母  且不能包含;字符
+	if (usernameView.empty() || std::find(usernameView.cbegin(), usernameView.cend(),';')!= usernameView.cend() || !REGEXFUNCTION::isVaildPassword(passwordView))
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
+
+
+	command.clear();
+	rowField.clear();
+	result.clear();
+	sqlNum.clear();
+
+	try
+	{
+		
+		command.emplace_back(SQLCOMMAND::insertUser1);
+		command.emplace_back(usernameView);
+		command.emplace_back(SQLCOMMAND::insertUser2);
+		command.emplace_back(passwordView);
+		command.emplace_back(SQLCOMMAND::insertUser3);
+		command.emplace_back(m_phone);
+		command.emplace_back(SQLCOMMAND::insertUser4);
+
+
+		//获取结果次数
+		std::get<1>(thisRequest) = 1;
+		//sql组成string_view个数
+		sqlNum.emplace_back(7);
+		std::get<5>(thisRequest) = std::bind(&WEBSERVICE::handleregistration21, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest(sqlRequest))
+			startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+	}
+}
+
+
+void WEBSERVICE::handleregistration21(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+		resultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<std::string_view>& resultvec{ std::get<4>(thisRequest).get() };
+		
+
+		if (resultvec.empty())
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+		//6  账号名冲突
+		if (resultvec[0]!="success")
+			return startWrite(WEBSERVICEANSWER::result6.data(), WEBSERVICEANSWER::result6.size());
+
+		
+		{   //对于需要反复使用的场景，使用keyVec里面的string_view来存储参数解析结果
+			std::string_view& usernameView{ keyVec[0] };
+			std::string_view& passwordView{ keyVec[1] };
+
+			std::string_view account{ "account" }, password{ "password" }, phone{ "phone" }, secForever{ "-1" }, one{"1"};
+
+			std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+			redisResultTypeSW& thisRequest{ *redisRequest };
+
+			std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+			std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+			std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+			std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+
+			command.clear();
+			commandSize.clear();
+			resultVec.clear();
+			resultNumVec.clear();
+			try
+			{
+				command.emplace_back(std::string_view(REDISNAMESPACE::hset, REDISNAMESPACE::hsetLen));
+				command.emplace_back(usernameView);
+				command.emplace_back(account);
+				command.emplace_back(usernameView);
+				command.emplace_back(password);
+				command.emplace_back(passwordView);
+				command.emplace_back(phone);
+				command.emplace_back(m_phone);
+				commandSize.emplace_back(8);
+				command.emplace_back(std::string_view(REDISNAMESPACE::set, REDISNAMESPACE::setLen));
+				command.emplace_back(phone);
+				command.emplace_back(one);
+				command.emplace_back(std::string_view(REDISNAMESPACE::ex, REDISNAMESPACE::exLen));
+				command.emplace_back(secForever);
+				commandSize.emplace_back(5);
+
+
+				std::get<1>(thisRequest) = 2;
+				std::get<3>(thisRequest) = 2;
+				std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handleregistration22, this, std::placeholders::_1, std::placeholders::_2);
+
+				if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+					startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+			}
+			catch (const std::exception& e)
+			{
+				startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+			}
+		}
+
+
+		return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+
+}
+
+
+
+void WEBSERVICE::handleregistration22(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	if (result)
+	{
+		//redis出现错误，将数据库信息
+		if (resultVec.size()!=2 || resultVec[0]!="success" || resultVec[1] != "success")
+		{
+
+
+			
+		}
+		
 	}
 	else
 	{

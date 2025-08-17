@@ -69,7 +69,7 @@ struct MULTISQLREADSW
 
 
 	//默认开启释放MYSQL_RES操作，需要多次查询mysql时可以置为false，复用结果
-	template<typename T= SQLFREE>
+	template<typename T = SQLFREE, typename CHECK = CHECKSQL>
 	bool insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlRequest);
 
 
@@ -273,7 +273,8 @@ private:
 
 
 //默认开启释放MYSQL_RES操作，需要多次查询mysql时将模板参数类型设置为类型即可，复用结果
-template<typename T>
+//CHECK为是否开启检查;符号
+template<typename T, typename CHECK>
 inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlRequest)
 {
 	if (!sqlRequest)
@@ -284,11 +285,25 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 
 	if (std::get<0>(thisRequest).get().empty() || std::get<6>(thisRequest).get().empty() ||
 		std::accumulate(std::get<6>(thisRequest).get().cbegin(), std::get<6>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size() ||
-		std::any_of(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), [](auto const sw)
-	{
-		return sw.empty() || std::find(sw.cbegin(), sw.cend(), ';') != sw.cend();
-	}) || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize)
+		 !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize)
 		return false;
+
+	if constexpr (std::is_same_v<CHECK, CHECKSQL>)
+	{
+		if (std::any_of(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), [](auto const sw)
+		{
+			return sw.empty() || std::find(sw.cbegin(), sw.cend(), ';') != sw.cend();
+		}))
+			return false;
+	}
+	else
+	{
+		if (std::any_of(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), [](auto const sw)
+		{
+			return sw.empty();
+		}))
+			return false;
+	}
 
 
 	if constexpr (std::is_same_v<T, SQLFREE>)

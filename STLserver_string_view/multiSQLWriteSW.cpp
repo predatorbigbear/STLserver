@@ -335,7 +335,7 @@ void MULTISQLWRITESW::readyMessage()
 	char *messageIter{};
 
 	//计算本次所需要的空间大小
-	int totalLen{}, everyLen{}, index{}, divisor{ 10 }, temp{}, thisStrLen{};
+	int totalLen{};
 
 	while (true)
 	{

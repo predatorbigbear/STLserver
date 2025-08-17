@@ -640,7 +640,7 @@ void HTTPSSERVICE::handleMultiSqlReadSW(bool result, ERRORMESSAGE em)
 			{
 				std::vector<std::string_view>::const_iterator resultBegin{ result.cbegin() };
 				std::vector<unsigned int>::const_iterator begin{ rowField.cbegin() }, end{ rowField.cend() }, iter{ begin };
-				int rowNum{}, fieldNum{}, rowCount{}, fieldCount{}, index{ -1 };
+				int rowNum{}, rowCount{}, fieldNum{}, index{ -1 };
 
 
 				if (!st1.clear())
@@ -864,7 +864,6 @@ void HTTPSSERVICE::handlemultiSqlReadUpdateSW(bool result, ERRORMESSAGE em)
 		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
 		std::vector<unsigned int>::const_iterator rowFieldIter;
-		int sum{};
 
 		STLtreeFast& st1{ m_STLtreeFastVec[0] }, & st2{ m_STLtreeFastVec[1] }, & st3{ m_STLtreeFastVec[2] }, & st4{ m_STLtreeFastVec[3] };
 
@@ -1302,8 +1301,7 @@ void HTTPSSERVICE::testInsertHttpHeader()
 
 
 	static unsigned int dateLen{ 34 };
-	char* sendBuffer{};
-	unsigned int sendLen{};
+
 
 	static std::function<void(char*&)>timeStampFun{ [this](char*& bufferBegin)
 	{
@@ -1499,13 +1497,10 @@ void HTTPSSERVICE::testMakeJson()
 	static const char* key1Str{ "key1" }, * value1Str{ "value1" }, * key2Str{ "key2" }, * value2Str{ "value2" }, * value3Str{ "value3" }, * key3Str{ "key3" }, * nullStr{ "null" };
 
 	static int key1StrLen{ strlen(key1Str) }, key2StrLen{ strlen(key2Str) }, key3StrLen{ strlen(key3Str) }, value1StrLen{ strlen(value1Str) }, value2StrLen{ strlen(value2Str) },
-		value3StrLen{ strlen(value3Str) }, nullStrLen{ strlen(nullStr) };
+		value3StrLen{ strlen(value3Str) };
 
 	bool success{ false }, innerSuccess{ false };
 
-	char* newbuffer{};
-
-	int needLen{};
 
 	do
 	{
@@ -2448,9 +2443,8 @@ int HTTPSSERVICE::parseHttp(const char* source, const int size)
 
 
 	///////////////////////////////////////////////////////////////////////////////////////
-	int len{}, num{}, index{}, sum{};                   //累计body长度
-	const char** headerPos{ m_httpHeaderMap.get() };
-	char* newBuffer{}, * newBufferBegin{}, * newBufferEnd{}, * newBufferIter{};
+	int len{}, num{}, index{};                   //累计body长度
+	char* newBuffer{}, * newBufferIter{};
 	bool isDoubleQuotation{};   //判断boundaryWord首字符是否是\"
 
 	const char* iterFindBegin{ source }, * iterFindEnd{ source + size }, * iterFinalEnd{ m_readBuffer + m_maxReadLen }, * iterFindThisEnd{};

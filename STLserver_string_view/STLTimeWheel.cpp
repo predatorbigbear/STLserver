@@ -20,8 +20,6 @@ STLTimeWheel::STLTimeWheel(const std::shared_ptr<boost::asio::io_context> &ioc, 
 			throw std::runtime_error("everySecondFunctionNumber is invaild");
 		m_timer.reset(new boost::asio::steady_timer(*ioc));
 
-		int totalFunctionNumber{ m_wheelNum * m_everySecondFunctionNumber };
-
 
 		//初始化装载存储轮盘信息的数组
 
@@ -65,7 +63,7 @@ STLTimeWheel::STLTimeWheel(const std::shared_ptr<boost::asio::io_context> &ioc, 
 void STLTimeWheel::start()
 {
 	//插入函数永远不能插入当前轮盘内的回调函数格子，则这里处理过程可以不进行加锁处理
-	std::function<void()> *begin{ }, *end{ }, *iter{ };
+	std::function<void()> *begin{ }, *end{ };
 
 	struct WheelInformation &refWheelInfo{ *m_WheelInfoIter };
 

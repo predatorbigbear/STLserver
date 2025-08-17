@@ -25,3 +25,10 @@ struct REALVERIFYCODE
 {
 
 };
+
+
+//mysql插入是否检查;
+struct CHECKSQL
+{
+
+};

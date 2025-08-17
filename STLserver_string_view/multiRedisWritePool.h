@@ -1,13 +1,16 @@
-#pragma once
+﻿#pragma once
 
 
+#include "logPool.h"
 #include "multiRedisWrite.h"
 #include "IOcontextPool.h"
 
 
 struct MULTIREDISWRITEPOOL
 {
-	MULTIREDISWRITEPOOL(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<std::function<void()>>unlockFun, const std::string &redisIP, const unsigned int redisPort,
+	MULTIREDISWRITEPOOL(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<LOGPOOL> logPool, std::shared_ptr<std::function<void()>>unlockFun,
+		std::shared_ptr<STLTimeWheel> timeWheel,
+		const std::string& redisIP, const unsigned int redisPort,
 		const unsigned int bufferNum,
 		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
 
@@ -17,7 +20,9 @@ struct MULTIREDISWRITEPOOL
 private:
 	std::shared_ptr<std::function<void()>>m_unlockFun{};
 	std::shared_ptr<std::function<void()>>m_innerUnLock{};
+	std::shared_ptr<STLTimeWheel> m_timeWheel{};
 
+	std::shared_ptr<LOGPOOL> m_logPool{};
 
 	std::shared_ptr<IOcontextPool> m_ioPool{};
 	std::mutex m_redisMutex;

@@ -16,6 +16,8 @@
 #include<filesystem>
 #include<string_view>
 #include<atomic>
+#include<vector>
+
 
 // 日志模块采取直接写入缓存部分的方式以提高性能
 // 异步log通过在一块超大缓冲区内反复写入实现
@@ -111,6 +113,8 @@ private:
 	ASYNCLOG& operator<<(const char* log);
 
 	ASYNCLOG& operator<<(const std::string& log);
+
+	ASYNCLOG& operator<<(const std::vector<std::string>& log);
 
 	ASYNCLOG& operator<<(const int num);
 

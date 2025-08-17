@@ -89,7 +89,9 @@ private:
 	bool hasVerifyRegister{ false };          //是否成功在用户注册验证了手机号
 
 	std::string m_IP{};                  //本次连接IP地址
+	std::string m_phone{};               //用户注册手机号
 	unsigned int m_port{};               //本次连接端口
+
 
 	const unsigned int m_serviceNum{};
 
@@ -645,7 +647,14 @@ private:
 	void handlecheckVerifyCode(bool result, ERRORMESSAGE em);
 
 
+	//提交用户注册信息
+	void registration2();
 
+
+	void handleregistration21(bool result, ERRORMESSAGE em);
+
+
+	void handleregistration22(bool result, ERRORMESSAGE em);
 
 
 

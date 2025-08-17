@@ -237,7 +237,361 @@ namespace REGEXFUNCTION
 	}
 
 
+	//因为需要插入mysql中，所以对;进行检查
+	static bool isVaildPassword(const std::string_view password)
+	{
+		if (password.size() < 8)
+			return false;
 
+		std::string_view::const_iterator iter{ password.cbegin()}, iter1{}, iter2{};
+
+		do
+		{
+			switch (*iter)
+			{
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
+				do
+				{
+					iter1 = std::find_if_not(iter + 1, password.cend(), std::bind(isdigit, std::placeholders::_1));
+
+					if (iter1 == password.cend())
+						return false;
+
+					switch (*iter1)
+					{
+					case 'a':
+					case 'b':
+					case 'c':
+					case 'd':
+					case 'e':
+					case 'f':
+					case 'g':
+					case 'h':
+					case 'i':
+					case 'j':
+					case 'k':
+					case 'l':
+					case 'm':
+					case 'n':
+					case 'o':
+					case 'p':
+					case 'q':
+					case 'r':
+					case 's':
+					case 't':
+					case 'u':
+					case 'v':
+					case 'w':
+					case 'x':
+					case 'y':
+					case 'z':
+						iter2 = std::find_if(iter1 + 1, password.cend(),
+							std::bind(std::logical_or<bool>(), std::bind(isupper, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+						if (iter2 == password.cend())
+							return false;
+
+						if (*iter2 == ';')
+							return false;
+						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
+							return false;
+
+
+						return true;
+						break;
+					case 'A':
+					case 'B':
+					case 'C':
+					case 'D':
+					case 'E':
+					case 'F':
+					case 'G':
+					case 'H':
+					case 'I':
+					case 'J':
+					case 'K':
+					case 'L':
+					case 'M':
+					case 'N':
+					case 'O':
+					case 'P':
+					case 'Q':
+					case 'R':
+					case 'S':
+					case 'T':
+					case 'U':
+					case 'V':
+					case 'W':
+					case 'X':
+					case 'Y':
+					case 'Z':
+						iter2 = std::find_if(iter1 + 1, password.cend(),
+							std::bind(std::logical_or<bool>(), std::bind(islower, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+						if (iter2 == password.cend())
+							return false;
+
+						if (*iter2 == ';')
+							return false;
+						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
+							return false;
+
+
+						return true;
+
+						break;
+					case ';':
+						return false;
+						break;
+
+					default:
+						++iter1;
+						break;
+					}
+				} while (iter1 != password.cend());
+				return false;
+				break;
+
+           //////////////////////////////
+			case 'a':
+			case 'b':
+			case 'c':
+			case 'd':
+			case 'e':
+			case 'f':
+			case 'g':
+			case 'h':
+			case 'i':
+			case 'j':
+			case 'k':
+			case 'l':
+			case 'm':
+			case 'n':
+			case 'o':
+			case 'p':
+			case 'q':
+			case 'r':
+			case 's':
+			case 't':
+			case 'u':
+			case 'v':
+			case 'w':
+			case 'x':
+			case 'y':
+			case 'z':
+				do
+				{
+					iter1 = std::find_if_not(iter + 1, password.cend(), std::bind(islower, std::placeholders::_1));
+
+					if (iter1 == password.cend())
+						return false;
+
+					switch (*iter1)
+					{
+					case '0':
+					case '1':
+					case '2':
+					case '3':
+					case '4':
+					case '5':
+					case '6':
+					case '7':
+					case '8':
+					case '9':
+						iter2 = std::find_if(iter1 + 1, password.cend(),
+							std::bind(std::logical_or<bool>(), std::bind(isupper, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+						if (iter2 == password.cend())
+							return false;
+
+						if (*iter2 == ';')
+							return false;
+						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
+							return false;
+
+						return true;
+						break;
+					case 'A':
+					case 'B':
+					case 'C':
+					case 'D':
+					case 'E':
+					case 'F':
+					case 'G':
+					case 'H':
+					case 'I':
+					case 'J':
+					case 'K':
+					case 'L':
+					case 'M':
+					case 'N':
+					case 'O':
+					case 'P':
+					case 'Q':
+					case 'R':
+					case 'S':
+					case 'T':
+					case 'U':
+					case 'V':
+					case 'W':
+					case 'X':
+					case 'Y':
+					case 'Z':
+						iter2 = std::find_if(iter1 + 1, password.cend(),
+							std::bind(std::logical_or<bool>(), std::bind(isdigit, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+						if (iter2 == password.cend())
+							return false;
+
+						if (*iter2 == ';')
+							return false;
+						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
+							return false;
+
+						return true;
+
+						break;
+					case ';':
+						return false;
+						break;
+
+					default:
+						iter = iter1 + 1;
+						continue;
+						break;
+					}
+				} while (iter1 != password.cend());
+				return false;
+				break;
+
+
+			/////////////////////////////////////
+			case 'A':
+			case 'B':
+			case 'C':
+			case 'D':
+			case 'E':
+			case 'F':
+			case 'G':
+			case 'H':
+			case 'I':
+			case 'J':
+			case 'K':
+			case 'L':
+			case 'M':
+			case 'N':
+			case 'O':
+			case 'P':
+			case 'Q':
+			case 'R':
+			case 'S':
+			case 'T':
+			case 'U':
+			case 'V':
+			case 'W':
+			case 'X':
+			case 'Y':
+			case 'Z':
+				do
+				{
+					iter1 = std::find_if_not(iter + 1, password.cend(), std::bind(isupper, std::placeholders::_1));
+
+					if (iter1 == password.cend())
+						return false;
+
+					switch (*iter1)
+					{
+					case '0':
+					case '1':
+					case '2':
+					case '3':
+					case '4':
+					case '5':
+					case '6':
+					case '7':
+					case '8':
+					case '9':
+						iter2 = std::find_if(iter1 + 1, password.cend(),
+							std::bind(std::logical_or<bool>(), std::bind(islower, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+						if (iter2 == password.cend())
+							return false;
+
+						if (*iter2 == ';')
+							return false;
+						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
+							return false;
+
+						return true;
+						break;
+					case 'a':
+					case 'b':
+					case 'c':
+					case 'd':
+					case 'e':
+					case 'f':
+					case 'g':
+					case 'h':
+					case 'i':
+					case 'j':
+					case 'k':
+					case 'l':
+					case 'm':
+					case 'n':
+					case 'o':
+					case 'p':
+					case 'q':
+					case 'r':
+					case 's':
+					case 't':
+					case 'u':
+					case 'v':
+					case 'w':
+					case 'x':
+					case 'y':
+					case 'z':
+						iter2 = std::find_if(iter1 + 1, password.cend(),
+							std::bind(std::logical_or<bool>(), std::bind(isdigit, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+						if (iter2 == password.cend())
+							return false;
+
+						if (*iter2 == ';')
+							return false;
+						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
+							return false;
+
+						return true;
+
+						break;
+					case ';':
+						return false;
+						break;
+
+					default:
+						++iter1;
+						break;
+					}
+				} while (iter1 != password.cend());
+				return false;
+				break;
+
+			case ';':
+				return false;
+				break;
+
+			default:
+				++iter;
+				break;
+			}
+		}while (iter != password.cend());
+
+
+		return false;
+	}
 
 
 

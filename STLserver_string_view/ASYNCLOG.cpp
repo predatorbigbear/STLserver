@@ -262,6 +262,18 @@ ASYNCLOG& ASYNCLOG::operator<<(const std::string& log)
 }
 
 
+
+ASYNCLOG& ASYNCLOG::operator<<(const std::vector<std::string>& log)
+{
+	// TODO: 在此处插入 return 语句
+	if(log.empty())
+		return *this;
+	for (auto& str : log)
+		this->operator<<(str);
+	return *this;
+}
+
+
 ASYNCLOG& ASYNCLOG::operator<<(const int  num)
 {
 	// TODO: 在此处插入 return 语句

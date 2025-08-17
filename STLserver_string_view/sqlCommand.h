@@ -1,6 +1,8 @@
 ﻿#pragma once
 
 
+#include<string_view>
+
 
 namespace SQLCOMMAND
 {
@@ -53,8 +55,10 @@ namespace SQLCOMMAND
 
 
 
-
-
+	static const std::string_view insertUser1{ "insert into user(account,password,phone) value('" };
+	static const std::string_view insertUser2{ "','" };
+	static const std::string_view insertUser3{ "','" };
+	static const std::string_view insertUser4{ "')" };
 
 
 

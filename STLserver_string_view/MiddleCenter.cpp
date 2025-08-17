@@ -387,7 +387,9 @@ void MiddleCenter::setMultiRedisWrite(const std::shared_ptr<IOcontextPool> &ioPo
 			m_mutex.unlock();
 			return;
 		}
-		m_multiRedisWritePoolMaster.reset(new MULTIREDISWRITEPOOL(ioPool, m_unlockFun, redisIP, redisPort, bufferNum, memorySize, outRangeMaxSize, commandSize));
+		m_multiRedisWritePoolMaster.reset(new MULTIREDISWRITEPOOL(ioPool, m_logPool, m_unlockFun,
+			m_timeWheel,
+			redisIP, redisPort, bufferNum, memorySize, outRangeMaxSize, commandSize));
 		success = true;
 	}
 	catch (const std::exception& e)

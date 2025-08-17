@@ -96,6 +96,12 @@ private:
 
 	std::shared_ptr<std::pair<std::string, bool>> m_message{};
 
+	bool m_isRealCode{};
+
+	bool m_reConnect{false};
+
+	boost::system::error_code ec;
+
 private:
 
 	void resetResolver();
@@ -129,7 +135,7 @@ private:
 	void handshake();
 
 
-	void sendVerifyCode(const std::string& request);
+	void sendVerifyCode(const std::string& request, bool isRealCode);
 
 
 	void sendFirstVerifyCode();
@@ -152,6 +158,26 @@ private:
 
 
 	void resetQueryStatus();
+
+
+	void resetReConnect();
+
+
+	////////////////////////////////
+
+	void sslShutdown();
+
+
+	void shutdownLoop();
+
+
+	void cancelLoop();
+
+
+	void closeLoop();
+
+
+	void tryConnect();
 };
 
 
@@ -176,11 +202,11 @@ inline bool VERIFYCODE::insertVerifyCode(const char* verifyCode, const unsigned 
 		{
 			makeVerifyCode(verifyCode, verifyCode + verifyCodeLen, phone.cbegin(), phone.cend());
 
-			sendVerifyCode(m_realCode);
+			sendVerifyCode(m_realCode, true);
 		}
 		else
 		{
-			sendVerifyCode(m_forgedCode);
+			sendVerifyCode(m_forgedCode, false);
 		}
 
 		return true;

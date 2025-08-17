@@ -1692,7 +1692,7 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 				return false;
 
 
-			unsigned int i{}, pos{ m_pos };
+			unsigned int pos{ m_pos };
 			char* iterEnd{ newResultPtr + needFrontLen }, * iterBegin{ newResultPtr + needFrontLen };
 
 			const char** begin{ m_ptr }, ** end{ m_ptr + pos };
@@ -1828,7 +1828,7 @@ template<typename T = void, typename HTTPFLAG = void, typename HTTPFUNCTION = vo
 				return false;
 
 
-			unsigned int i{}, pos{ m_pos };
+			unsigned int pos{ m_pos };
 			unsigned char uchar{};
 			char* iterEnd{ newResultPtr + needFrontLen }, * iterBegin{ newResultPtr + needFrontLen };
 

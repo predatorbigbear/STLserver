@@ -1,12 +1,21 @@
-#include "multiRedisWrite.h"
+ï»¿#include "multiRedisWrite.h"
 
-MULTIREDISWRITE::MULTIREDISWRITE(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>> unlockFun, const std::string & redisIP, 
-	const unsigned int redisPort, const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize)
-	:m_redisIP(redisIP), m_redisPort(redisPort), m_ioc(ioc), m_unlockFun(unlockFun), m_receiveBufferMaxSize(memorySize), m_outRangeMaxSize(outRangeMaxSize),
-	m_commandMaxSize(commandSize)
+MULTIREDISWRITE::MULTIREDISWRITE(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log,
+	std::shared_ptr<std::function<void()>> unlockFun,
+	std::shared_ptr<STLTimeWheel> timeWheel,
+	const std::string& redisIP, const unsigned int redisPort,
+	const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize)
+	:m_redisIP(redisIP), m_redisPort(redisPort), m_ioc(ioc), m_unlockFun(unlockFun), m_receiveBufferMaxSize(memorySize),
+	m_outRangeMaxSize(outRangeMaxSize),
+	m_commandMaxSize(commandSize), m_log(log), m_timeWheel(timeWheel), m_messageList(commandSize * 4)
+
 {
 	if (!ioc)
 		throw std::runtime_error("io_context is nullptr");
+	if (!log)
+		throw std::runtime_error("log is nullptr");
+	if (!timeWheel)
+		throw std::runtime_error("timeWheel is nullptr");
 	if (!unlockFun)
 		throw std::runtime_error("unlockFun is nullptr");
 	if (!REGEXFUNCTION::isVaildIpv4(redisIP))
@@ -24,55 +33,77 @@ MULTIREDISWRITE::MULTIREDISWRITE(std::shared_ptr<boost::asio::io_context> ioc, s
 	if (!commandSize)
 		throw std::runtime_error("commandSize is invaild");
 
-	m_timer.reset(new boost::asio::steady_timer(*m_ioc));
 	m_receiveBuffer.reset(new char[memorySize]);
 
 
 	m_outRangeBuffer.reset(new char[m_outRangeMaxSize]);
 
+	
 
-	m_waitMessageList.reset(new std::shared_ptr<redisWriteTypeSW>[m_commandMaxSize]);
+	m_waitMessageList.reset(new std::shared_ptr<redisMessageListTypeSW>[m_commandMaxSize]);
 	m_waitMessageListMaxSize = m_commandMaxSize;
-
-	m_charMemoryPool.reset();
 
 	firstConnect();
 }
 
 
+/*
+	æ‰§è¡Œå‘½ä»¤string_viewé›†
+	æ‰§è¡Œå‘½ä»¤ä¸ªæ•°
+	æ¯æ¡å‘½ä»¤çš„è¯è¯­ä¸ªæ•°ï¼ˆæ–¹ä¾¿æ ¹æ®redis RESPè¿›è¡Œæ‹¼æ¥ï¼‰
+	è·å–ç»“æœæ¬¡æ•°  ï¼ˆå› ä¸ºæ¯”å¦‚ä¸€äº›äº‹åŠ¡æ“ä½œå¯èƒ½ä¸ä¸€å®šæœ‰ç»“æœè¿”å›ï¼‰
+
+	è¿”å›ç»“æœstring_view
+	æ¯ä¸ªç»“æœçš„è¯è¯­ä¸ªæ•°
+
+	å›è°ƒå‡½æ•°
+	*/
+
+	//æ’å…¥è¯·æ±‚ï¼Œé¦–å…ˆåˆ¤æ–­æ˜¯å¦è¿æ¥redisæœåŠ¡å™¨æˆåŠŸï¼Œ
+	//å¦‚æœæ²¡æœ‰è¿æ¥ï¼Œæ’å…¥ç›´æ¥è¿”å›é”™è¯¯
+	//è¿æ¥æˆåŠŸçš„æƒ…å†µä¸‹ï¼Œæ£€æŸ¥è¯·æ±‚æ˜¯å¦ç¬¦åˆè¦æ±‚
+
+	//å…ˆè¿›è¡Œæ’å…¥åˆ°m_waitMessageListä¸­
+	//å¦‚æœæ²¡æœ‰æ­£åœ¨è¿›è¡Œçš„è¯·æ±‚åˆ™ç›´æ¥å‘èµ·è¯·æ±‚ï¼Œå¦åˆ™æ’å…¥åˆ°å¾…å¤„ç†é˜Ÿåˆ—ä¸­ï¼Œç¨åè¿›è¡Œæµæ°´çº¿å‘½ä»¤å°è£…å‘å°„
 
 
-bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redisRequest)
+	//   using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
+	//     std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
+	//     std::function<void(bool, enum ERRORMESSAGE) >> ;
+
+bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redisRequest)
 {
-	if (!redisRequest || std::get<0>(*redisRequest).get().empty() || !std::get<1>(*redisRequest) || std::get<1>(*redisRequest) > m_commandMaxSize
-		|| std::get<1>(*redisRequest) != std::get<2>(*redisRequest).get().size() ||
-		std::accumulate(std::get<2>(*redisRequest).get().cbegin(), std::get<2>(*redisRequest).get().cend(), 0) != std::get<0>(*redisRequest).get().size()
-		)
-	{
+	if (!redisRequest)
 		return false;
-	}
 
-	m_mutex.lock();
-	if (!m_connect)
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize
+		|| !std::get<3>(thisRequest) || std::get<1>(thisRequest) != std::get<2>(thisRequest).get().size() ||
+		std::accumulate(std::get<2>(thisRequest).get().cbegin(), std::get<2>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size()
+		)
+		return false;
+
+	if (!m_connect.load())
 	{
-		m_mutex.unlock();
 		return false;
 	}
-	if (!m_queryStatus)
+	if (!m_queryStatus.load())
 	{
-		m_queryStatus = true;
-		m_mutex.unlock();
+		m_queryStatus.store(true);
+
 
 		//////////////////////////////////////////////////////////////////////
 
-		std::vector<std::string_view> &sourceVec{ std::get<0>(*redisRequest).get() };
-		std::vector<unsigned int> &lenVec{ std::get<2>(*redisRequest).get() };
+		std::vector<std::string_view>& sourceVec = std::get<0>(thisRequest).get();
+		std::vector<unsigned int>& lenVec = std::get<2>(thisRequest).get();
+		unsigned int thisCommandSize{ std::get<1>(thisRequest) };
 		std::vector<std::string_view>::const_iterator souceBegin{ sourceVec.cbegin() }, souceEnd{ sourceVec.cend() };
 		std::vector<unsigned int>::const_iterator lenBegin{ lenVec.cbegin() }, lenEnd{ lenVec.cend() };
-		char *messageIter{};
+		char* messageIter{};
 
-		//¼ÆËã±¾´ÎËùĞèÒªµÄ¿Õ¼ä´óĞ¡
-		int totalLen{}, everyLen{}, index{}, divisor{ 10 }, temp{}, thisStrLen{};
+		//è®¡ç®—æœ¬æ¬¡æ‰€éœ€è¦çš„ç©ºé—´å¤§å°
+		static const int divisor{ 10 };
+		int totalLen{}, everyLen{}, index{}, temp{}, thisStrLen{};
 		do
 		{
 			everyLen = *lenBegin;
@@ -98,10 +129,6 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 			}
 		} while (++lenBegin != lenEnd);
 
-
-
-		////////////////////////////////////////////
-
 		if (totalLen > m_messageBufferMaxSize)
 		{
 			try
@@ -109,12 +136,11 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 				m_messageBuffer.reset(new char[totalLen]);
 				m_messageBufferMaxSize = totalLen;
 			}
-			catch (const std::exception &e)
+			catch (const std::exception& e)
 			{
 				m_messageBufferMaxSize = 0;
-				m_mutex.lock();
-				m_queryStatus = false;
-				m_mutex.unlock();
+				m_queryStatus.store(false);
+
 				return false;
 			}
 		}
@@ -122,15 +148,44 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 		m_messageBufferNowSize = totalLen;
 
 
-		//copyÉú³Éµ½·¢ËÍ×Ö·û´®bufferÖĞ
+		///////////////////////////////////////////
+
+		if (m_logMessageSize < thisCommandSize)
+		{
+			try
+			{
+				m_logMessage.reset(new std::string_view[thisCommandSize]);
+				m_logMessageSize = thisCommandSize;
+			}
+			catch (const std::exception& e)
+			{
+				m_logMessageSize = 0;
+				m_queryStatus.store(false);
+
+				return false;
+			}
+		}
+
+		m_logMessageIter = m_logMessage.get();
+
+
+
+		//////////////////////////////////////////////
+
+
+		//copyç”Ÿæˆåˆ°å‘é€å­—ç¬¦ä¸²bufferä¸­
 
 		souceBegin = sourceVec.cbegin(), lenBegin = lenVec.cbegin();
 
 		messageIter = m_messageBuffer.get();
 
+		//æ¯æ¡æ¶ˆæ¯é¦–å°¾ä½ç½®
+		const char* lMBegin{}, * LMEnd{};
 
 		do
 		{
+			lMBegin = messageIter;
+
 			everyLen = *lenBegin;
 			if (everyLen)
 			{
@@ -196,9 +251,13 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 					++souceBegin;
 				}
 			}
+
+			LMEnd = messageIter;
+			*m_logMessageIter++ = std::string_view(lMBegin, std::distance(lMBegin, LMEnd));
+
 		} while (++lenBegin != lenEnd);
 
-		
+
 		m_sendMessage = m_messageBuffer.get(), m_sendLen = m_messageBufferNowSize;
 
 		///////////////////////////////////////////////////////////
@@ -206,7 +265,14 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 
 		m_waitMessageListBegin = m_waitMessageList.get();
 
-		*m_waitMessageListBegin++ = redisRequest;
+
+		*m_waitMessageListBegin++ = std::make_shared<redisMessageListTypeSW>(
+			std::vector<std::string>{ std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend()},
+			std::get<1>(thisRequest),
+			std::get<2>(thisRequest).get(),
+			std::get<3>(thisRequest),
+			std::ref(tempVec1), std::ref(tempVec2),
+			std::bind(&MULTIREDISWRITE::logCallBack, this, std::placeholders::_1, std::placeholders::_2), nullptr);
 
 		m_waitMessageListEnd = m_waitMessageListBegin;
 
@@ -214,11 +280,11 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 
 		m_jumpNode = false;
 
-		m_commandTotalSize = std::get<1>(*redisRequest);
+		m_commandTotalSize = std::get<1>(thisRequest);
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
-		//½øÈë·¢ËÍº¯Êı
+		//è¿›å…¥å‘é€å‡½æ•°
 
 		query();
 
@@ -226,51 +292,18 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisWriteTypeSW> redis
 	}
 	else
 	{
-		m_mutex.unlock();
 
-		std::vector<std::string_view> &sourceVec{ std::get<0>(*redisRequest).get() };
-		std::vector<std::string_view>::iterator souceBegin{ sourceVec.begin() }, souceEnd{ sourceVec.end() };
-
-		unsigned int bufferLen{ std::accumulate(souceBegin,souceEnd,0,[](auto &sum,auto const sw)
-		{
-			return sum += sw.size();
-		}) };
-
-		if (bufferLen)
-		{
-			char *buffer{ m_charMemoryPool.getMemory<char*>(bufferLen) };
-
-			if (!buffer)
-				return false;
-
-			while (souceBegin != souceEnd)
-			{
-				if (!souceBegin->empty())
-				{
-					std::copy(souceBegin->cbegin(), souceBegin->cend(), buffer);
-					std::string_view sw(buffer, souceBegin->size());
-					souceBegin->swap(sw);
-					buffer += souceBegin->size();
-					++souceBegin;
-				}
-			}
-		}
-
-		m_messageList.lock();
-
-		if (!m_messageList.unsafeInsert(redisRequest))
-		{
-			m_messageList.unlock();
+		if (!m_messageList.try_enqueue(std::make_shared<redisMessageListTypeSW>(
+			std::vector<std::string>{ std::get<0>(thisRequest).get().cbegin(),std::get<0>(thisRequest).get().cend()}, 
+			std::get<1>(thisRequest),
+			std::get<2>(thisRequest).get(), 
+			std::get<3>(thisRequest),
+			std::ref(tempVec1), std::ref(tempVec2), nullptr, nullptr)))
 			return false;
-		}
-
-		m_messageList.unlock();
 
 		return true;
 	}
 }
-
-
 
 
 
@@ -282,11 +315,11 @@ bool MULTIREDISWRITE::readyEndPoint()
 		m_endPoint.reset(new boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address(m_redisIP), m_redisPort));
 		return true;
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		return false;
 	}
-	catch (const boost::system::system_error &err)
+	catch (const boost::system::system_error& err)
 	{
 		return false;
 	}
@@ -301,11 +334,11 @@ bool MULTIREDISWRITE::readySocket()
 		m_sock.reset(new boost::asio::ip::tcp::socket(*m_ioc));
 		return true;
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		return false;
 	}
-	catch (const boost::system::system_error &err)
+	catch (const boost::system::system_error& err)
 	{
 		return false;
 	}
@@ -313,30 +346,23 @@ bool MULTIREDISWRITE::readySocket()
 
 
 
-
 void MULTIREDISWRITE::firstConnect()
 {
-	m_sock->async_connect(*m_endPoint, [this](const boost::system::error_code &err)
+	m_sock->async_connect(*m_endPoint, [this](const boost::system::error_code& err)
 	{
 		if (err)
 		{
-			std::cout << err.value() << "  " << err.message() << '\n';
-			m_timer->expires_after(std::chrono::seconds(1));
-			m_timer->async_wait([this](const boost::system::error_code &err)
-			{
-				if (err)
-				{
-					//tryResetTimer();
-				}
-				else
-				{
-					firstConnect();
-				}
-			});
+			m_connectStatus = 1;
+
+			ec = {};
+			m_sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+
+			static std::function<void()>socketTimeOut{ [this]() {shutdownLoop(); } };
+			m_timeWheel->insert(socketTimeOut, 5);
 		}
 		else
 		{
-			std::cout << "connect multi RedisWrite success\n";
+			std::cout << "connect multi RedisRead success\n";
 			setConnectSuccess();
 			(*m_unlockFun)();
 		}
@@ -345,11 +371,33 @@ void MULTIREDISWRITE::firstConnect()
 
 
 
+void MULTIREDISWRITE::reconnect()
+{
+	m_sock->async_connect(*m_endPoint, [this](const boost::system::error_code& err)
+	{
+		if (err)
+		{
+			m_connectStatus = 2;
+
+			ec = {};
+			m_sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+
+			static std::function<void()>socketTimeOut{ [this]() {shutdownLoop(); } };
+			m_timeWheel->insert(socketTimeOut, 5);
+		}
+		else
+		{
+			query();
+		}
+	});
+}
+
+
+
+
 void MULTIREDISWRITE::setConnectSuccess()
 {
-	m_mutex.lock();
-	m_connect = true;
-	m_mutex.unlock();
+	m_connect.store(true);
 }
 
 
@@ -357,9 +405,7 @@ void MULTIREDISWRITE::setConnectSuccess()
 
 void MULTIREDISWRITE::setConnectFail()
 {
-	m_mutex.lock();
-	m_connect = false;
-	m_mutex.unlock();
+	m_connect.store(false);
 }
 
 
@@ -367,11 +413,19 @@ void MULTIREDISWRITE::setConnectFail()
 
 void MULTIREDISWRITE::query()
 {
-	boost::asio::async_write(*m_sock, boost::asio::buffer(m_sendMessage, m_sendLen), [this](const boost::system::error_code &err, const std::size_t size)
+
+	boost::asio::async_write(*m_sock, boost::asio::buffer(m_sendMessage, m_sendLen), [this](const boost::system::error_code& err, const std::size_t size)
 	{
 		if (err)  //log
 		{
+			m_log->writeLog(__FUNCTION__, __LINE__, err.what());
+			m_connectStatus = 2;
 
+			ec = {};
+			m_sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+
+			static std::function<void()>socketTimeOut{ [this]() {shutdownLoop(); } };
+			m_timeWheel->insert(socketTimeOut, 5);
 		}
 		else
 		{
@@ -382,7 +436,7 @@ void MULTIREDISWRITE::query()
 
 
 
-
+//æ¥æ”¶æˆåŠŸçš„è¯è¿›å…¥å¤„ç†å‡½æ•°
 void MULTIREDISWRITE::receive()
 {
 	if (m_receiveBufferNowSize == m_receiveBufferMaxSize)
@@ -396,11 +450,13 @@ void MULTIREDISWRITE::receive()
 		m_thisReceivePos = m_receiveBufferNowSize;
 		m_thisReceiveLen = m_receiveBufferMaxSize - m_receiveBufferNowSize;
 	}
-	m_sock->async_read_some(boost::asio::buffer(m_receiveBuffer.get() + m_thisReceivePos, m_thisReceiveLen), [this](const boost::system::error_code &err, const std::size_t size)
+	m_sock->async_read_some(boost::asio::buffer(m_receiveBuffer.get() + m_thisReceivePos, m_thisReceiveLen), [this](const boost::system::error_code& err, const std::size_t size)
 	{
+
 		handlelRead(err, size);
 	});
 }
+
 
 
 
@@ -411,27 +467,2697 @@ void MULTIREDISWRITE::resetReceiveBuffer()
 
 
 
-void MULTIREDISWRITE::handlelRead(const boost::system::error_code & err, const std::size_t size)
+//æœ€åè¿”å›ç»“æœå¤„ç†çš„æ—¶å€™ï¼Œåˆ¤æ–­å½“å‰èŠ‚ç‚¹è¯·æ±‚æ€»æ•°ï¼Œå¦‚æœæ˜¯å•ä¸ªè¯·æ±‚çš„è¯ï¼Œé‚£ä¹ˆå¯ä»¥ç»†è‡´åŒºåˆ†è¿”å›å…·ä½“ä¿¡æ¯
+//åä¹‹åº”è¯¥è¿”å›ä¸€ä¸ªè”åˆæŸ¥è¯¢æˆåŠŸæ ‡å¿—
+
+//é¦–å…ˆåˆ¤æ–­m_jumpNodeçŠ¶æ€ï¼Œå¦‚æœå¤„äºm_jumpNodeçŠ¶æ€ï¼Œé‚£ä¹ˆè·å–éœ€è¦è·³è¿‡çš„ç»“æœæ•°ï¼Œå¼€å§‹ç´¯ç§¯è·³è¿‡
+//å¦‚æœm_jumpNodeçŠ¶æ€ä¸ºæ­£å¸¸çš„è¯ï¼Œé‚£ä¹ˆè·å–æœ¬èŠ‚ç‚¹çš„å‘½ä»¤æ•°ï¼Œå·²æ”¶é›†å‘½ä»¤æ•°ï¼Œå‘½ä»¤æ•°ä¸ºèŠ‚ç‚¹ç¬¬äºŒä½ï¼Œæ”¶é›†åˆ°æ»¡è¶³æ¬¡æ•°ä¹‹åè¿”å›
+//å¯¹äºæ•°ç»„ï¼Œé¦–å…ˆå­˜å‚¨åˆ°ä¸´æ—¶bufferä¸­ï¼Œè·å–å®Œæ¯•åï¼Œä¸€æ¬¡æ€§å­˜å‚¨åˆ°èŠ‚ç‚¹vectorç»“æœé›†ä¸­ï¼Œ
+//ç»“æŸä¹‹ååˆ¤æ–­æ˜¯å¦èµ°åˆ°endèŠ‚ç‚¹ï¼Œæ˜¯çš„è¯è·å–å®Œæ¯•ï¼Œè¿”å›true
+
+//è§£æå‡½æ•°
+//PSï¼šæ‰€æœ‰returnçš„åœ°æ–¹è°ƒç”¨ä¹‹å‰éœ€è¦å°†ä¸´æ—¶å˜é‡èµ‹å€¼ç»™ç›¸å…³çš„ç±»æˆå‘˜å˜é‡
+// ä¸´æ—¶å˜é‡æ“ä½œé€Ÿåº¦å¿«ï¼Œå½“éœ€è¦å¤§é‡ä½¿ç”¨æ˜¯åœ¨ä¸€å¼€å§‹è®¾ç½®ä¸´æ—¶å˜é‡ï¼Œç”¨ç±»æˆå‘˜å˜é‡åˆå§‹åŒ–ï¼Œåœ¨æœ€åé€€å‡ºæ—¶å°†å€¼ä¿å­˜å›å»
+bool MULTIREDISWRITE::parse(const int size)
+{
+	const char* iterBegin{ }, * iterEnd{ m_receiveBuffer.get() + m_receiveBufferNowSize }, * iterHalfBegin{ m_receiveBuffer.get() },
+		* iterHalfEnd{ m_receiveBuffer.get() + m_receiveBufferMaxSize }, * iterFind{},        // å¼€å§‹ ç»“æŸ  å¯»æ‰¾èŠ‚ç‚¹
+		* iterLenBegin{}, * iterLenEnd{},               //é•¿åº¦èŠ‚ç‚¹
+		* iterStrBegin{}, * iterStrEnd{},               //æœ¬æ¬¡SIMPLE_STRINGé¦–å°¾ä½ç½®
+		* errorBegin{}, * errorEnd{},
+		* arrayNumBegin{}, * arrayNumEnd{};
+
+	// m_lastPrasePos    m_jumpNode  m_waitMessageListBegin   m_commandTotalSize    m_commandCurrentSizeè¿”å›æ—¶éœ€è¦åŒæ­¥å¤„ç†
+
+	bool jumpNode{ m_jumpNode }, jump{ false };  //æ˜¯å¦å·²ç»ç»è¿‡å›ç¯æƒ…å†µ
+	std::shared_ptr<redisMessageListTypeSW>* waitMessageListBegin = m_waitMessageListBegin;
+	std::shared_ptr<redisMessageListTypeSW>* waitMessageListEnd = m_waitMessageListEnd;
+	unsigned int commandTotalSize{ m_commandTotalSize }, commandCurrentSize{ m_commandCurrentSize };
+
+	// debug  ////////////
+
+	/////////////////////////////
+
+
+	unsigned int len{};     //è®¡ç®—å­—ç¬¦ä¸²é•¿åº¦ä½¿ç”¨
+	int index{}, num{}, arrayNum{}, arrayIndex{};
+
+
+	if (m_lastPrasePos == m_receiveBufferMaxSize)
+		iterBegin = m_receiveBuffer.get();
+	else
+		iterBegin = m_receiveBuffer.get() + m_lastPrasePos;
+
+	const std::string_view emptyView(nullptr, 0);
+
+	//æ¥æ”¶æ•°æ®æ²¡æœ‰å›ç¯æƒ…å†µ
+	if (iterBegin < iterEnd)
+	{
+		////////////////////////////////
+
+		while (iterBegin != iterEnd)
+		{
+			iterFind = iterBegin;
+			redisMessageListTypeSW& thisRequest{ **waitMessageListBegin };
+			switch (*iterFind)
+			{
+			case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING):
+				//  REDISPARSETYPE::LOT_SIZE_STRING
+				if (++iterFind == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				if (*iterFind == '-')
+				{
+					if (iterEnd - iterFind >= 4)
+					{
+						iterFind += 4;
+						iterBegin = iterFind;
+						////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						//æœ¬æ¬¡ç»“æœè¿”å›æ—   -1ï¼Œçœ‹æƒ…å†µå¤„ç†
+
+						if (!jumpNode)
+						{
+							try
+							{
+								std::get<4>(thisRequest).get().emplace_back(emptyView);
+								std::get<5>(thisRequest).get().emplace_back(1);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+
+						//åªè´Ÿè´£è¿”å›æˆåŠŸä¸å¦
+						if (++commandCurrentSize == commandTotalSize)
+						{
+							//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+							if (jumpNode)
+							{
+
+
+
+							}
+							else
+							{
+								if (commandTotalSize == 1)
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::NO_KEY);
+								else
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+							}
+
+							jumpNode = false;
+							if (++waitMessageListBegin != waitMessageListEnd)
+							{
+								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandCurrentSize = 0;
+							}
+						}
+						//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+						continue;
+					}
+
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+				else
+				{
+					iterLenBegin = iterFind;
+
+					if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+					else
+					{
+						index = -1;
+						num = 1;
+						len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+						{
+							if (++index)
+								num *= 10;
+							return sum += (ch - '0') * num;
+						});
+					}
+
+					if (iterEnd - iterLenEnd < (4 + len))
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+					else
+					{
+						iterStrBegin = iterLenEnd + 2;
+						iterStrEnd = iterStrBegin + len;
+
+						//æœ¬æ¬¡ç»“æœè·å–æˆåŠŸï¼Œçœ‹æƒ…å†µè¿›è¡Œå¤„ç†
+
+						//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						if (!jumpNode)
+						{
+							try
+							{
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+								std::get<5>(thisRequest).get().emplace_back(1);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+
+						if (++commandCurrentSize == commandTotalSize)
+						{
+							//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+							if (jumpNode)
+							{
+
+
+
+							}
+							else
+							{
+								if (commandTotalSize == 1)
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
+								else
+									std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+							}
+
+							jumpNode = false;
+							if (++waitMessageListBegin != waitMessageListEnd)
+							{
+								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandCurrentSize = 0;
+							}
+						}
+
+
+						///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						iterBegin = iterStrEnd + 2;
+						continue;
+					}
+				}
+
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::INTERGER):
+				// REDISPARSETYPE::INTERGER
+
+				if ((iterLenEnd = std::find(iterFind + 1, iterEnd, '\r')) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				if (iterEnd - iterLenEnd < 2)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterLenBegin = iterFind + 1;
+
+				iterFind = iterLenEnd + 2;
+				iterBegin = iterFind;
+
+				//ç»“æœiterLenBegin    iterLenEnd
+				////////////////////////////////////////////////////////////////////////
+				if (!jumpNode)
+				{
+					try
+					{
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				///////////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::ERROR):
+				//REDISPARSETYPE::ERROR
+
+				errorBegin = iterBegin + 1;
+				if ((errorEnd = std::search(errorBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterFind = errorEnd + 2;
+				iterBegin = iterFind;
+				//è¿”å›é”™è¯¯ä¿¡æ¯ç»“æœ
+				////////////////////////////////////////////////////////////////////////////////////////////
+
+				if (!jumpNode)
+				{
+					try
+					{
+						
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+				m_log->writeLog("redis error", *m_logMessageIter++, std::string_view(errorBegin, errorEnd - errorBegin));
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				//////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::SIMPLE_STRING):
+				//REDISPARSETYPE::SIMPLE_STRING
+
+				iterStrBegin = iterBegin + 1;
+				if ((iterStrEnd = std::search(iterStrBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterFind = iterStrEnd + 2;
+				iterBegin = iterFind;
+				//è¿”å›é”™è¯¯ä¿¡æ¯ç»“æœ
+				//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+				if (!jumpNode)
+				{
+					try
+					{
+						
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+				++m_logMessageIter;
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				//////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+
+			case static_cast<int>(REDISPARSETYPE::ARRAY):
+				//REDISPARSETYPE::ARRAY
+
+				if (!jumpNode)
+					m_arrayResult.clear();
+
+				if (++iterFind == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				arrayNumBegin = iterFind;
+
+				if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterEnd, '\r')) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				index = -1;
+				num = 1;
+				arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto& sum, auto const ch)
+				{
+					if (++index)
+						num *= 10;
+					return sum += (ch - '0') * num;
+				});
+
+				if (iterEnd - arrayNumEnd < 2)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterFind = arrayNumEnd + 2;
+
+				arrayIndex = -1;
+				while (++arrayIndex != arrayNum)
+				{
+					if (++iterFind == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					if (*iterFind == '-')
+					{
+						if (iterEnd - iterFind < 4)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+
+						iterFind += 4;
+						///////////////////////   æœ¬æ¬¡æ²¡æœ‰ç»“æœï¼Œè€ƒè™‘æ€ä¹ˆè¿”å›æ¯”è¾ƒæ–¹ä¾¿  -1////////////////////
+
+						if (!jumpNode)
+						{
+							try
+							{
+								m_arrayResult.emplace_back(emptyView);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+						//////////////////////////////////////////////////////////////////////////////////////
+						continue;
+					}
+
+					if (iterFind + 1 == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterLenBegin = iterFind;
+
+					if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					index = -1;
+					num = 1;
+					len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+					{
+						if (++index)
+							num *= 10;
+						return sum += (ch - '0') * num;
+					});
+
+					if (iterEnd - iterLenEnd < 4 + len)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterStrBegin = iterLenEnd + 2;
+					iterStrEnd = iterStrBegin + len;
+
+					iterFind = iterStrEnd + 2;
+
+					//////////////////////////////////////////////  æ¯æ¬¡çš„æœ‰æ•ˆç»“æœ
+
+					if (!jumpNode)
+					{
+						try
+						{
+							m_arrayResult.emplace_back(std::string_view(iterStrBegin, len));
+						}
+						catch (const std::exception& e)
+						{
+							jumpNode = true;
+						}
+					}
+
+
+
+					//////////////////////////////////////////////////////////////
+				}
+				iterBegin = iterFind;
+
+				///////////////////////////////////////////////////////////////////////// è¿™é‡Œè¿›è¡Œå‚æ•°ä¼ é€’
+
+
+				if (!jumpNode)
+				{
+					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
+					try
+					{
+						vec.swap(m_arrayResult);
+						std::get<5>(thisRequest).get().emplace_back(vec.size());
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+
+				///////////////////////////////////////////////////////////////////////////////////////
+				break;
+			default:
+
+				break;
+			}
+		}
+	}
+	else      //æ¥æ”¶æ•°æ®å›ç¯æƒ…å†µ
+	{
+
+
+		while (!jump)
+		{
+			iterFind = iterBegin;
+			redisMessageListTypeSW& thisRequest{ **waitMessageListBegin };
+			switch (*iterFind)
+			{
+			case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING):
+				//  REDISPARSETYPE::LOT_SIZE_STRING
+				if (++iterFind == iterHalfEnd)
+				{
+					if (iterHalfBegin == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+					else
+					{
+						iterFind = iterHalfBegin;
+						jump = true;
+					}
+				}
+
+
+
+				if (*iterFind == '-')
+				{
+					if (!jump)
+					{
+						if ((iterHalfEnd - iterFind) + (iterEnd - iterHalfBegin) >= 4)
+						{
+							if (iterHalfEnd - iterFind >= 4)
+							{
+								iterFind += 4;
+								iterBegin = iterFind;
+							}
+							else
+							{
+								iterFind = iterHalfBegin + (4 - (iterHalfEnd - iterFind));
+								iterBegin = iterFind;
+								jump = true;
+							}
+							//æœ¬æ¬¡ç»“æœè¿”å›æ—   -1ï¼Œçœ‹æƒ…å†µå¤„ç†
+
+							///////////////////////////////////////////////////////
+
+
+							if (!jumpNode)
+							{
+								try
+								{
+									std::get<4>(thisRequest).get().emplace_back(emptyView);
+									std::get<5>(thisRequest).get().emplace_back(1);
+								}
+								catch (const std::exception& e)
+								{
+									jumpNode = true;
+								}
+							}
+
+
+							if (++commandCurrentSize == commandTotalSize)
+							{
+								//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+								if (jumpNode)
+								{
+
+
+
+								}
+								else
+								{
+									if (commandTotalSize == 1)
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::NO_KEY);
+									else
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+								}
+
+								jumpNode = false;
+								if (++waitMessageListBegin != waitMessageListEnd)
+								{
+									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandCurrentSize = 0;
+								}
+							}
+
+
+
+							////////////////////////////////////////////////////////
+							continue;
+						}
+
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+					else
+					{
+						if (iterEnd - iterFind >= 4)
+						{
+							iterFind += 4;
+							iterBegin = iterFind;
+							//æœ¬æ¬¡ç»“æœè¿”å›æ—   -1ï¼Œçœ‹æƒ…å†µå¤„ç†
+							//////////////////////////////////////////
+
+							if (!jumpNode)
+							{
+								try
+								{
+									std::get<4>(thisRequest).get().emplace_back(emptyView);
+									std::get<5>(thisRequest).get().emplace_back(1);
+								}
+								catch (const std::exception& e)
+								{
+									jumpNode = true;
+								}
+							}
+
+
+							if (++commandCurrentSize == commandTotalSize)
+							{
+								//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+								if (jumpNode)
+								{
+
+
+
+								}
+								else
+								{
+									if (commandTotalSize == 1)
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::NO_KEY);
+									else
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+								}
+
+								jumpNode = false;
+								if (++waitMessageListBegin != waitMessageListEnd)
+								{
+									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandCurrentSize = 0;
+								}
+							}
+
+
+							///////////////////////////////////////////////////
+							continue;
+						}
+
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+				else
+				{
+					iterLenBegin = iterFind;
+
+					if (!jump)
+					{
+						if ((iterLenEnd = std::find(iterLenBegin + 1, iterHalfEnd, '\r')) == iterHalfEnd)
+						{
+							if ((iterLenEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
+							{
+								m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+								m_jumpNode = jumpNode;
+								m_waitMessageListBegin = waitMessageListBegin;
+								m_commandTotalSize = commandTotalSize;
+								m_commandCurrentSize = commandCurrentSize;
+								return false;
+							}
+							else
+							{
+								index = -1;
+								num = 1;
+								len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterHalfBegin), 0, [&index, &num](auto& sum, auto const ch)
+								{
+									if (++index)
+										num *= 10;
+									return sum += (ch - '0') * num;
+								});
+								len += std::accumulate(std::make_reverse_iterator(iterHalfEnd), std::make_reverse_iterator(iterLenBegin), len, [&index, &num](auto& sum, auto const ch)
+								{
+									if (++index)
+										num *= 10;
+									return sum += (ch - '0') * num;
+								});
+								jump = true;
+							}
+						}
+						else
+						{
+							index = -1;
+							num = 1;
+							len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+							{
+								if (++index)
+									num *= 10;
+								return sum += (ch - '0') * num;
+							});
+						}
+					}
+					else
+					{
+						if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+						else
+						{
+							index = -1;
+							num = 1;
+							len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+							{
+								if (++index)
+									num *= 10;
+								return sum += (ch - '0') * num;
+							});
+						}
+					}
+
+
+
+					if (!jump)
+					{
+						if (iterHalfEnd - iterLenEnd + (iterEnd - iterHalfBegin) < (4 + len))
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+						else
+						{
+							if (iterHalfEnd - iterLenEnd >= 2)
+							{
+								iterStrBegin = iterLenEnd + 2;
+							}
+							else
+							{
+								iterStrBegin = iterHalfBegin + (2 - (iterHalfEnd - iterLenEnd));
+								jump = true;
+							}
+
+
+							if (!jump)
+							{
+								if (iterHalfEnd - iterStrBegin >= len)
+								{
+									iterStrEnd = iterStrBegin + len;
+								}
+								else
+								{
+									iterStrEnd = iterHalfBegin + (len - (iterHalfEnd - iterStrBegin));
+									jump = true;
+								}
+							}
+							else
+							{
+								iterStrEnd = iterStrBegin + len;
+							}
+
+							//æœ¬æ¬¡ç»“æœè·å–æˆåŠŸï¼Œçœ‹æƒ…å†µè¿›è¡Œå¤„ç†ï¼Œæ³¨æ„åˆ¤æ–­å›ç¯æƒ…å†µ    iterStrBegin      iterStrEnd
+
+							/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+							if (!jumpNode)
+							{
+								//éœ€è¦å›ç¯å¤„ç†æ‹·è´
+								if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
+								{
+									//å› ä¸ºè¿™ä¸€å¥—æœºåˆ¶æœ¬è´¨å»ºç«‹åœ¨å±é™©çš„æŒ‡é’ˆä¹‹ä¸Šï¼Œå› æ­¤è¿™é‡Œä¸ºäº†å®‰å…¨ï¼Œå½“å‘ç”Ÿæ•°æ®å›ç¯æƒ…å†µéœ€è¦æ‹·è´ä¿å­˜çš„æ—¶å€™ï¼Œåˆ¤æ–­é•¿åº¦æ˜¯å¦åœ¨m_outRangeMaxSizeä¹‹å†…ï¼Œå¦‚æœè¶…è¿‡ï¼Œå®æ„¿åˆ¤æ–­ä¸ºæ²¡æœ‰ã€‚
+								//å¦‚æœä½¿ç”¨è€…è§‰å¾—å¯ä»¥æ‰¿å—åæœï¼Œé‚£ä¹ˆå¯ä»¥åœ¨è¿™é‡Œæ¢æˆåŠ¨æ€åˆ†é…å†…å­˜è¿›è¡Œæ‹·è´ï¼Œä½†æ˜¯è¦è®°ä½ä¸€ç‚¹ï¼šä¸€æ—¦æ§åˆ¶ä¸å¥½ï¼Œåœ¨ä½¿ç”¨è¿™æ®µåŠ¨æ€åˆ†é…å†…å­˜æ—¶ç¬¬äºŒæ¬¡æ¥æ”¶ä¿¡æ¯æ¥åˆ°æ—¶ä¸€æ—¦è¿›è¡Œé‡æ–°åˆ†é…ï¼Œ
+								//å¯èƒ½ä¼šè§¦å‘ç©ºæŒ‡é’ˆå¼‚å¸¸ ç¨‹åºç›´æ¥å´©æºƒ
+									if (len <= m_outRangeMaxSize)
+									{
+										std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
+										std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
+
+										try
+										{
+											std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+											std::get<5>(thisRequest).get().emplace_back(1);
+										}
+										catch (const std::exception& e)
+										{
+											jumpNode = true;
+										}
+									}
+									else
+									{
+										try
+										{
+											std::get<4>(thisRequest).get().emplace_back(emptyView);
+											std::get<5>(thisRequest).get().emplace_back(1);
+										}
+										catch (const std::exception& e)
+										{
+											jumpNode = true;
+										}
+									}
+								}
+								else
+								{
+									try
+									{
+										std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+										std::get<5>(thisRequest).get().emplace_back(1);
+									}
+									catch (const std::exception& e)
+									{
+										jumpNode = true;
+									}
+								}
+							}
+
+
+							if (++commandCurrentSize == commandTotalSize)
+							{
+								//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+								if (jumpNode)
+								{
+
+
+
+								}
+								else
+								{
+									if (commandTotalSize == 1)
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
+									else
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+								}
+
+								jumpNode = false;
+								if (++waitMessageListBegin != waitMessageListEnd)
+								{
+									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandCurrentSize = 0;
+								}
+							}
+
+
+
+							///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+							if (!jump)
+							{
+								if (iterHalfEnd - iterStrEnd >= 2)
+								{
+									iterBegin = iterStrEnd + 2;
+								}
+								else
+								{
+									iterBegin = iterHalfBegin + (2 - (iterHalfEnd - iterStrEnd));
+									jump = true;
+								}
+							}
+							else
+							{
+								iterBegin = iterStrEnd + 2;
+							}
+						}
+					}
+					else
+					{
+						if (iterEnd - iterLenEnd < (4 + len))
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+						else
+						{
+							iterStrBegin = iterLenEnd + 2;
+							iterStrEnd = iterStrBegin + len;
+
+							//æœ¬æ¬¡ç»“æœè·å–æˆåŠŸï¼Œçœ‹æƒ…å†µè¿›è¡Œå¤„ç†ï¼Œæ³¨æ„åˆ¤æ–­å›ç¯æƒ…å†µ
+
+							/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+							if (!jumpNode)
+							{
+								//éœ€è¦å›ç¯å¤„ç†æ‹·è´
+								if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
+								{
+									//å› ä¸ºè¿™ä¸€å¥—æœºåˆ¶æœ¬è´¨å»ºç«‹åœ¨å±é™©çš„æŒ‡é’ˆä¹‹ä¸Šï¼Œå› æ­¤è¿™é‡Œä¸ºäº†å®‰å…¨ï¼Œå½“å‘ç”Ÿæ•°æ®å›ç¯æƒ…å†µéœ€è¦æ‹·è´ä¿å­˜çš„æ—¶å€™ï¼Œåˆ¤æ–­é•¿åº¦æ˜¯å¦åœ¨m_outRangeMaxSizeä¹‹å†…ï¼Œå¦‚æœè¶…è¿‡ï¼Œå®æ„¿åˆ¤æ–­ä¸ºæ²¡æœ‰ã€‚
+								//å¦‚æœä½¿ç”¨è€…è§‰å¾—å¯ä»¥æ‰¿å—åæœï¼Œé‚£ä¹ˆå¯ä»¥åœ¨è¿™é‡Œæ¢æˆåŠ¨æ€åˆ†é…å†…å­˜è¿›è¡Œæ‹·è´ï¼Œä½†æ˜¯è¦è®°ä½ä¸€ç‚¹ï¼šä¸€æ—¦æ§åˆ¶ä¸å¥½ï¼Œåœ¨ä½¿ç”¨è¿™æ®µåŠ¨æ€åˆ†é…å†…å­˜æ—¶ç¬¬äºŒæ¬¡æ¥æ”¶ä¿¡æ¯æ¥åˆ°æ—¶ä¸€æ—¦è¿›è¡Œé‡æ–°åˆ†é…ï¼Œ
+								//å¯èƒ½ä¼šè§¦å‘ç©ºæŒ‡é’ˆå¼‚å¸¸ ç¨‹åºç›´æ¥å´©æºƒ
+									if (len <= m_outRangeMaxSize)
+									{
+										std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
+										std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
+
+										try
+										{
+											std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+											std::get<5>(thisRequest).get().emplace_back(1);
+										}
+										catch (const std::exception& e)
+										{
+											jumpNode = true;
+										}
+									}
+									else
+									{
+										try
+										{
+											std::get<4>(thisRequest).get().emplace_back(emptyView);
+											std::get<5>(thisRequest).get().emplace_back(1);
+										}
+										catch (const std::exception& e)
+										{
+											jumpNode = true;
+										}
+									}
+								}
+								else
+								{
+									try
+									{
+										std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+										std::get<5>(thisRequest).get().emplace_back(1);
+									}
+									catch (const std::exception& e)
+									{
+										jumpNode = true;
+									}
+								}
+							}
+
+
+							if (++commandCurrentSize == commandTotalSize)
+							{
+								//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+								if (jumpNode)
+								{
+
+
+
+								}
+								else
+								{
+									if (commandTotalSize == 1)
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_SINGLE_OK);
+									else
+										std::get<6>(thisRequest)(true, ERRORMESSAGE::REDIS_MULTI_OK);
+								}
+
+								jumpNode = false;
+								if (++waitMessageListBegin != waitMessageListEnd)
+								{
+									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandCurrentSize = 0;
+								}
+							}
+
+
+
+							////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+							iterBegin = iterStrEnd + 2;
+						}
+					}
+
+					continue;
+				}
+				break;
+
+
+			case static_cast<int>(REDISPARSETYPE::INTERGER):
+				// REDISPARSETYPE::INTERGER
+				iterLenBegin = iterFind + 1;
+
+				if (iterHalfEnd == iterLenBegin)
+				{
+					iterLenBegin = iterHalfBegin;
+					jump = true;
+				}
+
+
+				//////////////////////////////////////////////////////////////
+
+				if (!jump)
+				{
+					if ((iterLenEnd = std::find(iterFind + 1, iterHalfEnd, '\r')) == iterHalfEnd)
+					{
+						if ((iterLenEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+						else
+						{
+							jump = true;
+						}
+					}
+				}
+				else
+				{
+					if ((iterLenEnd = std::find(iterFind + 1, iterEnd, '\r')) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+
+
+				///////////////////////////////////////////////////////////////////////
+
+				if (!jump)
+				{
+					if ((iterHalfEnd - iterLenEnd) + (iterEnd - iterHalfBegin) < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					if (iterHalfEnd - iterLenEnd >= 2)
+					{
+						iterFind = iterLenEnd + 2;
+					}
+					else
+					{
+						iterFind = iterHalfBegin + (2 - (iterHalfEnd - iterLenEnd));
+					}
+				}
+				else
+				{
+					if (iterEnd - iterLenEnd < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterFind = iterLenEnd + 2;
+				}
+				iterBegin = iterFind;
+
+
+				//ç»“æœiterLenBegin    iterLenEnd    æ³¨æ„å›ç¯æƒ…å†µå¤„ç†
+
+				/////////////////////////////////////////////////////////////////////////////////////////
+
+
+				if (!jumpNode)
+				{
+					//éœ€è¦å›ç¯å¤„ç†æ‹·è´
+					if (iterLenBegin < iterHalfEnd && iterLenEnd>iterHalfBegin)
+					{
+						//å› ä¸ºè¿™ä¸€å¥—æœºåˆ¶æœ¬è´¨å»ºç«‹åœ¨å±é™©çš„æŒ‡é’ˆä¹‹ä¸Šï¼Œå› æ­¤è¿™é‡Œä¸ºäº†å®‰å…¨ï¼Œå½“å‘ç”Ÿæ•°æ®å›ç¯æƒ…å†µéœ€è¦æ‹·è´ä¿å­˜çš„æ—¶å€™ï¼Œåˆ¤æ–­é•¿åº¦æ˜¯å¦åœ¨m_outRangeMaxSizeä¹‹å†…ï¼Œå¦‚æœè¶…è¿‡ï¼Œå®æ„¿åˆ¤æ–­ä¸ºæ²¡æœ‰ã€‚
+					//å¦‚æœä½¿ç”¨è€…è§‰å¾—å¯ä»¥æ‰¿å—åæœï¼Œé‚£ä¹ˆå¯ä»¥åœ¨è¿™é‡Œæ¢æˆåŠ¨æ€åˆ†é…å†…å­˜è¿›è¡Œæ‹·è´ï¼Œä½†æ˜¯è¦è®°ä½ä¸€ç‚¹ï¼šä¸€æ—¦æ§åˆ¶ä¸å¥½ï¼Œåœ¨ä½¿ç”¨è¿™æ®µåŠ¨æ€åˆ†é…å†…å­˜æ—¶ç¬¬äºŒæ¬¡æ¥æ”¶ä¿¡æ¯æ¥åˆ°æ—¶ä¸€æ—¦è¿›è¡Œé‡æ–°åˆ†é…ï¼Œ
+					//å¯èƒ½ä¼šè§¦å‘ç©ºæŒ‡é’ˆå¼‚å¸¸ ç¨‹åºç›´æ¥å´©æºƒ
+						if (len <= m_outRangeMaxSize)
+						{
+							std::copy(iterLenBegin, iterHalfEnd, m_outRangeBuffer.get());
+							std::copy(iterHalfBegin, iterLenEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterLenBegin));
+
+							try
+							{
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								std::get<5>(thisRequest).get().emplace_back(1);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+						else
+						{
+							try
+							{
+								std::get<4>(thisRequest).get().emplace_back(emptyView);
+								std::get<5>(thisRequest).get().emplace_back(1);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+					}
+					else
+					{
+						try
+						{
+							std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, len));
+							std::get<5>(thisRequest).get().emplace_back(1);
+						}
+						catch (const std::exception& e)
+						{
+							jumpNode = true;
+						}
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+
+			case static_cast<int>(REDISPARSETYPE::ERROR):
+				errorBegin = iterBegin + 1;
+				if (errorBegin == iterHalfEnd)
+				{
+					errorBegin = iterHalfBegin;
+					jump = true;
+				}
+
+
+				if (!jump)
+				{
+					if ((errorEnd = std::search(errorBegin + 1, iterHalfEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterHalfEnd)
+					{
+						if (*(iterHalfEnd - 1) == '\r' && *iterHalfBegin == '\n')
+						{
+							errorEnd = iterHalfEnd - 1;
+							jump = true;
+						}
+						else if ((errorEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+				}
+				else
+				{
+					if ((errorEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+
+
+				if (!jump)
+				{
+					if ((iterHalfEnd - errorEnd) + (iterEnd - iterHalfBegin) < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					if (iterHalfEnd - errorEnd >= 2)
+						iterFind = errorEnd + 2;
+					else
+						iterFind = iterHalfBegin + (2 - (iterHalfEnd - errorEnd));
+				}
+				else
+				{
+					if (iterEnd - iterHalfBegin < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterFind = iterEnd + 2;
+				}
+				iterBegin = iterFind;
+
+				//è¿”å›é”™è¯¯ä¿¡æ¯ç»“æœ   errorBegin      errorEnd æ³¨æ„å›ç¯æƒ…å†µå¤„ç†
+				///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+				if (!jumpNode)
+				{
+					//éœ€è¦å›ç¯å¤„ç†æ‹·è´
+					if (errorBegin < iterHalfEnd && errorEnd>iterHalfBegin)
+					{
+						len = iterHalfEnd - errorBegin + errorEnd - iterHalfBegin;
+						//å› ä¸ºè¿™ä¸€å¥—æœºåˆ¶æœ¬è´¨å»ºç«‹åœ¨å±é™©çš„æŒ‡é’ˆä¹‹ä¸Šï¼Œå› æ­¤è¿™é‡Œä¸ºäº†å®‰å…¨ï¼Œå½“å‘ç”Ÿæ•°æ®å›ç¯æƒ…å†µéœ€è¦æ‹·è´ä¿å­˜çš„æ—¶å€™ï¼Œåˆ¤æ–­é•¿åº¦æ˜¯å¦åœ¨m_outRangeMaxSizeä¹‹å†…ï¼Œå¦‚æœè¶…è¿‡ï¼Œå®æ„¿åˆ¤æ–­ä¸ºæ²¡æœ‰ã€‚
+					//å¦‚æœä½¿ç”¨è€…è§‰å¾—å¯ä»¥æ‰¿å—åæœï¼Œé‚£ä¹ˆå¯ä»¥åœ¨è¿™é‡Œæ¢æˆåŠ¨æ€åˆ†é…å†…å­˜è¿›è¡Œæ‹·è´ï¼Œä½†æ˜¯è¦è®°ä½ä¸€ç‚¹ï¼šä¸€æ—¦æ§åˆ¶ä¸å¥½ï¼Œåœ¨ä½¿ç”¨è¿™æ®µåŠ¨æ€åˆ†é…å†…å­˜æ—¶ç¬¬äºŒæ¬¡æ¥æ”¶ä¿¡æ¯æ¥åˆ°æ—¶ä¸€æ—¦è¿›è¡Œé‡æ–°åˆ†é…ï¼Œ
+					//å¯èƒ½ä¼šè§¦å‘ç©ºæŒ‡é’ˆå¼‚å¸¸ ç¨‹åºç›´æ¥å´©æºƒ
+						m_log->writeLog("redis error", *m_logMessageIter++, std::string_view(errorBegin, iterHalfEnd - errorBegin),
+							std::string_view(iterHalfBegin, errorEnd - iterHalfBegin));
+						if (len <= m_outRangeMaxSize)
+						{
+							
+
+							try
+							{
+								
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+						else
+						{
+							try
+							{
+								
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+					}
+					else
+					{
+						len = errorEnd - errorBegin;
+
+						m_log->writeLog("redis error", *m_logMessageIter++, std::string_view(errorBegin, len));
+						try
+						{
+							
+						}
+						catch (const std::exception& e)
+						{
+							jumpNode = true;
+						}
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::SIMPLE_STRING):
+				iterStrBegin = iterBegin + 1;
+				if (iterStrBegin == iterHalfEnd)
+				{
+					iterStrBegin = iterHalfBegin;
+					jump = true;
+				}
+
+
+				if (!jump)
+				{
+					if ((iterStrEnd = std::search(iterStrBegin + 1, iterHalfEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterHalfEnd)
+					{
+						if (*(iterHalfEnd - 1) == '\r' && *iterHalfBegin == '\n')
+						{
+							iterStrEnd = iterHalfEnd - 1;
+							jump = true;
+						}
+						else if ((iterStrEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+				}
+				else
+				{
+					if ((iterStrEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+
+
+				if (!jump)
+				{
+					if ((iterHalfEnd - iterStrEnd) + (iterEnd - iterHalfBegin) < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					if (iterHalfEnd - iterStrEnd >= 2)
+						iterFind = iterStrEnd + 2;
+					else
+						iterFind = iterHalfBegin + (2 - (iterHalfEnd - iterStrEnd));
+				}
+				else
+				{
+					if (iterEnd - iterHalfBegin < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterFind = iterEnd + 2;
+				}
+				iterBegin = iterFind;
+
+				//è¿”å›ä¿¡æ¯ç»“æœ   iterStrBegin      iterStrEnd æ³¨æ„å›ç¯æƒ…å†µå¤„ç†   éœ€è¦è®¡ç®—len
+				////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+				if (!jumpNode)
+				{
+					//éœ€è¦å›ç¯å¤„ç†æ‹·è´
+					if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
+					{
+						len = iterHalfEnd - iterStrBegin + iterStrEnd - iterHalfBegin;
+						//å› ä¸ºè¿™ä¸€å¥—æœºåˆ¶æœ¬è´¨å»ºç«‹åœ¨å±é™©çš„æŒ‡é’ˆä¹‹ä¸Šï¼Œå› æ­¤è¿™é‡Œä¸ºäº†å®‰å…¨ï¼Œå½“å‘ç”Ÿæ•°æ®å›ç¯æƒ…å†µéœ€è¦æ‹·è´ä¿å­˜çš„æ—¶å€™ï¼Œåˆ¤æ–­é•¿åº¦æ˜¯å¦åœ¨m_outRangeMaxSizeä¹‹å†…ï¼Œå¦‚æœè¶…è¿‡ï¼Œå®æ„¿åˆ¤æ–­ä¸ºæ²¡æœ‰ã€‚
+					//å¦‚æœä½¿ç”¨è€…è§‰å¾—å¯ä»¥æ‰¿å—åæœï¼Œé‚£ä¹ˆå¯ä»¥åœ¨è¿™é‡Œæ¢æˆåŠ¨æ€åˆ†é…å†…å­˜è¿›è¡Œæ‹·è´ï¼Œä½†æ˜¯è¦è®°ä½ä¸€ç‚¹ï¼šä¸€æ—¦æ§åˆ¶ä¸å¥½ï¼Œåœ¨ä½¿ç”¨è¿™æ®µåŠ¨æ€åˆ†é…å†…å­˜æ—¶ç¬¬äºŒæ¬¡æ¥æ”¶ä¿¡æ¯æ¥åˆ°æ—¶ä¸€æ—¦è¿›è¡Œé‡æ–°åˆ†é…ï¼Œ
+					//å¯èƒ½ä¼šè§¦å‘ç©ºæŒ‡é’ˆå¼‚å¸¸ ç¨‹åºç›´æ¥å´©æºƒ
+						if (len <= m_outRangeMaxSize)
+						{
+							
+
+							try
+							{
+								
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+						else
+						{
+							try
+							{
+								
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+					}
+					else
+					{
+						len = iterStrEnd - iterStrBegin;
+
+						try
+						{
+							
+						}
+						catch (const std::exception& e)
+						{
+							jumpNode = true;
+						}
+					}
+				}
+
+				++m_logMessageIter;
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+
+				////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+				/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			case static_cast<int>(REDISPARSETYPE::ARRAY):
+				//REDISPARSETYPE::ARRAY
+
+				if (!jumpNode)
+					m_arrayResult.clear();
+
+				++iterFind;
+				if (iterFind == iterHalfEnd)
+				{
+					iterFind = iterHalfBegin;
+					jump = true;
+				}
+
+				arrayNumBegin = iterFind;
+
+				if (!jump)
+				{
+					if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterHalfEnd, '\r')) == iterHalfEnd)
+					{
+						if ((arrayNumEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							return false;
+						}
+						jump = true;
+					}
+				}
+				else
+				{
+					if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterEnd, '\r')) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+
+
+				index = -1;
+				num = 1;
+				if (!jump)
+				{
+					arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto& sum, auto const ch)
+					{
+						if (++index)
+							num *= 10;
+						return sum += (ch - '0') * num;
+					});
+				}
+				else
+				{
+					if (arrayNumBegin < iterHalfEnd)
+					{
+						arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(iterHalfBegin), 0, [&index, &num](auto& sum, auto const ch)
+						{
+							if (++index)
+								num *= 10;
+							return sum += (ch - '0') * num;
+						});
+						arrayNum += std::accumulate(std::make_reverse_iterator(iterHalfEnd), std::make_reverse_iterator(arrayNumBegin), arrayNum, [&index, &num](auto& sum, auto const ch)
+						{
+							if (++index)
+								num *= 10;
+							return sum += (ch - '0') * num;
+						});
+					}
+					else
+					{
+						arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto& sum, auto const ch)
+						{
+							if (++index)
+								num *= 10;
+							return sum += (ch - '0') * num;
+						});
+					}
+				}
+
+
+
+				if (!jump)
+				{
+					if (iterHalfEnd - arrayNumEnd + (iterEnd - iterHalfBegin) < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+				else
+				{
+					if (iterEnd - arrayNumEnd < 2)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+				}
+
+
+				if (!jump)
+				{
+					if (iterHalfEnd - arrayNumEnd >= 2)
+					{
+						iterFind = arrayNumEnd + 2;
+					}
+					else
+					{
+						iterFind = iterHalfBegin + 2 - (iterHalfEnd - arrayNumEnd);
+						jump = true;
+					}
+				}
+				else
+				{
+					iterFind = arrayNumEnd + 2;
+				}
+
+
+				arrayIndex = -1;
+				while (++arrayIndex != arrayNum)
+				{
+					if (!jump)
+					{
+						if (iterFind == iterHalfEnd)
+						{
+							iterFind = iterHalfBegin;
+							jump = true;
+						}
+						else
+						{
+							++iterFind;
+						}
+					}
+					else
+					{
+						if (++iterFind == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+
+
+
+					if (*iterFind == '-')
+					{
+						if (!jump)
+						{
+							if (iterHalfEnd - iterFind + iterEnd - iterHalfBegin < 4)
+							{
+								m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+								m_jumpNode = jumpNode;
+								m_waitMessageListBegin = waitMessageListBegin;
+								m_commandTotalSize = commandTotalSize;
+								m_commandCurrentSize = commandCurrentSize;
+								return false;
+							}
+						}
+						else
+						{
+							if (iterEnd - iterFind < 4)
+							{
+								m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+								m_jumpNode = jumpNode;
+								m_waitMessageListBegin = waitMessageListBegin;
+								m_commandTotalSize = commandTotalSize;
+								m_commandCurrentSize = commandCurrentSize;
+								return false;
+							}
+						}
+
+
+						if (!jump)
+						{
+							if (iterHalfEnd - iterFind >= 4)
+								iterFind += 4;
+							else
+							{
+								iterFind = iterHalfBegin + 4 - (iterHalfEnd - iterFind);
+								jump = true;
+							}
+						}
+						else
+						{
+							iterFind += 4;
+						}
+
+						///////////////////////   æœ¬æ¬¡æ²¡æœ‰ç»“æœï¼Œè€ƒè™‘æ€ä¹ˆè¿”å›æ¯”è¾ƒæ–¹ä¾¿  -1  //////////////////////////////////////////////////////
+
+						if (!jumpNode)
+						{
+							try
+							{
+								m_arrayResult.emplace_back(emptyView);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+						///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						continue;
+					}
+
+
+					if (!jump)
+					{
+						if (iterFind < iterHalfEnd)
+							++iterFind;
+						if (iterFind == iterHalfEnd)
+						{
+							iterFind = iterHalfBegin;
+							jump = true;
+						}
+					}
+					else
+					{
+						if (iterFind + 1 == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+
+					iterLenBegin = iterFind;
+
+					if (!jump)
+					{
+						if ((iterLenEnd = std::find(iterLenBegin + 1, iterHalfEnd, '\r')) == iterHalfEnd)
+						{
+							if ((iterLenEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
+							{
+								m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+								m_jumpNode = jumpNode;
+								m_waitMessageListBegin = waitMessageListBegin;
+								m_commandTotalSize = commandTotalSize;
+								m_commandCurrentSize = commandCurrentSize;
+								return false;
+							}
+							jump = true;
+						}
+					}
+					else
+					{
+						if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+
+
+					index = -1;
+					num = 1;
+					if (!jump)
+					{
+						len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+						{
+							if (++index)
+								num *= 10;
+							return sum += (ch - '0') * num;
+						});
+					}
+					else
+					{
+						if (iterLenBegin < iterHalfEnd)
+						{
+							len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterHalfBegin), 0, [&index, &num](auto& sum, auto const ch)
+							{
+								if (++index)
+									num *= 10;
+								return sum += (ch - '0') * num;
+							});
+							len += std::accumulate(std::make_reverse_iterator(iterHalfEnd), std::make_reverse_iterator(iterLenBegin), len, [&index, &num](auto& sum, auto const ch)
+							{
+								if (++index)
+									num *= 10;
+								return sum += (ch - '0') * num;
+							});
+						}
+						else
+						{
+							len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+							{
+								if (++index)
+									num *= 10;
+								return sum += (ch - '0') * num;
+							});
+						}
+					}
+
+
+					if (!jump)
+					{
+						if (iterHalfEnd - iterLenEnd + iterEnd - iterHalfBegin < (4 + len))
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+					else
+					{
+						if (iterEnd - iterLenEnd < (4 + len))
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+					}
+
+					if (!jump)
+					{
+						if (iterHalfEnd - iterLenEnd >= 2)
+							iterStrBegin = iterLenEnd + 2;
+						else
+						{
+							iterStrBegin = iterHalfBegin + 2 - (iterHalfEnd - iterLenEnd);
+							jump = true;
+						}
+					}
+					else
+					{
+						iterStrBegin = iterLenEnd + 2;
+					}
+
+
+					if (!jump)
+					{
+						if (iterHalfEnd - iterStrBegin >= len)
+							iterStrEnd = iterStrBegin + len;
+						else
+						{
+							iterStrEnd = iterHalfBegin + len - (iterHalfEnd - iterStrBegin);
+							jump = true;
+						}
+					}
+					else
+					{
+						iterStrEnd = iterStrBegin + len;
+					}
+
+
+					if (!jump)
+					{
+						if (iterHalfEnd - iterStrEnd >= 2)
+							iterFind = iterStrEnd + 2;
+						else
+						{
+							iterFind = iterHalfBegin + 2 - (iterHalfEnd - iterStrEnd);
+							jump = true;
+						}
+					}
+					else
+					{
+						iterFind = iterStrEnd + 2;
+					}
+
+
+					//////////////////////////////////////////////  æ¯æ¬¡çš„æœ‰æ•ˆç»“æœï¼Œæ³¨æ„å›ç¯å¤„ç†    iterStrBegin      iterStrEnd   len////////////////////
+
+
+					if (!jumpNode)
+					{
+						//éœ€è¦å›ç¯å¤„ç†æ‹·è´
+						if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
+						{
+							//å› ä¸ºè¿™ä¸€å¥—æœºåˆ¶æœ¬è´¨å»ºç«‹åœ¨å±é™©çš„æŒ‡é’ˆä¹‹ä¸Šï¼Œå› æ­¤è¿™é‡Œä¸ºäº†å®‰å…¨ï¼Œå½“å‘ç”Ÿæ•°æ®å›ç¯æƒ…å†µéœ€è¦æ‹·è´ä¿å­˜çš„æ—¶å€™ï¼Œåˆ¤æ–­é•¿åº¦æ˜¯å¦åœ¨m_outRangeMaxSizeä¹‹å†…ï¼Œå¦‚æœè¶…è¿‡ï¼Œå®æ„¿åˆ¤æ–­ä¸ºæ²¡æœ‰ã€‚
+						//å¦‚æœä½¿ç”¨è€…è§‰å¾—å¯ä»¥æ‰¿å—åæœï¼Œé‚£ä¹ˆå¯ä»¥åœ¨è¿™é‡Œæ¢æˆåŠ¨æ€åˆ†é…å†…å­˜è¿›è¡Œæ‹·è´ï¼Œä½†æ˜¯è¦è®°ä½ä¸€ç‚¹ï¼šä¸€æ—¦æ§åˆ¶ä¸å¥½ï¼Œåœ¨ä½¿ç”¨è¿™æ®µåŠ¨æ€åˆ†é…å†…å­˜æ—¶ç¬¬äºŒæ¬¡æ¥æ”¶ä¿¡æ¯æ¥åˆ°æ—¶ä¸€æ—¦è¿›è¡Œé‡æ–°åˆ†é…ï¼Œ
+						//å¯èƒ½ä¼šè§¦å‘ç©ºæŒ‡é’ˆå¼‚å¸¸ ç¨‹åºç›´æ¥å´©æºƒ
+							if (len <= m_outRangeMaxSize)
+							{
+								std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
+								std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
+
+								try
+								{
+									m_arrayResult.emplace_back(std::string_view(m_outRangeBuffer.get(), len));
+								}
+								catch (const std::exception& e)
+								{
+									jumpNode = true;
+								}
+							}
+							else
+							{
+								try
+								{
+									m_arrayResult.emplace_back(emptyView);
+								}
+								catch (const std::exception& e)
+								{
+									jumpNode = true;
+								}
+							}
+						}
+						else
+						{
+							try
+							{
+								m_arrayResult.emplace_back(std::string_view(iterStrBegin, len));
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+					}
+
+					/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+				}
+				iterBegin = iterFind;
+
+				//////////////////////////////////////////////////////////////////////////////////////////
+
+
+				if (!jumpNode)
+				{
+					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
+					try
+					{
+						vec.swap(m_arrayResult);
+						std::get<5>(thisRequest).get().emplace_back(vec.size());
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				////////////////////////////////////////////////////////////////////////////////////////////////////
+
+				break;
+
+			default:
+
+
+				break;
+			}
+		}
+
+
+
+
+		////////////////////////////////////////
+
+		while (iterBegin != iterEnd)
+		{
+			iterFind = iterBegin;
+			redisMessageListTypeSW& thisRequest{ **waitMessageListBegin };
+			switch (*iterFind)
+			{
+			case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING):
+				//  REDISPARSETYPE::LOT_SIZE_STRING
+				if (++iterFind == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				if (*iterFind == '-')
+				{
+					if (iterEnd - iterFind >= 4)
+					{
+						iterFind += 4;
+						iterBegin = iterFind;
+						////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						//æœ¬æ¬¡ç»“æœè¿”å›æ—   -1ï¼Œçœ‹æƒ…å†µå¤„ç†
+
+						if (!jumpNode)
+						{
+							try
+							{
+								std::get<4>(thisRequest).get().emplace_back(emptyView);
+								std::get<5>(thisRequest).get().emplace_back(1);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+
+						if (++commandCurrentSize == commandTotalSize)
+						{
+							//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+							if (jumpNode)
+							{
+
+
+
+							}
+							else
+							{
+								std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+							}
+
+							jumpNode = false;
+							if (++waitMessageListBegin != waitMessageListEnd)
+							{
+								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandCurrentSize = 0;
+							}
+						}
+						//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+						continue;
+					}
+
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+				else
+				{
+					iterLenBegin = iterFind;
+
+					if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+					else
+					{
+						index = -1;
+						num = 1;
+						len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+						{
+							if (++index)
+								num *= 10;
+							return sum += (ch - '0') * num;
+						});
+					}
+
+					if (iterEnd - iterLenEnd < (4 + len))
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+					else
+					{
+						iterStrBegin = iterLenEnd + 2;
+						iterStrEnd = iterStrBegin + len;
+
+						//æœ¬æ¬¡ç»“æœè·å–æˆåŠŸï¼Œçœ‹æƒ…å†µè¿›è¡Œå¤„ç†
+
+						//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						if (!jumpNode)
+						{
+							try
+							{
+								std::get<4>(thisRequest).get().emplace_back(std::string_view(iterStrBegin, len));
+								std::get<5>(thisRequest).get().emplace_back(1);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+
+						if (++commandCurrentSize == commandTotalSize)
+						{
+							//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+							if (jumpNode)
+							{
+
+
+
+							}
+							else
+							{
+								std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+							}
+
+							jumpNode = false;
+							if (++waitMessageListBegin != waitMessageListEnd)
+							{
+								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandCurrentSize = 0;
+							}
+						}
+
+
+						///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						iterBegin = iterStrEnd + 2;
+						continue;
+					}
+				}
+
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::INTERGER):
+				// REDISPARSETYPE::INTERGER
+
+				if ((iterLenEnd = std::find(iterFind + 1, iterEnd, '\r')) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				if (iterEnd - iterLenEnd < 2)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterLenBegin = iterFind + 1;
+
+				iterFind = iterLenEnd + 2;
+				iterBegin = iterFind;
+
+				//ç»“æœiterLenBegin    iterLenEnd
+				////////////////////////////////////////////////////////////////////////
+				if (!jumpNode)
+				{
+					try
+					{
+						std::get<4>(thisRequest).get().emplace_back(std::string_view(iterLenBegin, iterLenEnd - iterLenBegin));
+						std::get<5>(thisRequest).get().emplace_back(1);
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				///////////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::ERROR):
+				//REDISPARSETYPE::ERROR
+
+				errorBegin = iterBegin + 1;
+				if ((errorEnd = std::search(errorBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterFind = errorEnd + 2;
+				iterBegin = iterFind;
+				//è¿”å›é”™è¯¯ä¿¡æ¯ç»“æœ
+				////////////////////////////////////////////////////////////////////////////////////////////
+
+				if (!jumpNode)
+				{
+					try
+					{
+						
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+				m_log->writeLog("redis error", *m_logMessageIter++, std::string_view(errorBegin, errorEnd - errorBegin));
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				//////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+			case static_cast<int>(REDISPARSETYPE::SIMPLE_STRING):
+				//REDISPARSETYPE::SIMPLE_STRING
+
+				iterStrBegin = iterBegin + 1;
+				if ((iterStrEnd = std::search(iterStrBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterFind = iterStrEnd + 2;
+				iterBegin = iterFind;
+				//è¿”å›é”™è¯¯ä¿¡æ¯ç»“æœ
+				//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+				if (!jumpNode)
+				{
+					try
+					{
+						
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+				++m_logMessageIter;
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+				//////////////////////////////////////////////////////////////////////////////////////////////
+				break;
+
+
+			case static_cast<int>(REDISPARSETYPE::ARRAY):
+				//REDISPARSETYPE::ARRAY
+
+				if (!jumpNode)
+					m_arrayResult.clear();
+
+				if (++iterFind == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				arrayNumBegin = iterFind;
+
+				if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterEnd, '\r')) == iterEnd)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				index = -1;
+				num = 1;
+				arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto& sum, auto const ch)
+				{
+					if (++index)
+						num *= 10;
+					return sum += (ch - '0') * num;
+				});
+
+				if (iterEnd - arrayNumEnd < 2)
+				{
+					m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+					m_jumpNode = jumpNode;
+					m_waitMessageListBegin = waitMessageListBegin;
+					m_commandTotalSize = commandTotalSize;
+					m_commandCurrentSize = commandCurrentSize;
+					return false;
+				}
+
+				iterFind = arrayNumEnd + 2;
+
+				arrayIndex = -1;
+				while (++arrayIndex != arrayNum)
+				{
+					if (++iterFind == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					if (*iterFind == '-')
+					{
+						if (iterEnd - iterFind < 4)
+						{
+							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+							m_jumpNode = jumpNode;
+							m_waitMessageListBegin = waitMessageListBegin;
+							m_commandTotalSize = commandTotalSize;
+							m_commandCurrentSize = commandCurrentSize;
+							return false;
+						}
+
+						iterFind += 4;
+						///////////////////////   æœ¬æ¬¡æ²¡æœ‰ç»“æœï¼Œè€ƒè™‘æ€ä¹ˆè¿”å›æ¯”è¾ƒæ–¹ä¾¿  -1////////////////////
+
+						if (!jumpNode)
+						{
+							try
+							{
+								m_arrayResult.emplace_back(emptyView);
+							}
+							catch (const std::exception& e)
+							{
+								jumpNode = true;
+							}
+						}
+
+						//////////////////////////////////////////////////////////////////////////////////////
+						continue;
+					}
+
+					if (iterFind + 1 == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterLenBegin = iterFind;
+
+					if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					index = -1;
+					num = 1;
+					len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto& sum, auto const ch)
+					{
+						if (++index)
+							num *= 10;
+						return sum += (ch - '0') * num;
+					});
+
+					if (iterEnd - iterLenEnd < 4 + len)
+					{
+						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+						m_jumpNode = jumpNode;
+						m_waitMessageListBegin = waitMessageListBegin;
+						m_commandTotalSize = commandTotalSize;
+						m_commandCurrentSize = commandCurrentSize;
+						return false;
+					}
+
+					iterStrBegin = iterLenEnd + 2;
+					iterStrEnd = iterStrBegin + len;
+
+					iterFind = iterStrEnd + 2;
+
+					//////////////////////////////////////////////  æ¯æ¬¡çš„æœ‰æ•ˆç»“æœ
+
+					if (!jumpNode)
+					{
+						try
+						{
+							m_arrayResult.emplace_back(std::string_view(iterStrBegin, len));
+						}
+						catch (const std::exception& e)
+						{
+							jumpNode = true;
+						}
+					}
+
+
+
+					//////////////////////////////////////////////////////////////
+				}
+				iterBegin = iterFind;
+
+				///////////////////////////////////////////////////////////////////////// è¿™é‡Œè¿›è¡Œå‚æ•°ä¼ é€’
+
+
+				if (!jumpNode)
+				{
+					std::vector<std::string_view>& vec = std::get<4>(thisRequest).get();
+					try
+					{
+						vec.swap(m_arrayResult);
+						std::get<5>(thisRequest).get().emplace_back(vec.size());
+					}
+					catch (const std::exception& e)
+					{
+						jumpNode = true;
+					}
+				}
+
+
+				if (++commandCurrentSize == commandTotalSize)
+				{
+					//æ ¹æ®jumpNodeçŠ¶æ€ è°ƒç”¨å›è°ƒå‡½æ•°è¿”å›æœ¬æ¬¡æˆåŠŸä¸å¤±è´¥ç»“æœ
+					if (jumpNode)
+					{
+
+
+
+					}
+					else
+					{
+						std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+					}
+
+					jumpNode = false;
+					if (++waitMessageListBegin != waitMessageListEnd)
+					{
+						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandCurrentSize = 0;
+					}
+				}
+
+
+
+				///////////////////////////////////////////////////////////////////////////////////////
+				break;
+			default:
+
+				break;
+			}
+		}
+
+	}
+
+	//  å¦‚æœå·²ç»å¤„ç†å®Œæ•´ä¸ªé˜Ÿåˆ—ï¼Œåˆ™è¿”å›true,	
+	m_lastPrasePos = iterBegin - m_receiveBuffer.get();
+	m_jumpNode = jumpNode;
+	m_waitMessageListBegin = waitMessageListBegin;
+	m_commandTotalSize = commandTotalSize;
+	m_commandCurrentSize = commandCurrentSize;
+
+	if (m_waitMessageListBegin == m_waitMessageListEnd)
+		return true;
+	return false;
+}
+
+
+
+
+void MULTIREDISWRITE::handlelRead(const boost::system::error_code& err, const std::size_t size)
 {
 	if (err)
 	{
-		std::cout << "err\n";
+		m_log->writeLog(__FILE__, __LINE__, err.what());
+
+		m_connectStatus = 2;
+
+		ec = {};
+		m_sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+
+		static std::function<void()>socketTimeOut{ [this]() {shutdownLoop(); } };
+		m_timeWheel->insert(socketTimeOut, 5);
 	}
 	else
 	{
-
-		
 		if (size)
 		{
 			m_receiveBufferNowSize += size;
 
-			//Ã¿´Î½øĞĞ½âÎöÖ®Ç°ĞèÒª±£´æµ±Ç°½âÎö½ÚµãÎ»ÖÃ£¬Ê§°ÜÊ±½øĞĞ±È¶Ô£¬Èç¹ûÕû¸öbuffer¶¼±»ÈûÂúÁËÒÀÈ»»¹ÊÇÃ»ÓĞ±ä»¯£¬Ôò½«µ±Ç°´¦Àí¶ÓÁĞµÄ½ÚµãÈ«²¿·µ»Ø´íÎó£¬È»ºó¼ì²éÇëÇó¶ÓÁĞ£¬Éú³ÉĞÂµÄÇëÇóÏûÏ¢£¬
-			//ÒòÎªÕâ¸öËã·¨¿ìËÙµÄ¹Ø¼üÔÚÓÚ¼«ÖÂÀûÓÃÔ­bufferÊı¾İ
+			//æ¯æ¬¡è¿›è¡Œè§£æä¹‹å‰éœ€è¦ä¿å­˜å½“å‰è§£æèŠ‚ç‚¹ä½ç½®ï¼Œå¤±è´¥æ—¶è¿›è¡Œæ¯”å¯¹ï¼Œå¦‚æœæ•´ä¸ªbufferéƒ½è¢«å¡æ»¡äº†ä¾ç„¶è¿˜æ˜¯æ²¡æœ‰å˜åŒ–ï¼Œåˆ™å°†å½“å‰å¤„ç†é˜Ÿåˆ—çš„èŠ‚ç‚¹å…¨éƒ¨è¿”å›é”™è¯¯ï¼Œç„¶åæ£€æŸ¥è¯·æ±‚é˜Ÿåˆ—ï¼Œç”Ÿæˆæ–°çš„è¯·æ±‚æ¶ˆæ¯ï¼Œ
+			//å› ä¸ºè¿™ä¸ªç®—æ³•å¿«é€Ÿçš„å…³é”®åœ¨äºæè‡´åˆ©ç”¨åŸbufferæ•°æ®
 
 			m_waitMessageListBeforeParse = m_waitMessageListBegin;
 
-
-			if (!prase(size))
+			if (!parse(size))
 			{
 				// 
 				m_waitMessageListAfterParse = m_waitMessageListBegin;
@@ -440,12 +3166,12 @@ void MULTIREDISWRITE::handlelRead(const boost::system::error_code & err, const s
 				{
 					if (m_receiveBufferNowSize == m_lastPrasePos)
 					{
-						// ¶Ôm_waitMessageListBegin µ½ m_waitMessageListEnd Í³Í³·µ»Ø½âÎö´íÎó×´Ì¬
+						// å¯¹m_waitMessageListBegin åˆ° m_waitMessageListEnd ç»Ÿç»Ÿè¿”å›è§£æé”™è¯¯çŠ¶æ€
 
-						std::shared_ptr<redisWriteTypeSW> request;
 						do
 						{
-							request = *m_waitMessageListBegin;
+
+							std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::REDIS_READY_QUERY_ERROR);
 						} while (++m_waitMessageListBegin != m_waitMessageListEnd);
 
 
@@ -463,12 +3189,12 @@ void MULTIREDISWRITE::handlelRead(const boost::system::error_code & err, const s
 			}
 			else
 			{
-				// È«²¿½âÎöÍêÈ«ÁË£¬ÅĞ¶Ïm_waitMessageListBegin == m_waitMessageListEnd
-				//ÉèÖÃÒ»¸öwhileÑ­»·À´ÅĞ¶Ï
-				//¼ÓËøÊ×ÏÈÖ±½Ó³¢ÊÔÈ¡commandSize¸öÔªËØ£¬Èç¹û¶ÓÁĞÎª¿Õ£¬ÔòÍË³ö£¬ÉèÖÃ´¦Àí×´Ì¬Îª·ñ
-				//Èç¹û»ñÈ¡µ½ÔªËØ£¬Ôò±éÀú¼ÆËãĞèÒªµÄ¿Õ¼äÎª¶àÉÙ
-				//³¢ÊÔ·ÖÅä¿Õ¼ä£¬·ÖÅäÊ§°ÜÔòcontinue´¦Àí
-				//³É¹¦Ôòcopy×éºÏ£¬½øÈë·¢ËÍÃüÁî½×¶ÎÑ­»·
+				// å…¨éƒ¨è§£æå®Œå…¨äº†ï¼Œåˆ¤æ–­m_waitMessageListBegin == m_waitMessageListEnd
+				//è®¾ç½®ä¸€ä¸ªwhileå¾ªç¯æ¥åˆ¤æ–­
+				//åŠ é”é¦–å…ˆç›´æ¥å°è¯•å–commandSizeä¸ªå…ƒç´ ï¼Œå¦‚æœé˜Ÿåˆ—ä¸ºç©ºï¼Œåˆ™é€€å‡ºï¼Œè®¾ç½®å¤„ç†çŠ¶æ€ä¸ºå¦
+				//å¦‚æœè·å–åˆ°å…ƒç´ ï¼Œåˆ™éå†è®¡ç®—éœ€è¦çš„ç©ºé—´ä¸ºå¤šå°‘
+				//å°è¯•åˆ†é…ç©ºé—´ï¼Œåˆ†é…å¤±è´¥åˆ™continueå¤„ç†
+				//æˆåŠŸåˆ™copyç»„åˆï¼Œè¿›å…¥å‘é€å‘½ä»¤é˜¶æ®µå¾ªç¯
 
 
 				readyMessage();
@@ -482,2636 +3208,23 @@ void MULTIREDISWRITE::handlelRead(const boost::system::error_code & err, const s
 }
 
 
-
-
-bool MULTIREDISWRITE::prase(const int size)
-{
-	const char *iterBegin{ }, *iterEnd{ m_receiveBuffer.get() + m_receiveBufferNowSize }, *iterHalfBegin{ m_receiveBuffer.get() },
-		*iterHalfEnd{ m_receiveBuffer.get() + m_receiveBufferMaxSize }, *iterFind{},        // ¿ªÊ¼ ½áÊø  Ñ°ÕÒ½Úµã
-		*iterLenBegin{}, *iterLenEnd{},               //³¤¶È½Úµã
-		*iterStrBegin{}, *iterStrEnd{},               //±¾´ÎSIMPLE_STRINGÊ×Î²Î»ÖÃ
-		*errorBegin{}, *errorEnd{},
-		*arrayNumBegin{}, *arrayNumEnd{};
-
-	// m_lastPrasePos    m_jumpNode  m_waitMessageListBegin   m_commandTotalSize    m_commandCurrentSize·µ»ØÊ±ĞèÒªÍ¬²½´¦Àí
-
-	bool jumpNode{ m_jumpNode }, jump{ false };  //ÊÇ·ñÒÑ¾­¾­¹ı»Ø»·Çé¿ö
-	std::shared_ptr<redisWriteTypeSW> *waitMessageListBegin = m_waitMessageListBegin;
-	std::shared_ptr<redisWriteTypeSW> *waitMessageListEnd = m_waitMessageListEnd;
-	unsigned int commandTotalSize{ m_commandTotalSize }, commandCurrentSize{ m_commandCurrentSize };
-
-	// debug  ////////////
-
-	/////////////////////////////
-
-
-	unsigned int len{};     //¼ÆËã×Ö·û´®³¤¶ÈÊ¹ÓÃ
-	int index{}, num{}, arrayNum{}, arrayIndex{};
-
-
-	if (m_lastPrasePos == m_receiveBufferMaxSize)
-		iterBegin = m_receiveBuffer.get();
-	else
-		iterBegin = m_receiveBuffer.get() + m_lastPrasePos;
-
-
-	//½ÓÊÕÊı¾İÃ»ÓĞ»Ø»·Çé¿ö
-	if (iterBegin < iterEnd)
-	{
-		////////////////////////////////
-
-		while (iterBegin != iterEnd)
-		{
-			iterFind = iterBegin;
-			switch (*iterFind)
-			{
-				case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING) :
-					//  REDISPARSETYPE::LOT_SIZE_STRING
-					if (++iterFind == iterEnd)
-					{
-						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-						m_jumpNode = jumpNode;
-						m_waitMessageListBegin = waitMessageListBegin;
-						m_commandTotalSize = commandTotalSize;
-						m_commandCurrentSize = commandCurrentSize;
-						return false;
-					}
-
-																	   if (*iterFind == '-')
-																	   {
-																		   if (iterEnd - iterFind >= 4)
-																		   {
-																			   iterFind += 4;
-																			   iterBegin = iterFind;
-																			   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   //±¾´Î½á¹û·µ»ØÎŞ  -1£¬¿´Çé¿ö´¦Àí
-
-																			   if (!jumpNode)
-																			   {
-																				   try
-																				   {
-																					   
-																				   }
-																				   catch (const std::exception &e)
-																				   {
-																					   jumpNode = true;
-																				   }
-																			   }
-
-
-																			   //Ö»¸ºÔğ·µ»Ø³É¹¦Óë·ñ
-																			   if (++commandCurrentSize == commandTotalSize)
-																			   {
-																				   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																				   if (jumpNode)
-																				   {
-
-
-
-																				   }
-																				   else
-																				   {
-																					   
-																				   }
-
-																				   jumpNode = false;
-																				   if (++waitMessageListBegin != waitMessageListEnd)
-																				   {
-																					   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																					   commandCurrentSize = 0;
-																				   }
-																			   }
-																			   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																			   continue;
-																		   }
-
-																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																		   m_jumpNode = jumpNode;
-																		   m_waitMessageListBegin = waitMessageListBegin;
-																		   m_commandTotalSize = commandTotalSize;
-																		   m_commandCurrentSize = commandCurrentSize;
-																		   return false;
-																	   }
-																	   else
-																	   {
-																		   iterLenBegin = iterFind;
-
-																		   if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
-																		   {
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-																		   else
-																		   {
-																			   index = -1;
-																			   num = 1;
-																			   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																			   {
-																				   if (++index)
-																					   num *= 10;
-																				   return sum += (ch - '0')*num;
-																			   });
-																		   }
-
-																		   if (iterEnd - iterLenEnd < (4 + len))
-																		   {
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-																		   else
-																		   {
-																			   iterStrBegin = iterLenEnd + 2;
-																			   iterStrEnd = iterStrBegin + len;
-
-																			   //±¾´Î½á¹û»ñÈ¡³É¹¦£¬¿´Çé¿ö½øĞĞ´¦Àí
-
-																			   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   if (!jumpNode)
-																			   {
-																				   try
-																				   {
-																					  
-																				   }
-																				   catch (const std::exception &e)
-																				   {
-																					   jumpNode = true;
-																				   }
-																			   }
-
-
-																			   if (++commandCurrentSize == commandTotalSize)
-																			   {
-																				   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																				   if (jumpNode)
-																				   {
-
-
-
-																				   }
-																				   else
-																				   {
-																					   
-																				   }
-
-																				   jumpNode = false;
-																				   if (++waitMessageListBegin != waitMessageListEnd)
-																				   {
-																					   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																					   commandCurrentSize = 0;
-																				   }
-																			   }
-
-
-																			   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   iterBegin = iterStrEnd + 2;
-																			   continue;
-																		   }
-																	   }
-
-																	   break;
-
-																	   case static_cast<int>(REDISPARSETYPE::INTERGER) :
-																		   // REDISPARSETYPE::INTERGER
-
-																		   if ((iterLenEnd = std::find(iterFind + 1, iterEnd, '\r')) == iterEnd)
-																		   {
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-
-																													   if (iterEnd - iterLenEnd < 2)
-																													   {
-																														   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																														   m_jumpNode = jumpNode;
-																														   m_waitMessageListBegin = waitMessageListBegin;
-																														   m_commandTotalSize = commandTotalSize;
-																														   m_commandCurrentSize = commandCurrentSize;
-																														   return false;
-																													   }
-
-																													   iterLenBegin = iterFind + 1;
-
-																													   iterFind = iterLenEnd + 2;
-																													   iterBegin = iterFind;
-
-																													   //½á¹ûiterLenBegin    iterLenEnd
-																													   ////////////////////////////////////////////////////////////////////////
-																													   if (!jumpNode)
-																													   {
-																														   try
-																														   {
-																															   
-																														   }
-																														   catch (const std::exception &e)
-																														   {
-																															   jumpNode = true;
-																														   }
-																													   }
-
-
-																													   if (++commandCurrentSize == commandTotalSize)
-																													   {
-																														   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																														   if (jumpNode)
-																														   {
-
-
-
-																														   }
-																														   else
-																														   {
-																															   
-																														   }
-
-																														   jumpNode = false;
-																														   if (++waitMessageListBegin != waitMessageListEnd)
-																														   {
-																															   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																															   commandCurrentSize = 0;
-																														   }
-																													   }
-
-
-																													   ///////////////////////////////////////////////////////////////////////////////////////////////////
-																													   break;
-
-																													   case static_cast<int>(REDISPARSETYPE::ERROR) :
-																														   //REDISPARSETYPE::ERROR
-
-																														   errorBegin = iterBegin + 1;
-																														   if ((errorEnd = std::search(errorBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																														   {
-																															   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																															   m_jumpNode = jumpNode;
-																															   m_waitMessageListBegin = waitMessageListBegin;
-																															   m_commandTotalSize = commandTotalSize;
-																															   m_commandCurrentSize = commandCurrentSize;
-																															   return false;
-																														   }
-
-																														   iterFind = errorEnd + 2;
-																														   iterBegin = iterFind;
-																														   //·µ»Ø´íÎóĞÅÏ¢½á¹û
-																														   ////////////////////////////////////////////////////////////////////////////////////////////
-
-																														   if (!jumpNode)
-																														   {
-																															   try
-																															   {
-																																   
-																															   }
-																															   catch (const std::exception &e)
-																															   {
-																																   jumpNode = true;
-																															   }
-																														   }
-
-
-																														   if (++commandCurrentSize == commandTotalSize)
-																														   {
-																															   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																															   if (jumpNode)
-																															   {
-
-
-
-																															   }
-																															   else
-																															   {
-																																   
-																															   }
-
-																															   jumpNode = false;
-																															   if (++waitMessageListBegin != waitMessageListEnd)
-																															   {
-																																   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																																   commandCurrentSize = 0;
-																															   }
-																														   }
-
-
-																														   //////////////////////////////////////////////////////////////////////////////////////
-																														   break;
-
-																														   case static_cast<int>(REDISPARSETYPE::SIMPLE_STRING) :
-																															   //REDISPARSETYPE::SIMPLE_STRING
-
-																															   iterStrBegin = iterBegin + 1;
-																															   if ((iterStrEnd = std::search(iterStrBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																															   {
-																																   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																   m_jumpNode = jumpNode;
-																																   m_waitMessageListBegin = waitMessageListBegin;
-																																   m_commandTotalSize = commandTotalSize;
-																																   m_commandCurrentSize = commandCurrentSize;
-																																   return false;
-																															   }
-
-																															   iterFind = iterStrEnd + 2;
-																															   iterBegin = iterFind;
-																															   //·µ»Ø´íÎóĞÅÏ¢½á¹û
-																															   //////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																															   if (!jumpNode)
-																															   {
-																																   try
-																																   {
-																																	  
-																																   }
-																																   catch (const std::exception &e)
-																																   {
-																																	   jumpNode = true;
-																																   }
-																															   }
-
-
-																															   if (++commandCurrentSize == commandTotalSize)
-																															   {
-																																   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																																   if (jumpNode)
-																																   {
-
-
-
-																																   }
-																																   else
-																																   {
-																																	   
-																																   }
-
-																																   jumpNode = false;
-																																   if (++waitMessageListBegin != waitMessageListEnd)
-																																   {
-																																	   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																																	   commandCurrentSize = 0;
-																																   }
-																															   }
-
-
-																															   //////////////////////////////////////////////////////////////////////////////////////////////
-																															   break;
-
-
-																															   case static_cast<int>(REDISPARSETYPE::ARRAY) :
-																																   //REDISPARSETYPE::ARRAY
-
-																																   if (!jumpNode)
-																																	   m_arrayResult.clear();
-
-																																   if (++iterFind == iterEnd)
-																																   {
-																																	   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																	   m_jumpNode = jumpNode;
-																																	   m_waitMessageListBegin = waitMessageListBegin;
-																																	   m_commandTotalSize = commandTotalSize;
-																																	   m_commandCurrentSize = commandCurrentSize;
-																																	   return false;
-																																   }
-
-																																   arrayNumBegin = iterFind;
-
-																																   if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterEnd, '\r')) == iterEnd)
-																																   {
-																																	   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																	   m_jumpNode = jumpNode;
-																																	   m_waitMessageListBegin = waitMessageListBegin;
-																																	   m_commandTotalSize = commandTotalSize;
-																																	   m_commandCurrentSize = commandCurrentSize;
-																																	   return false;
-																																   }
-
-																																   index = -1;
-																																   num = 1;
-																																   arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto &sum, auto const ch)
-																																   {
-																																	   if (++index)
-																																		   num *= 10;
-																																	   return sum += (ch - '0')*num;
-																																   });
-
-																																   if (iterEnd - arrayNumEnd < 2)
-																																   {
-																																	   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																	   m_jumpNode = jumpNode;
-																																	   m_waitMessageListBegin = waitMessageListBegin;
-																																	   m_commandTotalSize = commandTotalSize;
-																																	   m_commandCurrentSize = commandCurrentSize;
-																																	   return false;
-																																   }
-
-																																   iterFind = arrayNumEnd + 2;
-
-																																   arrayIndex = -1;
-																																   while (++arrayIndex != arrayNum)
-																																   {
-																																	   if (++iterFind == iterEnd)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   if (*iterFind == '-')
-																																	   {
-																																		   if (iterEnd - iterFind < 4)
-																																		   {
-																																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																			   m_jumpNode = jumpNode;
-																																			   m_waitMessageListBegin = waitMessageListBegin;
-																																			   m_commandTotalSize = commandTotalSize;
-																																			   m_commandCurrentSize = commandCurrentSize;
-																																			   return false;
-																																		   }
-
-																																		   iterFind += 4;
-																																		   ///////////////////////   ±¾´ÎÃ»ÓĞ½á¹û£¬¿¼ÂÇÔõÃ´·µ»Ø±È½Ï·½±ã  -1////////////////////
-
-																																		   if (!jumpNode)
-																																		   {
-																																			   try
-																																			   {
-																																				  
-																																			   }
-																																			   catch (const std::exception &e)
-																																			   {
-																																				   jumpNode = true;
-																																			   }
-																																		   }
-
-																																		   //////////////////////////////////////////////////////////////////////////////////////
-																																		   continue;
-																																	   }
-
-																																	   if (++iterFind == iterEnd)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   iterLenBegin = iterFind;
-
-																																	   if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   index = -1;
-																																	   num = 1;
-																																	   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																																	   {
-																																		   if (++index)
-																																			   num *= 10;
-																																		   return sum += (ch - '0')*num;
-																																	   });
-
-																																	   if (iterEnd - iterLenEnd < 4 + len)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   iterStrBegin = iterLenEnd + 2;
-																																	   iterStrEnd = iterStrBegin + len;
-
-																																	   iterFind = iterStrEnd + 2;
-
-																																	   //////////////////////////////////////////////  Ã¿´ÎµÄÓĞĞ§½á¹û
-
-																																	   if (!jumpNode)
-																																	   {
-																																		   try
-																																		   {
-																																			   
-																																		   }
-																																		   catch (const std::exception &e)
-																																		   {
-																																			   jumpNode = true;
-																																		   }
-																																	   }
-
-
-
-																																	   //////////////////////////////////////////////////////////////
-																																   }
-																																   iterBegin = iterFind;
-
-																																   ///////////////////////////////////////////////////////////////////////// ÕâÀï½øĞĞ²ÎÊı´«µİ
-
-
-																																   if (!jumpNode)
-																																   {
-																																	  
-																																	   try
-																																	   {
-																																		   
-																																	   }
-																																	   catch (const std::exception &e)
-																																	   {
-																																		   jumpNode = true;
-																																	   }
-																																   }
-
-
-																																   if (++commandCurrentSize == commandTotalSize)
-																																   {
-																																	   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																																	   if (jumpNode)
-																																	   {
-
-
-
-																																	   }
-																																	   else
-																																	   {
-																																		  
-																																	   }
-
-																																	   jumpNode = false;
-																																	   if (++waitMessageListBegin != waitMessageListEnd)
-																																	   {
-																																		   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																																		   commandCurrentSize = 0;
-																																	   }
-																																   }
-
-
-
-																																   ///////////////////////////////////////////////////////////////////////////////////////
-																																   break;
-																															   default:
-
-																																   break;
-			}
-		}
-	}
-	else      //½ÓÊÕÊı¾İ»Ø»·Çé¿ö
-	{
-
-
-		while (!jump)
-		{
-			iterFind = iterBegin;
-			switch (*iterFind)
-			{
-				case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING) :
-					//  REDISPARSETYPE::LOT_SIZE_STRING
-					if (++iterFind == iterHalfEnd)
-					{
-						if (iterHalfBegin == iterEnd)
-						{
-							m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-							m_jumpNode = jumpNode;
-							m_waitMessageListBegin = waitMessageListBegin;
-							m_commandTotalSize = commandTotalSize;
-							m_commandCurrentSize = commandCurrentSize;
-							return false;
-						}
-						else
-						{
-							iterFind = iterHalfBegin;
-							jump = true;
-						}
-					}
-
-
-
-																	   if (*iterFind == '-')
-																	   {
-																		   if (!jump)
-																		   {
-																			   if ((iterHalfEnd - iterFind) + (iterEnd - iterHalfBegin) >= 4)
-																			   {
-																				   if (iterHalfEnd - iterFind >= 4)
-																				   {
-																					   iterFind += 4;
-																					   iterBegin = iterFind;
-																				   }
-																				   else
-																				   {
-																					   iterFind = iterHalfBegin + (4 - (iterHalfEnd - iterFind));
-																					   iterBegin = iterFind;
-																					   jump = true;
-																				   }
-																				   //±¾´Î½á¹û·µ»ØÎŞ  -1£¬¿´Çé¿ö´¦Àí
-
-																				   ///////////////////////////////////////////////////////
-
-
-																				   if (!jumpNode)
-																				   {
-																					   try
-																					   {
-																						   
-																					   }
-																					   catch (const std::exception &e)
-																					   {
-																						   jumpNode = true;
-																					   }
-																				   }
-
-
-																				   if (++commandCurrentSize == commandTotalSize)
-																				   {
-																					   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																					   if (jumpNode)
-																					   {
-
-
-
-																					   }
-																					   else
-																					   {
-																						  
-																					   }
-
-																					   jumpNode = false;
-																					   if (++waitMessageListBegin != waitMessageListEnd)
-																					   {
-																						   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																						   commandCurrentSize = 0;
-																					   }
-																				   }
-
-
-
-																				   ////////////////////////////////////////////////////////
-																				   continue;
-																			   }
-
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-																		   else
-																		   {
-																			   if (iterEnd - iterFind >= 4)
-																			   {
-																				   iterFind += 4;
-																				   iterBegin = iterFind;
-																				   //±¾´Î½á¹û·µ»ØÎŞ  -1£¬¿´Çé¿ö´¦Àí
-																				   //////////////////////////////////////////
-
-																				   if (!jumpNode)
-																				   {
-																					   try
-																					   {
-																						   
-																					   }
-																					   catch (const std::exception &e)
-																					   {
-																						   jumpNode = true;
-																					   }
-																				   }
-
-
-																				   if (++commandCurrentSize == commandTotalSize)
-																				   {
-																					   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																					   if (jumpNode)
-																					   {
-
-
-
-																					   }
-																					   else
-																					   {
-																						   
-																					   }
-
-																					   jumpNode = false;
-																					   if (++waitMessageListBegin != waitMessageListEnd)
-																					   {
-																						   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																						   commandCurrentSize = 0;
-																					   }
-																				   }
-
-
-																				   ///////////////////////////////////////////////////
-																				   continue;
-																			   }
-
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-																	   }
-																	   else
-																	   {
-																		   iterLenBegin = iterFind;
-
-																		   if (!jump)
-																		   {
-																			   if ((iterLenEnd = std::find(iterLenBegin + 1, iterHalfEnd, '\r')) == iterHalfEnd)
-																			   {
-																				   if ((iterLenEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
-																				   {
-																					   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																					   m_jumpNode = jumpNode;
-																					   m_waitMessageListBegin = waitMessageListBegin;
-																					   m_commandTotalSize = commandTotalSize;
-																					   m_commandCurrentSize = commandCurrentSize;
-																					   return false;
-																				   }
-																				   else
-																				   {
-																					   index = -1;
-																					   num = 1;
-																					   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterHalfBegin), 0, [&index, &num](auto &sum, auto const ch)
-																					   {
-																						   if (++index)
-																							   num *= 10;
-																						   return sum += (ch - '0')*num;
-																					   });
-																					   len += std::accumulate(std::make_reverse_iterator(iterHalfEnd), std::make_reverse_iterator(iterLenBegin), len, [&index, &num](auto &sum, auto const ch)
-																					   {
-																						   if (++index)
-																							   num *= 10;
-																						   return sum += (ch - '0')*num;
-																					   });
-																					   jump = true;
-																				   }
-																			   }
-																			   else
-																			   {
-																				   index = -1;
-																				   num = 1;
-																				   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																				   {
-																					   if (++index)
-																						   num *= 10;
-																					   return sum += (ch - '0')*num;
-																				   });
-																			   }
-																		   }
-																		   else
-																		   {
-																			   if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
-																			   {
-																				   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																				   m_jumpNode = jumpNode;
-																				   m_waitMessageListBegin = waitMessageListBegin;
-																				   m_commandTotalSize = commandTotalSize;
-																				   m_commandCurrentSize = commandCurrentSize;
-																				   return false;
-																			   }
-																			   else
-																			   {
-																				   index = -1;
-																				   num = 1;
-																				   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																				   {
-																					   if (++index)
-																						   num *= 10;
-																					   return sum += (ch - '0')*num;
-																				   });
-																			   }
-																		   }
-
-
-
-																		   if (!jump)
-																		   {
-																			   if (iterHalfEnd - iterLenEnd + (iterEnd - iterHalfBegin) < (4 + len))
-																			   {
-																				   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																				   m_jumpNode = jumpNode;
-																				   m_waitMessageListBegin = waitMessageListBegin;
-																				   m_commandTotalSize = commandTotalSize;
-																				   m_commandCurrentSize = commandCurrentSize;
-																				   return false;
-																			   }
-																			   else
-																			   {
-																				   if (iterHalfEnd - iterLenEnd >= 2)
-																				   {
-																					   iterStrBegin = iterLenEnd + 2;
-																				   }
-																				   else
-																				   {
-																					   iterStrBegin = iterHalfBegin + (2 - (iterHalfEnd - iterLenEnd));
-																					   jump = true;
-																				   }
-
-
-																				   if (!jump)
-																				   {
-																					   if (iterHalfEnd - iterStrBegin >= len)
-																					   {
-																						   iterStrEnd = iterStrBegin + len;
-																					   }
-																					   else
-																					   {
-																						   iterStrEnd = iterHalfBegin + (len - (iterHalfEnd - iterStrBegin));
-																						   jump = true;
-																					   }
-																				   }
-																				   else
-																				   {
-																					   iterStrEnd = iterStrBegin + len;
-																				   }
-
-																				   //±¾´Î½á¹û»ñÈ¡³É¹¦£¬¿´Çé¿ö½øĞĞ´¦Àí£¬×¢ÒâÅĞ¶Ï»Ø»·Çé¿ö    iterStrBegin      iterStrEnd
-
-																				   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-																				   if (!jumpNode)
-																				   {
-																					   //ĞèÒª»Ø»·´¦Àí¿½±´
-																					   if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
-																					   {
-																						   //ÒòÎªÕâÒ»Ì×»úÖÆ±¾ÖÊ½¨Á¢ÔÚÎ£ÏÕµÄÖ¸ÕëÖ®ÉÏ£¬Òò´ËÕâÀïÎªÁË°²È«£¬µ±·¢ÉúÊı¾İ»Ø»·Çé¿öĞèÒª¿½±´±£´æµÄÊ±ºò£¬ÅĞ¶Ï³¤¶ÈÊÇ·ñÔÚm_outRangeMaxSizeÖ®ÄÚ£¬Èç¹û³¬¹ı£¬ÄşÔ¸ÅĞ¶ÏÎªÃ»ÓĞ¡£
-																					   //Èç¹ûÊ¹ÓÃÕß¾õµÃ¿ÉÒÔ³ĞÊÜºó¹û£¬ÄÇÃ´¿ÉÒÔÔÚÕâÀï»»³É¶¯Ì¬·ÖÅäÄÚ´æ½øĞĞ¿½±´£¬µ«ÊÇÒª¼Ç×¡Ò»µã£ºÒ»µ©¿ØÖÆ²»ºÃ£¬ÔÚÊ¹ÓÃÕâ¶Î¶¯Ì¬·ÖÅäÄÚ´æÊ±µÚ¶ş´Î½ÓÊÕĞÅÏ¢À´µ½Ê±Ò»µ©½øĞĞÖØĞÂ·ÖÅä£¬
-																					   //¿ÉÄÜ»á´¥·¢¿ÕÖ¸ÕëÒì³£ ³ÌĞòÖ±½Ó±ÀÀ£
-																						   if (len <= m_outRangeMaxSize)
-																						   {
-																							   std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-																							   std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
-
-																							   try
-																							   {
-																								  
-																							   }
-																							   catch (const std::exception &e)
-																							   {
-																								   jumpNode = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   try
-																							   {
-																								  
-																							   }
-																							   catch (const std::exception &e)
-																							   {
-																								   jumpNode = true;
-																							   }
-																						   }
-																					   }
-																					   else
-																					   {
-																						   try
-																						   {
-																							 
-																						   }
-																						   catch (const std::exception &e)
-																						   {
-																							   jumpNode = true;
-																						   }
-																					   }
-																				   }
-
-
-																				   if (++commandCurrentSize == commandTotalSize)
-																				   {
-																					   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																					   if (jumpNode)
-																					   {
-
-
-
-																					   }
-																					   else
-																					   {
-																						   
-																					   }
-
-																					   jumpNode = false;
-																					   if (++waitMessageListBegin != waitMessageListEnd)
-																					   {
-																						   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																						   commandCurrentSize = 0;
-																					   }
-																				   }
-
-
-
-																				   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																				   if (!jump)
-																				   {
-																					   if (iterHalfEnd - iterStrEnd >= 2)
-																					   {
-																						   iterBegin = iterStrEnd + 2;
-																					   }
-																					   else
-																					   {
-																						   iterBegin = iterHalfBegin + (2 - (iterHalfEnd - iterStrEnd));
-																						   jump = true;
-																					   }
-																				   }
-																				   else
-																				   {
-																					   iterBegin = iterStrEnd + 2;
-																				   }
-																			   }
-																		   }
-																		   else
-																		   {
-																			   if (iterEnd - iterLenEnd < (4 + len))
-																			   {
-																				   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																				   m_jumpNode = jumpNode;
-																				   m_waitMessageListBegin = waitMessageListBegin;
-																				   m_commandTotalSize = commandTotalSize;
-																				   m_commandCurrentSize = commandCurrentSize;
-																				   return false;
-																			   }
-																			   else
-																			   {
-																				   iterStrBegin = iterLenEnd + 2;
-																				   iterStrEnd = iterStrBegin + len;
-
-																				   //±¾´Î½á¹û»ñÈ¡³É¹¦£¬¿´Çé¿ö½øĞĞ´¦Àí£¬×¢ÒâÅĞ¶Ï»Ø»·Çé¿ö
-
-																				   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-																				   if (!jumpNode)
-																				   {
-																					   //ĞèÒª»Ø»·´¦Àí¿½±´
-																					   if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
-																					   {
-																						   //ÒòÎªÕâÒ»Ì×»úÖÆ±¾ÖÊ½¨Á¢ÔÚÎ£ÏÕµÄÖ¸ÕëÖ®ÉÏ£¬Òò´ËÕâÀïÎªÁË°²È«£¬µ±·¢ÉúÊı¾İ»Ø»·Çé¿öĞèÒª¿½±´±£´æµÄÊ±ºò£¬ÅĞ¶Ï³¤¶ÈÊÇ·ñÔÚm_outRangeMaxSizeÖ®ÄÚ£¬Èç¹û³¬¹ı£¬ÄşÔ¸ÅĞ¶ÏÎªÃ»ÓĞ¡£
-																					   //Èç¹ûÊ¹ÓÃÕß¾õµÃ¿ÉÒÔ³ĞÊÜºó¹û£¬ÄÇÃ´¿ÉÒÔÔÚÕâÀï»»³É¶¯Ì¬·ÖÅäÄÚ´æ½øĞĞ¿½±´£¬µ«ÊÇÒª¼Ç×¡Ò»µã£ºÒ»µ©¿ØÖÆ²»ºÃ£¬ÔÚÊ¹ÓÃÕâ¶Î¶¯Ì¬·ÖÅäÄÚ´æÊ±µÚ¶ş´Î½ÓÊÕĞÅÏ¢À´µ½Ê±Ò»µ©½øĞĞÖØĞÂ·ÖÅä£¬
-																					   //¿ÉÄÜ»á´¥·¢¿ÕÖ¸ÕëÒì³£ ³ÌĞòÖ±½Ó±ÀÀ£
-																						   if (len <= m_outRangeMaxSize)
-																						   {
-																							   std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-																							   std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
-
-																							   try
-																							   {
-																								  
-																							   }
-																							   catch (const std::exception &e)
-																							   {
-																								   jumpNode = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   try
-																							   {
-																								   
-																							   }
-																							   catch (const std::exception &e)
-																							   {
-																								   jumpNode = true;
-																							   }
-																						   }
-																					   }
-																					   else
-																					   {
-																						   try
-																						   {
-																							  
-																						   }
-																						   catch (const std::exception &e)
-																						   {
-																							   jumpNode = true;
-																						   }
-																					   }
-																				   }
-
-
-																				   if (++commandCurrentSize == commandTotalSize)
-																				   {
-																					   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																					   if (jumpNode)
-																					   {
-
-
-
-																					   }
-																					   else
-																					   {
-																						   
-																					   }
-
-																					   jumpNode = false;
-																					   if (++waitMessageListBegin != waitMessageListEnd)
-																					   {
-																						   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																						   commandCurrentSize = 0;
-																					   }
-																				   }
-
-
-
-																				   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																				   iterBegin = iterStrEnd + 2;
-																			   }
-																		   }
-
-																		   continue;
-																	   }
-																	   break;
-
-
-																	   case static_cast<int>(REDISPARSETYPE::INTERGER) :
-																		   // REDISPARSETYPE::INTERGER
-																		   iterLenBegin = iterFind + 1;
-
-																		   if (iterHalfEnd == iterLenBegin)
-																		   {
-																			   iterLenBegin = iterHalfBegin;
-																			   jump = true;
-																		   }
-
-
-																		   //////////////////////////////////////////////////////////////
-
-																		   if (!jump)
-																		   {
-																			   if ((iterLenEnd = std::find(iterFind + 1, iterHalfEnd, '\r')) == iterHalfEnd)
-																			   {
-																				   if ((iterLenEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
-																				   {
-																					   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																					   m_jumpNode = jumpNode;
-																					   m_waitMessageListBegin = waitMessageListBegin;
-																					   m_commandTotalSize = commandTotalSize;
-																					   m_commandCurrentSize = commandCurrentSize;
-																					   return false;
-																				   }
-																				   else
-																				   {
-																					   jump = true;
-																				   }
-																			   }
-																		   }
-																		   else
-																		   {
-																			   if ((iterLenEnd = std::find(iterFind + 1, iterEnd, '\r')) == iterEnd)
-																			   {
-																				   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																				   m_jumpNode = jumpNode;
-																				   m_waitMessageListBegin = waitMessageListBegin;
-																				   m_commandTotalSize = commandTotalSize;
-																				   m_commandCurrentSize = commandCurrentSize;
-																				   return false;
-																			   }
-																		   }
-
-
-																		   ///////////////////////////////////////////////////////////////////////
-
-																		   if (!jump)
-																		   {
-																			   if ((iterHalfEnd - iterLenEnd) + (iterEnd - iterHalfBegin) < 2)
-																			   {
-																				   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																				   m_jumpNode = jumpNode;
-																				   m_waitMessageListBegin = waitMessageListBegin;
-																				   m_commandTotalSize = commandTotalSize;
-																				   m_commandCurrentSize = commandCurrentSize;
-																				   return false;
-																			   }
-
-																			   if (iterHalfEnd - iterLenEnd >= 2)
-																			   {
-																				   iterFind = iterLenEnd + 2;
-																			   }
-																			   else
-																			   {
-																				   iterFind = iterHalfBegin + (2 - (iterHalfEnd - iterLenEnd));
-																			   }
-																		   }
-																		   else
-																		   {
-																			   if (iterEnd - iterLenEnd < 2)
-																			   {
-																				   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																				   m_jumpNode = jumpNode;
-																				   m_waitMessageListBegin = waitMessageListBegin;
-																				   m_commandTotalSize = commandTotalSize;
-																				   m_commandCurrentSize = commandCurrentSize;
-																				   return false;
-																			   }
-
-																			   iterFind = iterLenEnd + 2;
-																		   }
-																		   iterBegin = iterFind;
-
-
-																		   //½á¹ûiterLenBegin    iterLenEnd    ×¢Òâ»Ø»·Çé¿ö´¦Àí
-
-																		   /////////////////////////////////////////////////////////////////////////////////////////
-
-
-																		   if (!jumpNode)
-																		   {
-																			   //ĞèÒª»Ø»·´¦Àí¿½±´
-																			   if (iterLenBegin < iterHalfEnd && iterLenEnd>iterHalfBegin)
-																			   {
-																				   //ÒòÎªÕâÒ»Ì×»úÖÆ±¾ÖÊ½¨Á¢ÔÚÎ£ÏÕµÄÖ¸ÕëÖ®ÉÏ£¬Òò´ËÕâÀïÎªÁË°²È«£¬µ±·¢ÉúÊı¾İ»Ø»·Çé¿öĞèÒª¿½±´±£´æµÄÊ±ºò£¬ÅĞ¶Ï³¤¶ÈÊÇ·ñÔÚm_outRangeMaxSizeÖ®ÄÚ£¬Èç¹û³¬¹ı£¬ÄşÔ¸ÅĞ¶ÏÎªÃ»ÓĞ¡£
-																			   //Èç¹ûÊ¹ÓÃÕß¾õµÃ¿ÉÒÔ³ĞÊÜºó¹û£¬ÄÇÃ´¿ÉÒÔÔÚÕâÀï»»³É¶¯Ì¬·ÖÅäÄÚ´æ½øĞĞ¿½±´£¬µ«ÊÇÒª¼Ç×¡Ò»µã£ºÒ»µ©¿ØÖÆ²»ºÃ£¬ÔÚÊ¹ÓÃÕâ¶Î¶¯Ì¬·ÖÅäÄÚ´æÊ±µÚ¶ş´Î½ÓÊÕĞÅÏ¢À´µ½Ê±Ò»µ©½øĞĞÖØĞÂ·ÖÅä£¬
-																			   //¿ÉÄÜ»á´¥·¢¿ÕÖ¸ÕëÒì³£ ³ÌĞòÖ±½Ó±ÀÀ£
-																				   if (len <= m_outRangeMaxSize)
-																				   {
-																					   std::copy(iterLenBegin, iterHalfEnd, m_outRangeBuffer.get());
-																					   std::copy(iterHalfBegin, iterLenEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterLenBegin));
-
-																					   try
-																					   {
-																						   
-																					   }
-																					   catch (const std::exception &e)
-																					   {
-																						   jumpNode = true;
-																					   }
-																				   }
-																				   else
-																				   {
-																					   try
-																					   {
-																						   
-																					   }
-																					   catch (const std::exception &e)
-																					   {
-																						   jumpNode = true;
-																					   }
-																				   }
-																			   }
-																			   else
-																			   {
-																				   try
-																				   {
-																					   
-																				   }
-																				   catch (const std::exception &e)
-																				   {
-																					   jumpNode = true;
-																				   }
-																			   }
-																		   }
-
-
-																		   if (++commandCurrentSize == commandTotalSize)
-																		   {
-																			   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																			   if (jumpNode)
-																			   {
-
-
-
-																			   }
-																			   else
-																			   {
-																				   
-																			   }
-
-																			   jumpNode = false;
-																			   if (++waitMessageListBegin != waitMessageListEnd)
-																			   {
-																				   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																				   commandCurrentSize = 0;
-																			   }
-																		   }
-
-
-																		   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																		   break;
-
-
-																		   case static_cast<int>(REDISPARSETYPE::ERROR) :
-																			   errorBegin = iterBegin + 1;
-																			   if (errorBegin == iterHalfEnd)
-																			   {
-																				   errorBegin = iterHalfBegin;
-																				   jump = true;
-																			   }
-
-
-																			   if (!jump)
-																			   {
-																				   if ((errorEnd = std::search(errorBegin + 1, iterHalfEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterHalfEnd)
-																				   {
-																					   if (*(iterHalfEnd - 1) == '\r' && *iterHalfBegin == '\n')
-																					   {
-																						   errorEnd = iterHalfEnd - 1;
-																						   jump = true;
-																					   }
-																					   else if ((errorEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																					   {
-																						   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																						   m_jumpNode = jumpNode;
-																						   m_waitMessageListBegin = waitMessageListBegin;
-																						   m_commandTotalSize = commandTotalSize;
-																						   m_commandCurrentSize = commandCurrentSize;
-																						   return false;
-																					   }
-																				   }
-																			   }
-																			   else
-																			   {
-																				   if ((errorEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																				   {
-																					   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																					   m_jumpNode = jumpNode;
-																					   m_waitMessageListBegin = waitMessageListBegin;
-																					   m_commandTotalSize = commandTotalSize;
-																					   m_commandCurrentSize = commandCurrentSize;
-																					   return false;
-																				   }
-																			   }
-
-
-																			   if (!jump)
-																			   {
-																				   if ((iterHalfEnd - errorEnd) + (iterEnd - iterHalfBegin) < 2)
-																				   {
-																					   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																					   m_jumpNode = jumpNode;
-																					   m_waitMessageListBegin = waitMessageListBegin;
-																					   m_commandTotalSize = commandTotalSize;
-																					   m_commandCurrentSize = commandCurrentSize;
-																					   return false;
-																				   }
-
-																				   if (iterHalfEnd - errorEnd >= 2)
-																					   iterFind = errorEnd + 2;
-																				   else
-																					   iterFind = iterHalfBegin + (2 - (iterHalfEnd - errorEnd));
-																			   }
-																			   else
-																			   {
-																				   if (iterEnd - iterHalfBegin < 2)
-																				   {
-																					   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																					   m_jumpNode = jumpNode;
-																					   m_waitMessageListBegin = waitMessageListBegin;
-																					   m_commandTotalSize = commandTotalSize;
-																					   m_commandCurrentSize = commandCurrentSize;
-																					   return false;
-																				   }
-
-																				   iterFind = iterEnd + 2;
-																			   }
-																			   iterBegin = iterFind;
-
-																			   //·µ»Ø´íÎóĞÅÏ¢½á¹û   errorBegin      errorEnd ×¢Òâ»Ø»·Çé¿ö´¦Àí
-																			   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																			   if (!jumpNode)
-																			   {
-																				   //ĞèÒª»Ø»·´¦Àí¿½±´
-																				   if (errorBegin < iterHalfEnd && errorEnd>iterHalfBegin)
-																				   {
-																					   len = iterHalfEnd - errorBegin + errorEnd - iterHalfBegin;
-																					   //ÒòÎªÕâÒ»Ì×»úÖÆ±¾ÖÊ½¨Á¢ÔÚÎ£ÏÕµÄÖ¸ÕëÖ®ÉÏ£¬Òò´ËÕâÀïÎªÁË°²È«£¬µ±·¢ÉúÊı¾İ»Ø»·Çé¿öĞèÒª¿½±´±£´æµÄÊ±ºò£¬ÅĞ¶Ï³¤¶ÈÊÇ·ñÔÚm_outRangeMaxSizeÖ®ÄÚ£¬Èç¹û³¬¹ı£¬ÄşÔ¸ÅĞ¶ÏÎªÃ»ÓĞ¡£
-																				   //Èç¹ûÊ¹ÓÃÕß¾õµÃ¿ÉÒÔ³ĞÊÜºó¹û£¬ÄÇÃ´¿ÉÒÔÔÚÕâÀï»»³É¶¯Ì¬·ÖÅäÄÚ´æ½øĞĞ¿½±´£¬µ«ÊÇÒª¼Ç×¡Ò»µã£ºÒ»µ©¿ØÖÆ²»ºÃ£¬ÔÚÊ¹ÓÃÕâ¶Î¶¯Ì¬·ÖÅäÄÚ´æÊ±µÚ¶ş´Î½ÓÊÕĞÅÏ¢À´µ½Ê±Ò»µ©½øĞĞÖØĞÂ·ÖÅä£¬
-																				   //¿ÉÄÜ»á´¥·¢¿ÕÖ¸ÕëÒì³£ ³ÌĞòÖ±½Ó±ÀÀ£
-																					   if (len <= m_outRangeMaxSize)
-																					   {
-																						   std::copy(errorBegin, iterHalfEnd, m_outRangeBuffer.get());
-																						   std::copy(iterHalfBegin, errorEnd, m_outRangeBuffer.get() + (iterHalfEnd - errorBegin));
-
-																						   try
-																						   {
-																							   
-																						   }
-																						   catch (const std::exception &e)
-																						   {
-																							   jumpNode = true;
-																						   }
-																					   }
-																					   else
-																					   {
-																						   try
-																						   {
-																							   
-																						   }
-																						   catch (const std::exception &e)
-																						   {
-																							   jumpNode = true;
-																						   }
-																					   }
-																				   }
-																				   else
-																				   {
-																					   len = errorEnd - errorBegin;
-
-																					   try
-																					   {
-																						  
-																					   }
-																					   catch (const std::exception &e)
-																					   {
-																						   jumpNode = true;
-																					   }
-																				   }
-																			   }
-
-
-																			   if (++commandCurrentSize == commandTotalSize)
-																			   {
-																				   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																				   if (jumpNode)
-																				   {
-
-
-
-																				   }
-																				   else
-																				   {
-																					   
-																				   }
-
-																				   jumpNode = false;
-																				   if (++waitMessageListBegin != waitMessageListEnd)
-																				   {
-																					   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																					   commandCurrentSize = 0;
-																				   }
-																			   }
-
-
-																			   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   break;
-
-																			   case static_cast<int>(REDISPARSETYPE::SIMPLE_STRING) :
-																				   iterStrBegin = iterBegin + 1;
-																				   if (iterStrBegin == iterHalfEnd)
-																				   {
-																					   iterStrBegin = iterHalfBegin;
-																					   jump = true;
-																				   }
-
-
-																				   if (!jump)
-																				   {
-																					   if ((iterStrEnd = std::search(iterStrBegin + 1, iterHalfEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterHalfEnd)
-																					   {
-																						   if (*(iterHalfEnd - 1) == '\r' && *iterHalfBegin == '\n')
-																						   {
-																							   iterStrEnd = iterHalfEnd - 1;
-																							   jump = true;
-																						   }
-																						   else if ((iterStrEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																						   {
-																							   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																							   m_jumpNode = jumpNode;
-																							   m_waitMessageListBegin = waitMessageListBegin;
-																							   m_commandTotalSize = commandTotalSize;
-																							   m_commandCurrentSize = commandCurrentSize;
-																							   return false;
-																						   }
-																					   }
-																				   }
-																				   else
-																				   {
-																					   if ((iterStrEnd = std::search(iterHalfBegin, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																					   {
-																						   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																						   m_jumpNode = jumpNode;
-																						   m_waitMessageListBegin = waitMessageListBegin;
-																						   m_commandTotalSize = commandTotalSize;
-																						   m_commandCurrentSize = commandCurrentSize;
-																						   return false;
-																					   }
-																				   }
-
-
-																				   if (!jump)
-																				   {
-																					   if ((iterHalfEnd - iterStrEnd) + (iterEnd - iterHalfBegin) < 2)
-																					   {
-																						   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																						   m_jumpNode = jumpNode;
-																						   m_waitMessageListBegin = waitMessageListBegin;
-																						   m_commandTotalSize = commandTotalSize;
-																						   m_commandCurrentSize = commandCurrentSize;
-																						   return false;
-																					   }
-
-																					   if (iterHalfEnd - iterStrEnd >= 2)
-																						   iterFind = iterStrEnd + 2;
-																					   else
-																						   iterFind = iterHalfBegin + (2 - (iterHalfEnd - iterStrEnd));
-																				   }
-																				   else
-																				   {
-																					   if (iterEnd - iterHalfBegin < 2)
-																					   {
-																						   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																						   m_jumpNode = jumpNode;
-																						   m_waitMessageListBegin = waitMessageListBegin;
-																						   m_commandTotalSize = commandTotalSize;
-																						   m_commandCurrentSize = commandCurrentSize;
-																						   return false;
-																					   }
-
-																					   iterFind = iterEnd + 2;
-																				   }
-																				   iterBegin = iterFind;
-
-																				   //·µ»ØĞÅÏ¢½á¹û   iterStrBegin      iterStrEnd ×¢Òâ»Ø»·Çé¿ö´¦Àí   ĞèÒª¼ÆËãlen
-																				   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																				   if (!jumpNode)
-																				   {
-																					   //ĞèÒª»Ø»·´¦Àí¿½±´
-																					   if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
-																					   {
-																						   len = iterHalfEnd - iterStrBegin + iterStrEnd - iterHalfBegin;
-																						   //ÒòÎªÕâÒ»Ì×»úÖÆ±¾ÖÊ½¨Á¢ÔÚÎ£ÏÕµÄÖ¸ÕëÖ®ÉÏ£¬Òò´ËÕâÀïÎªÁË°²È«£¬µ±·¢ÉúÊı¾İ»Ø»·Çé¿öĞèÒª¿½±´±£´æµÄÊ±ºò£¬ÅĞ¶Ï³¤¶ÈÊÇ·ñÔÚm_outRangeMaxSizeÖ®ÄÚ£¬Èç¹û³¬¹ı£¬ÄşÔ¸ÅĞ¶ÏÎªÃ»ÓĞ¡£
-																					   //Èç¹ûÊ¹ÓÃÕß¾õµÃ¿ÉÒÔ³ĞÊÜºó¹û£¬ÄÇÃ´¿ÉÒÔÔÚÕâÀï»»³É¶¯Ì¬·ÖÅäÄÚ´æ½øĞĞ¿½±´£¬µ«ÊÇÒª¼Ç×¡Ò»µã£ºÒ»µ©¿ØÖÆ²»ºÃ£¬ÔÚÊ¹ÓÃÕâ¶Î¶¯Ì¬·ÖÅäÄÚ´æÊ±µÚ¶ş´Î½ÓÊÕĞÅÏ¢À´µ½Ê±Ò»µ©½øĞĞÖØĞÂ·ÖÅä£¬
-																					   //¿ÉÄÜ»á´¥·¢¿ÕÖ¸ÕëÒì³£ ³ÌĞòÖ±½Ó±ÀÀ£
-																						   if (len <= m_outRangeMaxSize)
-																						   {
-																							   std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-																							   std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
-
-																							   try
-																							   {
-																								  
-																							   }
-																							   catch (const std::exception &e)
-																							   {
-																								   jumpNode = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   try
-																							   {
-																								   
-																							   }
-																							   catch (const std::exception &e)
-																							   {
-																								   jumpNode = true;
-																							   }
-																						   }
-																					   }
-																					   else
-																					   {
-																						   len = iterStrEnd - iterStrBegin;
-
-																						   try
-																						   {
-																							   
-																						   }
-																						   catch (const std::exception &e)
-																						   {
-																							   jumpNode = true;
-																						   }
-																					   }
-																				   }
-
-
-																				   if (++commandCurrentSize == commandTotalSize)
-																				   {
-																					   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																					   if (jumpNode)
-																					   {
-
-
-
-																					   }
-																					   else
-																					   {
-																						   
-																					   }
-
-																					   jumpNode = false;
-																					   if (++waitMessageListBegin != waitMessageListEnd)
-																					   {
-																						   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																						   commandCurrentSize = 0;
-																					   }
-																				   }
-
-
-
-																				   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																				   break;
-
-																				   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																				   case static_cast<int>(REDISPARSETYPE::ARRAY) :
-																					   //REDISPARSETYPE::ARRAY
-
-																					   if (!jumpNode)
-																						   m_arrayResult.clear();
-
-																					   ++iterFind;
-																					   if (iterFind == iterHalfEnd)
-																					   {
-																						   iterFind = iterHalfBegin;
-																						   jump = true;
-																					   }
-
-																					   arrayNumBegin = iterFind;
-
-																					   if (!jump)
-																					   {
-																						   if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterHalfEnd, '\r')) == iterHalfEnd)
-																						   {
-																							   if ((arrayNumEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
-																							   {
-																								   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																								   return false;
-																							   }
-																							   jump = true;
-																						   }
-																					   }
-																					   else
-																					   {
-																						   if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterEnd, '\r')) == iterEnd)
-																						   {
-																							   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																							   m_jumpNode = jumpNode;
-																							   m_waitMessageListBegin = waitMessageListBegin;
-																							   m_commandTotalSize = commandTotalSize;
-																							   m_commandCurrentSize = commandCurrentSize;
-																							   return false;
-																						   }
-																					   }
-
-
-																					   index = -1;
-																					   num = 1;
-																					   if (!jump)
-																					   {
-																						   arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto &sum, auto const ch)
-																						   {
-																							   if (++index)
-																								   num *= 10;
-																							   return sum += (ch - '0')*num;
-																						   });
-																					   }
-																					   else
-																					   {
-																						   if (arrayNumBegin < iterHalfEnd)
-																						   {
-																							   arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(iterHalfBegin), 0, [&index, &num](auto &sum, auto const ch)
-																							   {
-																								   if (++index)
-																									   num *= 10;
-																								   return sum += (ch - '0')*num;
-																							   });
-																							   arrayNum += std::accumulate(std::make_reverse_iterator(iterHalfEnd), std::make_reverse_iterator(arrayNumBegin), arrayNum, [&index, &num](auto &sum, auto const ch)
-																							   {
-																								   if (++index)
-																									   num *= 10;
-																								   return sum += (ch - '0')*num;
-																							   });
-																						   }
-																						   else
-																						   {
-																							   arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto &sum, auto const ch)
-																							   {
-																								   if (++index)
-																									   num *= 10;
-																								   return sum += (ch - '0')*num;
-																							   });
-																						   }
-																					   }
-
-
-
-																					   if (!jump)
-																					   {
-																						   if (iterHalfEnd - arrayNumEnd + (iterEnd - iterHalfBegin) < 2)
-																						   {
-																							   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																							   m_jumpNode = jumpNode;
-																							   m_waitMessageListBegin = waitMessageListBegin;
-																							   m_commandTotalSize = commandTotalSize;
-																							   m_commandCurrentSize = commandCurrentSize;
-																							   return false;
-																						   }
-																					   }
-																					   else
-																					   {
-																						   if (iterEnd - arrayNumEnd < 2)
-																						   {
-																							   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																							   m_jumpNode = jumpNode;
-																							   m_waitMessageListBegin = waitMessageListBegin;
-																							   m_commandTotalSize = commandTotalSize;
-																							   m_commandCurrentSize = commandCurrentSize;
-																							   return false;
-																						   }
-																					   }
-
-
-																					   if (!jump)
-																					   {
-																						   if (iterHalfEnd - arrayNumEnd >= 2)
-																						   {
-																							   iterFind = arrayNumEnd + 2;
-																						   }
-																						   else
-																						   {
-																							   iterFind = iterHalfBegin + 2 - (iterHalfEnd - arrayNumEnd);
-																							   jump = true;
-																						   }
-																					   }
-																					   else
-																					   {
-																						   iterFind = arrayNumEnd + 2;
-																					   }
-
-
-																					   arrayIndex = -1;
-																					   while (++arrayIndex != arrayNum)
-																					   {
-																						   if (!jump)
-																						   {
-																							   if (iterFind == iterHalfEnd)
-																							   {
-																								   iterFind = iterHalfBegin;
-																								   jump = true;
-																							   }
-																							   else
-																							   {
-																								   ++iterFind;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   if (++iterFind == iterEnd)
-																							   {
-																								   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																								   m_jumpNode = jumpNode;
-																								   m_waitMessageListBegin = waitMessageListBegin;
-																								   m_commandTotalSize = commandTotalSize;
-																								   m_commandCurrentSize = commandCurrentSize;
-																								   return false;
-																							   }
-																						   }
-
-
-
-																						   if (*iterFind == '-')
-																						   {
-																							   if (!jump)
-																							   {
-																								   if (iterHalfEnd - iterFind + iterEnd - iterHalfBegin < 4)
-																								   {
-																									   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																									   m_jumpNode = jumpNode;
-																									   m_waitMessageListBegin = waitMessageListBegin;
-																									   m_commandTotalSize = commandTotalSize;
-																									   m_commandCurrentSize = commandCurrentSize;
-																									   return false;
-																								   }
-																							   }
-																							   else
-																							   {
-																								   if (iterEnd - iterFind < 4)
-																								   {
-																									   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																									   m_jumpNode = jumpNode;
-																									   m_waitMessageListBegin = waitMessageListBegin;
-																									   m_commandTotalSize = commandTotalSize;
-																									   m_commandCurrentSize = commandCurrentSize;
-																									   return false;
-																								   }
-																							   }
-
-
-																							   if (!jump)
-																							   {
-																								   if (iterHalfEnd - iterFind >= 4)
-																									   iterFind += 4;
-																								   else
-																								   {
-																									   iterFind = iterHalfBegin + 4 - (iterHalfEnd - iterFind);
-																									   jump = true;
-																								   }
-																							   }
-																							   else
-																							   {
-																								   iterFind += 4;
-																							   }
-
-																							   ///////////////////////   ±¾´ÎÃ»ÓĞ½á¹û£¬¿¼ÂÇÔõÃ´·µ»Ø±È½Ï·½±ã  -1  //////////////////////////////////////////////////////
-
-																							   if (!jumpNode)
-																							   {
-																								   try
-																								   {
-																									  
-																								   }
-																								   catch (const std::exception &e)
-																								   {
-																									   jumpNode = true;
-																								   }
-																							   }
-
-																							   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																							   continue;
-																						   }
-
-
-																						   if (!jump)
-																						   {
-																							   if (iterFind < iterHalfEnd)
-																								   ++iterFind;
-																							   if (iterFind == iterHalfEnd)
-																							   {
-																								   iterFind = iterHalfBegin;
-																								   jump = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   if (++iterFind == iterEnd)
-																							   {
-																								   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																								   m_jumpNode = jumpNode;
-																								   m_waitMessageListBegin = waitMessageListBegin;
-																								   m_commandTotalSize = commandTotalSize;
-																								   m_commandCurrentSize = commandCurrentSize;
-																								   return false;
-																							   }
-																						   }
-
-																						   iterLenBegin = iterFind;
-
-																						   if (!jump)
-																						   {
-																							   if ((iterLenEnd = std::find(iterLenBegin + 1, iterHalfEnd, '\r')) == iterHalfEnd)
-																							   {
-																								   if ((iterLenEnd = std::find(iterHalfBegin, iterEnd, '\r')) == iterEnd)
-																								   {
-																									   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																									   m_jumpNode = jumpNode;
-																									   m_waitMessageListBegin = waitMessageListBegin;
-																									   m_commandTotalSize = commandTotalSize;
-																									   m_commandCurrentSize = commandCurrentSize;
-																									   return false;
-																								   }
-																								   jump = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
-																							   {
-																								   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																								   m_jumpNode = jumpNode;
-																								   m_waitMessageListBegin = waitMessageListBegin;
-																								   m_commandTotalSize = commandTotalSize;
-																								   m_commandCurrentSize = commandCurrentSize;
-																								   return false;
-																							   }
-																						   }
-
-
-																						   index = -1;
-																						   num = 1;
-																						   if (!jump)
-																						   {
-																							   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																							   {
-																								   if (++index)
-																									   num *= 10;
-																								   return sum += (ch - '0')*num;
-																							   });
-																						   }
-																						   else
-																						   {
-																							   if (iterLenBegin < iterHalfEnd)
-																							   {
-																								   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterHalfBegin), 0, [&index, &num](auto &sum, auto const ch)
-																								   {
-																									   if (++index)
-																										   num *= 10;
-																									   return sum += (ch - '0')*num;
-																								   });
-																								   len += std::accumulate(std::make_reverse_iterator(iterHalfEnd), std::make_reverse_iterator(iterLenBegin), len, [&index, &num](auto &sum, auto const ch)
-																								   {
-																									   if (++index)
-																										   num *= 10;
-																									   return sum += (ch - '0')*num;
-																								   });
-																							   }
-																							   else
-																							   {
-																								   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																								   {
-																									   if (++index)
-																										   num *= 10;
-																									   return sum += (ch - '0')*num;
-																								   });
-																							   }
-																						   }
-
-
-																						   if (!jump)
-																						   {
-																							   if (iterHalfEnd - iterLenEnd + iterEnd - iterHalfBegin < (4 + len))
-																							   {
-																								   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																								   m_jumpNode = jumpNode;
-																								   m_waitMessageListBegin = waitMessageListBegin;
-																								   m_commandTotalSize = commandTotalSize;
-																								   m_commandCurrentSize = commandCurrentSize;
-																								   return false;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   if (iterEnd - iterLenEnd < (4 + len))
-																							   {
-																								   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																								   m_jumpNode = jumpNode;
-																								   m_waitMessageListBegin = waitMessageListBegin;
-																								   m_commandTotalSize = commandTotalSize;
-																								   m_commandCurrentSize = commandCurrentSize;
-																								   return false;
-																							   }
-																						   }
-
-																						   if (!jump)
-																						   {
-																							   if (iterHalfEnd - iterLenEnd >= 2)
-																								   iterStrBegin = iterLenEnd + 2;
-																							   else
-																							   {
-																								   iterStrBegin = iterHalfBegin + 2 - (iterHalfEnd - iterLenEnd);
-																								   jump = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   iterStrBegin = iterLenEnd + 2;
-																						   }
-
-
-																						   if (!jump)
-																						   {
-																							   if (iterHalfEnd - iterStrBegin >= len)
-																								   iterStrEnd = iterStrBegin + len;
-																							   else
-																							   {
-																								   iterStrEnd = iterHalfBegin + len - (iterHalfEnd - iterStrBegin);
-																								   jump = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   iterStrEnd = iterStrBegin + len;
-																						   }
-
-
-																						   if (!jump)
-																						   {
-																							   if (iterHalfEnd - iterStrEnd >= 2)
-																								   iterFind = iterStrEnd + 2;
-																							   else
-																							   {
-																								   iterFind = iterHalfBegin + 2 - (iterHalfEnd - iterStrEnd);
-																								   jump = true;
-																							   }
-																						   }
-																						   else
-																						   {
-																							   iterFind = iterStrEnd + 2;
-																						   }
-
-
-																						   //////////////////////////////////////////////  Ã¿´ÎµÄÓĞĞ§½á¹û£¬×¢Òâ»Ø»·´¦Àí    iterStrBegin      iterStrEnd   len////////////////////
-
-
-																						   if (!jumpNode)
-																						   {
-																							   //ĞèÒª»Ø»·´¦Àí¿½±´
-																							   if (iterStrBegin < iterHalfEnd && iterStrEnd>iterHalfBegin)
-																							   {
-																								   //ÒòÎªÕâÒ»Ì×»úÖÆ±¾ÖÊ½¨Á¢ÔÚÎ£ÏÕµÄÖ¸ÕëÖ®ÉÏ£¬Òò´ËÕâÀïÎªÁË°²È«£¬µ±·¢ÉúÊı¾İ»Ø»·Çé¿öĞèÒª¿½±´±£´æµÄÊ±ºò£¬ÅĞ¶Ï³¤¶ÈÊÇ·ñÔÚm_outRangeMaxSizeÖ®ÄÚ£¬Èç¹û³¬¹ı£¬ÄşÔ¸ÅĞ¶ÏÎªÃ»ÓĞ¡£
-																							   //Èç¹ûÊ¹ÓÃÕß¾õµÃ¿ÉÒÔ³ĞÊÜºó¹û£¬ÄÇÃ´¿ÉÒÔÔÚÕâÀï»»³É¶¯Ì¬·ÖÅäÄÚ´æ½øĞĞ¿½±´£¬µ«ÊÇÒª¼Ç×¡Ò»µã£ºÒ»µ©¿ØÖÆ²»ºÃ£¬ÔÚÊ¹ÓÃÕâ¶Î¶¯Ì¬·ÖÅäÄÚ´æÊ±µÚ¶ş´Î½ÓÊÕĞÅÏ¢À´µ½Ê±Ò»µ©½øĞĞÖØĞÂ·ÖÅä£¬
-																							   //¿ÉÄÜ»á´¥·¢¿ÕÖ¸ÕëÒì³£ ³ÌĞòÖ±½Ó±ÀÀ£
-																								   if (len <= m_outRangeMaxSize)
-																								   {
-																									   std::copy(iterStrBegin, iterHalfEnd, m_outRangeBuffer.get());
-																									   std::copy(iterHalfBegin, iterStrEnd, m_outRangeBuffer.get() + (iterHalfEnd - iterStrBegin));
-
-																									   try
-																									   {
-																										  
-																									   }
-																									   catch (const std::exception &e)
-																									   {
-																										   jumpNode = true;
-																									   }
-																								   }
-																								   else
-																								   {
-																									   try
-																									   {
-																										   
-																									   }
-																									   catch (const std::exception &e)
-																									   {
-																										   jumpNode = true;
-																									   }
-																								   }
-																							   }
-																							   else
-																							   {
-																								   try
-																								   {
-																									   
-																								   }
-																								   catch (const std::exception &e)
-																								   {
-																									   jumpNode = true;
-																								   }
-																							   }
-																						   }
-
-																						   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-																					   }
-																					   iterBegin = iterFind;
-
-																					   //////////////////////////////////////////////////////////////////////////////////////////
-
-
-																					   if (!jumpNode)
-																					   {
-																						 
-																						   try
-																						   {
-																							  
-																						   }
-																						   catch (const std::exception &e)
-																						   {
-																							   jumpNode = true;
-																						   }
-																					   }
-
-
-																					   if (++commandCurrentSize == commandTotalSize)
-																					   {
-																						   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																						   if (jumpNode)
-																						   {
-
-
-
-																						   }
-																						   else
-																						   {
-																							  
-																						   }
-
-																						   jumpNode = false;
-																						   if (++waitMessageListBegin != waitMessageListEnd)
-																						   {
-																							   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																							   commandCurrentSize = 0;
-																						   }
-																					   }
-
-
-																					   ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																					   break;
-
-																				   default:
-
-
-																					   break;
-			}
-		}
-
-
-
-
-		////////////////////////////////////////
-
-		while (iterBegin != iterEnd)
-		{
-			iterFind = iterBegin;
-			switch (*iterFind)
-			{
-				case static_cast<int>(REDISPARSETYPE::LOT_SIZE_STRING) :
-					//  REDISPARSETYPE::LOT_SIZE_STRING
-					if (++iterFind == iterEnd)
-					{
-						m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-						m_jumpNode = jumpNode;
-						m_waitMessageListBegin = waitMessageListBegin;
-						m_commandTotalSize = commandTotalSize;
-						m_commandCurrentSize = commandCurrentSize;
-						return false;
-					}
-
-																	   if (*iterFind == '-')
-																	   {
-																		   if (iterEnd - iterFind >= 4)
-																		   {
-																			   iterFind += 4;
-																			   iterBegin = iterFind;
-																			   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   //±¾´Î½á¹û·µ»ØÎŞ  -1£¬¿´Çé¿ö´¦Àí
-
-																			   if (!jumpNode)
-																			   {
-																				   try
-																				   {
-																					   
-																				   }
-																				   catch (const std::exception &e)
-																				   {
-																					   jumpNode = true;
-																				   }
-																			   }
-
-
-																			   if (++commandCurrentSize == commandTotalSize)
-																			   {
-																				   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																				   if (jumpNode)
-																				   {
-
-
-
-																				   }
-																				   else
-																				   {
-																					  
-																				   }
-
-																				   jumpNode = false;
-																				   if (++waitMessageListBegin != waitMessageListEnd)
-																				   {
-																					   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																					   commandCurrentSize = 0;
-																				   }
-																			   }
-																			   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																			   continue;
-																		   }
-
-																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																		   m_jumpNode = jumpNode;
-																		   m_waitMessageListBegin = waitMessageListBegin;
-																		   m_commandTotalSize = commandTotalSize;
-																		   m_commandCurrentSize = commandCurrentSize;
-																		   return false;
-																	   }
-																	   else
-																	   {
-																		   iterLenBegin = iterFind;
-
-																		   if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
-																		   {
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-																		   else
-																		   {
-																			   index = -1;
-																			   num = 1;
-																			   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																			   {
-																				   if (++index)
-																					   num *= 10;
-																				   return sum += (ch - '0')*num;
-																			   });
-																		   }
-
-																		   if (iterEnd - iterLenEnd < (4 + len))
-																		   {
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-																		   else
-																		   {
-																			   iterStrBegin = iterLenEnd + 2;
-																			   iterStrEnd = iterStrBegin + len;
-
-																			   //±¾´Î½á¹û»ñÈ¡³É¹¦£¬¿´Çé¿ö½øĞĞ´¦Àí
-
-																			   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   if (!jumpNode)
-																			   {
-																				   try
-																				   {
-																					   
-																				   }
-																				   catch (const std::exception &e)
-																				   {
-																					   jumpNode = true;
-																				   }
-																			   }
-
-
-																			   if (++commandCurrentSize == commandTotalSize)
-																			   {
-																				   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																				   if (jumpNode)
-																				   {
-
-
-
-																				   }
-																				   else
-																				   {
-																					  
-																				   }
-
-																				   jumpNode = false;
-																				   if (++waitMessageListBegin != waitMessageListEnd)
-																				   {
-																					   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																					   commandCurrentSize = 0;
-																				   }
-																			   }
-
-
-																			   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-																			   iterBegin = iterStrEnd + 2;
-																			   continue;
-																		   }
-																	   }
-
-																	   break;
-
-																	   case static_cast<int>(REDISPARSETYPE::INTERGER) :
-																		   // REDISPARSETYPE::INTERGER
-
-																		   if ((iterLenEnd = std::find(iterFind + 1, iterEnd, '\r')) == iterEnd)
-																		   {
-																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																			   m_jumpNode = jumpNode;
-																			   m_waitMessageListBegin = waitMessageListBegin;
-																			   m_commandTotalSize = commandTotalSize;
-																			   m_commandCurrentSize = commandCurrentSize;
-																			   return false;
-																		   }
-
-																													   if (iterEnd - iterLenEnd < 2)
-																													   {
-																														   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																														   m_jumpNode = jumpNode;
-																														   m_waitMessageListBegin = waitMessageListBegin;
-																														   m_commandTotalSize = commandTotalSize;
-																														   m_commandCurrentSize = commandCurrentSize;
-																														   return false;
-																													   }
-
-																													   iterLenBegin = iterFind + 1;
-
-																													   iterFind = iterLenEnd + 2;
-																													   iterBegin = iterFind;
-
-																													   //½á¹ûiterLenBegin    iterLenEnd
-																													   ////////////////////////////////////////////////////////////////////////
-																													   if (!jumpNode)
-																													   {
-																														   try
-																														   {
-																															  
-																														   }
-																														   catch (const std::exception &e)
-																														   {
-																															   jumpNode = true;
-																														   }
-																													   }
-
-
-																													   if (++commandCurrentSize == commandTotalSize)
-																													   {
-																														   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																														   if (jumpNode)
-																														   {
-
-
-
-																														   }
-																														   else
-																														   {
-																															  
-																														   }
-
-																														   jumpNode = false;
-																														   if (++waitMessageListBegin != waitMessageListEnd)
-																														   {
-																															   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																															   commandCurrentSize = 0;
-																														   }
-																													   }
-
-
-																													   ///////////////////////////////////////////////////////////////////////////////////////////////////
-																													   break;
-
-																													   case static_cast<int>(REDISPARSETYPE::ERROR) :
-																														   //REDISPARSETYPE::ERROR
-
-																														   errorBegin = iterBegin + 1;
-																														   if ((errorEnd = std::search(errorBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																														   {
-																															   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																															   m_jumpNode = jumpNode;
-																															   m_waitMessageListBegin = waitMessageListBegin;
-																															   m_commandTotalSize = commandTotalSize;
-																															   m_commandCurrentSize = commandCurrentSize;
-																															   return false;
-																														   }
-
-																														   iterFind = errorEnd + 2;
-																														   iterBegin = iterFind;
-																														   //·µ»Ø´íÎóĞÅÏ¢½á¹û
-																														   ////////////////////////////////////////////////////////////////////////////////////////////
-
-																														   if (!jumpNode)
-																														   {
-																															   try
-																															   {
-																																   
-																															   }
-																															   catch (const std::exception &e)
-																															   {
-																																   jumpNode = true;
-																															   }
-																														   }
-
-
-																														   if (++commandCurrentSize == commandTotalSize)
-																														   {
-																															   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																															   if (jumpNode)
-																															   {
-
-
-
-																															   }
-																															   else
-																															   {
-																																   
-																															   }
-
-																															   jumpNode = false;
-																															   if (++waitMessageListBegin != waitMessageListEnd)
-																															   {
-																																   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																																   commandCurrentSize = 0;
-																															   }
-																														   }
-
-
-																														   //////////////////////////////////////////////////////////////////////////////////////
-																														   break;
-
-																														   case static_cast<int>(REDISPARSETYPE::SIMPLE_STRING) :
-																															   //REDISPARSETYPE::SIMPLE_STRING
-
-																															   iterStrBegin = iterBegin + 1;
-																															   if ((iterStrEnd = std::search(iterStrBegin + 1, iterEnd, STATICSTRING::smallNewline, STATICSTRING::smallNewline + STATICSTRING::smallNewlineLen)) == iterEnd)
-																															   {
-																																   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																   m_jumpNode = jumpNode;
-																																   m_waitMessageListBegin = waitMessageListBegin;
-																																   m_commandTotalSize = commandTotalSize;
-																																   m_commandCurrentSize = commandCurrentSize;
-																																   return false;
-																															   }
-
-																															   iterFind = iterStrEnd + 2;
-																															   iterBegin = iterFind;
-																															   //·µ»Ø´íÎóĞÅÏ¢½á¹û
-																															   //////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-																															   if (!jumpNode)
-																															   {
-																																   try
-																																   {
-																																	  
-																																   }
-																																   catch (const std::exception &e)
-																																   {
-																																	   jumpNode = true;
-																																   }
-																															   }
-
-
-																															   if (++commandCurrentSize == commandTotalSize)
-																															   {
-																																   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																																   if (jumpNode)
-																																   {
-
-
-
-																																   }
-																																   else
-																																   {
-																																	   
-																																   }
-
-																																   jumpNode = false;
-																																   if (++waitMessageListBegin != waitMessageListEnd)
-																																   {
-																																	   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																																	   commandCurrentSize = 0;
-																																   }
-																															   }
-
-
-																															   //////////////////////////////////////////////////////////////////////////////////////////////
-																															   break;
-
-
-																															   case static_cast<int>(REDISPARSETYPE::ARRAY) :
-																																   //REDISPARSETYPE::ARRAY
-
-																																   if (!jumpNode)
-																																	   m_arrayResult.clear();
-
-																																   if (++iterFind == iterEnd)
-																																   {
-																																	   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																	   m_jumpNode = jumpNode;
-																																	   m_waitMessageListBegin = waitMessageListBegin;
-																																	   m_commandTotalSize = commandTotalSize;
-																																	   m_commandCurrentSize = commandCurrentSize;
-																																	   return false;
-																																   }
-
-																																   arrayNumBegin = iterFind;
-
-																																   if ((arrayNumEnd = std::find(arrayNumBegin + 1, iterEnd, '\r')) == iterEnd)
-																																   {
-																																	   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																	   m_jumpNode = jumpNode;
-																																	   m_waitMessageListBegin = waitMessageListBegin;
-																																	   m_commandTotalSize = commandTotalSize;
-																																	   m_commandCurrentSize = commandCurrentSize;
-																																	   return false;
-																																   }
-
-																																   index = -1;
-																																   num = 1;
-																																   arrayNum = std::accumulate(std::make_reverse_iterator(arrayNumEnd), std::make_reverse_iterator(arrayNumBegin), 0, [&index, &num](auto &sum, auto const ch)
-																																   {
-																																	   if (++index)
-																																		   num *= 10;
-																																	   return sum += (ch - '0')*num;
-																																   });
-
-																																   if (iterEnd - arrayNumEnd < 2)
-																																   {
-																																	   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																	   m_jumpNode = jumpNode;
-																																	   m_waitMessageListBegin = waitMessageListBegin;
-																																	   m_commandTotalSize = commandTotalSize;
-																																	   m_commandCurrentSize = commandCurrentSize;
-																																	   return false;
-																																   }
-
-																																   iterFind = arrayNumEnd + 2;
-
-																																   arrayIndex = -1;
-																																   while (++arrayIndex != arrayNum)
-																																   {
-																																	   if (++iterFind == iterEnd)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   if (*iterFind == '-')
-																																	   {
-																																		   if (iterEnd - iterFind < 4)
-																																		   {
-																																			   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																			   m_jumpNode = jumpNode;
-																																			   m_waitMessageListBegin = waitMessageListBegin;
-																																			   m_commandTotalSize = commandTotalSize;
-																																			   m_commandCurrentSize = commandCurrentSize;
-																																			   return false;
-																																		   }
-
-																																		   iterFind += 4;
-																																		   ///////////////////////   ±¾´ÎÃ»ÓĞ½á¹û£¬¿¼ÂÇÔõÃ´·µ»Ø±È½Ï·½±ã  -1////////////////////
-
-																																		   if (!jumpNode)
-																																		   {
-																																			   try
-																																			   {
-																																				   
-																																			   }
-																																			   catch (const std::exception &e)
-																																			   {
-																																				   jumpNode = true;
-																																			   }
-																																		   }
-
-																																		   //////////////////////////////////////////////////////////////////////////////////////
-																																		   continue;
-																																	   }
-
-																																	   if (++iterFind == iterEnd)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   iterLenBegin = iterFind;
-
-																																	   if ((iterLenEnd = std::find(iterLenBegin + 1, iterEnd, '\r')) == iterEnd)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   index = -1;
-																																	   num = 1;
-																																	   len = std::accumulate(std::make_reverse_iterator(iterLenEnd), std::make_reverse_iterator(iterLenBegin), 0, [&index, &num](auto &sum, auto const ch)
-																																	   {
-																																		   if (++index)
-																																			   num *= 10;
-																																		   return sum += (ch - '0')*num;
-																																	   });
-
-																																	   if (iterEnd - iterLenEnd < 4 + len)
-																																	   {
-																																		   m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-																																		   m_jumpNode = jumpNode;
-																																		   m_waitMessageListBegin = waitMessageListBegin;
-																																		   m_commandTotalSize = commandTotalSize;
-																																		   m_commandCurrentSize = commandCurrentSize;
-																																		   return false;
-																																	   }
-
-																																	   iterStrBegin = iterLenEnd + 2;
-																																	   iterStrEnd = iterStrBegin + len;
-
-																																	   iterFind = iterStrEnd + 2;
-
-																																	   //////////////////////////////////////////////  Ã¿´ÎµÄÓĞĞ§½á¹û
-
-																																	   if (!jumpNode)
-																																	   {
-																																		   try
-																																		   {
-																																			   
-																																		   }
-																																		   catch (const std::exception &e)
-																																		   {
-																																			   jumpNode = true;
-																																		   }
-																																	   }
-
-
-
-																																	   //////////////////////////////////////////////////////////////
-																																   }
-																																   iterBegin = iterFind;
-
-																																   ///////////////////////////////////////////////////////////////////////// ÕâÀï½øĞĞ²ÎÊı´«µİ
-
-
-																																   if (!jumpNode)
-																																   {
-																																	  
-																																	   try
-																																	   {
-																																		 
-																																	   }
-																																	   catch (const std::exception &e)
-																																	   {
-																																		   jumpNode = true;
-																																	   }
-																																   }
-
-
-																																   if (++commandCurrentSize == commandTotalSize)
-																																   {
-																																	   //¸ù¾İjumpNode×´Ì¬ µ÷ÓÃ»Øµ÷º¯Êı·µ»Ø±¾´Î³É¹¦ÓëÊ§°Ü½á¹û
-																																	   if (jumpNode)
-																																	   {
-
-
-
-																																	   }
-																																	   else
-																																	   {
-																																		  
-																																	   }
-
-																																	   jumpNode = false;
-																																	   if (++waitMessageListBegin != waitMessageListEnd)
-																																	   {
-																																		   commandTotalSize = std::get<1>(**waitMessageListBegin);
-																																		   commandCurrentSize = 0;
-																																	   }
-																																   }
-
-
-
-																																   ///////////////////////////////////////////////////////////////////////////////////////
-																																   break;
-																															   default:
-
-																																   break;
-			}
-		}
-
-	}
-
-	//  Èç¹ûÒÑ¾­´¦ÀíÍêÕû¸ö¶ÓÁĞ£¬Ôò·µ»Øtrue,	
-	m_lastPrasePos = iterBegin - m_receiveBuffer.get();
-	m_jumpNode = jumpNode;
-	m_waitMessageListBegin = waitMessageListBegin;
-	m_commandTotalSize = commandTotalSize;
-	m_commandCurrentSize = commandCurrentSize;
-
-	if (m_waitMessageListBegin == m_waitMessageListEnd)
-		return true;
-	return false;
-}
-
-
-
-
-
-//ÉèÖÃÒ»¸öwhileÑ­»·À´ÅĞ¶Ï
-//¼ÓËøÊ×ÏÈÖ±½Ó³¢ÊÔÈ¡commandSize¸öÔªËØ£¬Èç¹û¶ÓÁĞÎª¿Õ£¬ÔòÍË³ö£¬ÉèÖÃ´¦Àí×´Ì¬Îª·ñ
-//Èç¹û»ñÈ¡µ½ÔªËØ£¬Ôò±éÀú¼ÆËãĞèÒªµÄ¿Õ¼äÎª¶àÉÙ
-//³¢ÊÔ·ÖÅä¿Õ¼ä£¬·ÖÅäÊ§°ÜÔòcontinue´¦Àí
-//³É¹¦Ôòcopy×éºÏ£¬½øÈë·¢ËÍÃüÁî½×¶ÎÑ­»·
+//piplineæµæ°´çº¿å‘½ä»¤å°è£…å‡½æ•°
+//è®¾ç½®ä¸€ä¸ªwhileå¾ªç¯æ¥åˆ¤æ–­
+//åŠ é”é¦–å…ˆç›´æ¥å°è¯•å–commandSizeä¸ªå…ƒç´ ï¼Œå¦‚æœé˜Ÿåˆ—ä¸ºç©ºï¼Œåˆ™é€€å‡ºï¼Œè®¾ç½®å¤„ç†çŠ¶æ€ä¸ºå¦
+//å¦‚æœè·å–åˆ°å…ƒç´ ï¼Œåˆ™éå†è®¡ç®—éœ€è¦çš„ç©ºé—´ä¸ºå¤šå°‘
+//å°è¯•åˆ†é…ç©ºé—´ï¼Œåˆ†é…å¤±è´¥åˆ™continueå¤„ç†
+//æˆåŠŸåˆ™copyç»„åˆï¼Œè¿›å…¥å‘é€å‘½ä»¤é˜¶æ®µå¾ªç¯
 void MULTIREDISWRITE::readyMessage()
 {
 
-	//ÏÈ½«ĞèÒªÓÃµ½µÄ¹Ø¼ü±äÁ¿¸´Î»£¬ÔÙ³¢ÊÔÉú³ÉĞÂµÄÇëÇóÏûÏ¢
-	std::shared_ptr<redisWriteTypeSW> redisRequest;
-	std::vector<std::string_view>::const_iterator souceBegin, souceEnd;
+	//å…ˆå°†éœ€è¦ç”¨åˆ°çš„å…³é”®å˜é‡å¤ä½ï¼Œå†å°è¯•ç”Ÿæˆæ–°çš„è¯·æ±‚æ¶ˆæ¯
+	std::vector<std::string>::const_iterator souceBegin, souceEnd;
 	std::vector<unsigned int>::const_iterator lenBegin, lenEnd;
-	char *messageIter{};
+	char* messageIter{};
 
-	//¼ÆËã±¾´ÎËùĞèÒªµÄ¿Õ¼ä´óĞ¡
-	int totalLen{}, everyLen{}, index{}, divisor{ 10 }, temp{}, thisStrLen{};
+	//è®¡ç®—æœ¬æ¬¡æ‰€éœ€è¦çš„ç©ºé—´å¤§å°
+	static const int divisor{ 10 };
+	int totalLen{}, everyLen{}, index{}, temp{}, thisStrLen{}, everyCommandNum{};
 
 	while (true)
 	{
@@ -3119,40 +3232,35 @@ void MULTIREDISWRITE::readyMessage()
 		m_waitMessageListEnd = m_waitMessageList.get() + m_commandMaxSize;
 
 
-		//´Óm_messageListÖĞ»ñÈ¡ÔªËØµ½m_waitMessageListÖĞ
-		m_messageList.lock();
-		std::forward_list<std::shared_ptr<redisWriteTypeSW>> &flist{ m_messageList.listSelf() };
-		if (flist.empty())
+		//ä»m_messageListä¸­è·å–å…ƒç´ åˆ°m_waitMessageListä¸­
+
+
+		do
 		{
-			m_messageList.unlock();
-			m_mutex.lock();
-			m_queryStatus = false;
-			m_mutex.unlock();
-			m_charMemoryPool.prepare();
+			if (!m_messageList.try_dequeue(*m_waitMessageListBegin))
+				break;
+			++m_waitMessageListBegin;
+		} while (m_waitMessageListBegin != m_waitMessageListEnd);
+		if (m_waitMessageListBegin == m_waitMessageList.get())
+		{
+			m_queryStatus.store(false);
 			break;
 		}
 
 
-
-		do
-		{
-			*m_waitMessageListBegin++ = *flist.begin();
-			flist.pop_front();
-		} while (!flist.empty() && m_waitMessageListBegin != m_waitMessageListEnd);
-		m_messageList.unlock();
-
-
-		//³¢ÊÔ¼ÆËã×ÜÃüÁî¸öÊı  ÃüÁî×Ö·û´®ËùĞèÒª×Ü³¤¶È,²»ÓÃ¼ì²é·Ç¿ÕÎÊÌâ
+		//å°è¯•è®¡ç®—æ€»å‘½ä»¤ä¸ªæ•°  å‘½ä»¤å­—ç¬¦ä¸²æ‰€éœ€è¦æ€»é•¿åº¦,ä¸ç”¨æ£€æŸ¥éç©ºé—®é¢˜
 		m_waitMessageListEnd = m_waitMessageListBegin;
 		m_waitMessageListBegin = m_waitMessageList.get();
 		totalLen = 0;
 
+
 		do
 		{
-			redisRequest = *m_waitMessageListBegin;
+			redisMessageListTypeSW& request{ **m_waitMessageListBegin };
 
-			std::vector<std::string_view> &sourceVec = std::get<0>(*redisRequest).get();
-			std::vector<unsigned int> &lenVec = std::get<2>(*redisRequest).get();
+			std::vector<std::string>& sourceVec = std::get<0>(request);
+			std::vector<unsigned int>& lenVec = std::get<2>(request);
+			everyCommandNum = std::get<1>(request);
 			souceBegin = sourceVec.cbegin(), souceEnd = sourceVec.cend();
 			lenBegin = lenVec.cbegin(), lenEnd = lenVec.cend();
 
@@ -3185,8 +3293,8 @@ void MULTIREDISWRITE::readyMessage()
 
 
 
-		//¼ÆËã×Ü³¤¶ÈÍê±Ï£¬³¢ÊÔ½øĞĞ·ÖÅä¿Õ¼ä
-		//·ÖÅäÊ§°ÜÊ±ºò¼ÇµÃ±éÀú´¦Àí£¬·µ»Ø´íÎó
+		//è®¡ç®—æ€»é•¿åº¦å®Œæ¯•ï¼Œå°è¯•è¿›è¡Œåˆ†é…ç©ºé—´
+		//åˆ†é…å¤±è´¥æ—¶å€™è®°å¾—éå†å¤„ç†ï¼Œè¿”å›é”™è¯¯
 		if (totalLen > m_messageBufferMaxSize)
 		{
 			try
@@ -3194,14 +3302,14 @@ void MULTIREDISWRITE::readyMessage()
 				m_messageBuffer.reset(new char[totalLen]);
 				m_messageBufferMaxSize = totalLen;
 			}
-			catch (const std::exception &e)
+			catch (const std::exception& e)
 			{
 				m_messageBufferMaxSize = 0;
 
 				m_waitMessageListBegin = m_waitMessageList.get();
 				do
 				{
-					redisRequest = *m_waitMessageListBegin;
+					std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
 
 				} while (++m_waitMessageListBegin != m_waitMessageListEnd);
 				continue;
@@ -3212,16 +3320,16 @@ void MULTIREDISWRITE::readyMessage()
 
 
 
-		/////////Éú³ÉÇëÇóÃüÁî×Ö·û´®
+		/////////ç”Ÿæˆè¯·æ±‚å‘½ä»¤å­—ç¬¦ä¸²
 
 		m_waitMessageListBegin = m_waitMessageList.get();
 		messageIter = m_messageBuffer.get();
 		do
 		{
-			redisRequest = *m_waitMessageListBegin;
+			redisMessageListTypeSW& request{ **m_waitMessageListBegin };
 
-			std::vector<std::string_view> &sourceVec = std::get<0>(*redisRequest).get();
-			std::vector<unsigned int> &lenVec = std::get<2>(*redisRequest).get();
+			std::vector<std::string>& sourceVec = std::get<0>(request);
+			std::vector<unsigned int>& lenVec = std::get<2>(request);
 			souceBegin = sourceVec.cbegin(), souceEnd = sourceVec.cend();
 			lenBegin = lenVec.cbegin(), lenEnd = lenVec.cend();
 
@@ -3297,13 +3405,11 @@ void MULTIREDISWRITE::readyMessage()
 					}
 				}
 			} while (++lenBegin != lenEnd);
-
-			//¿½±´Íê±ÏÖ®ºó¿ÉÒÔÍ¨Öª»ØÊÕ£¬¼õÉÙ¼ÆÊı
 		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
 
 
 
-		////   ×¼±¸·¢ËÍ
+		////   å‡†å¤‡å‘é€
 
 		m_sendMessage = m_messageBuffer.get(), m_sendLen = m_messageBufferNowSize;
 
@@ -3312,18 +3418,91 @@ void MULTIREDISWRITE::readyMessage()
 
 		m_waitMessageListBegin = m_waitMessageList.get();
 
-		redisRequest = *m_waitMessageListBegin;
-
 		m_jumpNode = false;
 
-		m_commandTotalSize = std::get<1>(*redisRequest);
+		m_commandTotalSize = std::get<1>(**m_waitMessageListBegin);
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
-		//½øÈë·¢ËÍº¯Êı
+		//è¿›å…¥å‘é€å‡½æ•°
 
 		query();
 
 		break;
 	}
+}
+
+
+
+void MULTIREDISWRITE::shutdownLoop()
+{
+	if (ec.value() != 107 && ec.value())
+	{
+		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+		m_sock->shutdown(boost::asio::socket_base::shutdown_send, ec);
+		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+	}
+	else
+	{
+		m_sock->cancel(ec);
+		//ç­‰å¾…å¼‚æ­¥cancelå®Œæˆ
+		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
+	}
+}
+
+
+void MULTIREDISWRITE::cancelLoop()
+{
+	if (ec.value() != 107 && ec.value())
+	{
+		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+		m_sock->cancel(ec);
+		m_timeWheel->insert([this]() {cancelLoop(); }, 5);
+	}
+	else
+	{
+		m_sock->close(ec);
+		//ç­‰å¾…å¼‚æ­¥cancelå®Œæˆ
+		m_timeWheel->insert([this]() {closeLoop(); }, 5);
+	}
+}
+
+
+void MULTIREDISWRITE::closeLoop()
+{
+	if (ec.value() != 107 && ec.value())
+	{
+		m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+		m_sock->close(ec);
+		m_timeWheel->insert([this]() {closeLoop(); }, 5);
+	}
+	else
+	{
+		resetSocket();
+	}
+}
+
+
+void MULTIREDISWRITE::resetSocket()
+{
+	m_sock.reset(new boost::asio::ip::tcp::socket(*m_ioc));
+	m_sock->set_option(boost::asio::socket_base::keep_alive(true), ec);
+
+	if (m_connectStatus == 1)
+		firstConnect();
+	else if (m_connectStatus == 2)
+		reconnect();
+}
+
+
+//å›è°ƒå‡½æ•°è®°å½•logä½¿ç”¨
+//å› ä¸ºè¿™ä¸ªç±»ä»…ä»…æ‰§è¡Œéè¯»å–å‘½ä»¤ä¸”ä¸éœ€è¦è·å–è¿”å›ç»“æœæ—¶ä½¿ç”¨
+//å› æ­¤ä»…ä»…éœ€è¦è€ƒè™‘redis  SIMPLE_STRING  ERROR  ä»¥åŠreadyMessageä¸­ç”³è¯·ç©ºé—´å¤±è´¥   parseå¤±è´¥çš„æƒ…å†µ
+//å…¶ä¸­ERRORæƒ…å†µå·²ç»åœ¨è§£æå‡½æ•°åšäº†logå¤„ç†
+void MULTIREDISWRITE::logCallBack(bool result, ERRORMESSAGE em)
+{
+	if (!m_waitMessageListBegin || !*m_waitMessageListBegin)
+		return;
+
+	m_log->writeLog("redis error", std::get<0>(**m_waitMessageListBegin));
 }

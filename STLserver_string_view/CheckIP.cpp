@@ -50,7 +50,7 @@ bool CHECKIP::is_china_ipv4(const std::string& ip)
 
 	m_mutex.lock_shared();
 
-	for (const auto pair : m_vec[num])
+	for (const auto &pair : m_vec[num])
 	{
 		if ((target_ip & pair.first) == pair.second)
 		{
