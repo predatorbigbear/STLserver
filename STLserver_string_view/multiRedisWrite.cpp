@@ -266,13 +266,20 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 		m_waitMessageListBegin = m_waitMessageList.get();
 
 
-		*m_waitMessageListBegin++ = std::make_shared<redisMessageListTypeSW>(
-			std::vector<std::string>{ std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend()},
-			std::get<1>(thisRequest),
-			std::get<2>(thisRequest).get(),
-			std::get<3>(thisRequest),
-			std::ref(tempVec1), std::ref(tempVec2),
-			std::bind(&MULTIREDISWRITE::logCallBack, this, std::placeholders::_1, std::placeholders::_2), nullptr);
+		try
+		{
+			*m_waitMessageListBegin++ = std::make_shared<redisMessageListTypeSW>(
+				std::vector<std::string>{ std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend()},
+				std::get<1>(thisRequest),
+				std::get<2>(thisRequest).get(),
+				std::get<3>(thisRequest),
+				std::ref(tempVec1), std::ref(tempVec2),
+				std::bind(&MULTIREDISWRITE::logCallBack, this, std::placeholders::_1, std::placeholders::_2), nullptr);
+		}
+		catch (const std::exception& e)
+		{
+			return true;
+		}
 
 		m_waitMessageListEnd = m_waitMessageListBegin;
 
@@ -293,13 +300,20 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 	else
 	{
 
-		if (!m_messageList.try_enqueue(std::make_shared<redisMessageListTypeSW>(
-			std::vector<std::string>{ std::get<0>(thisRequest).get().cbegin(),std::get<0>(thisRequest).get().cend()}, 
-			std::get<1>(thisRequest),
-			std::get<2>(thisRequest).get(), 
-			std::get<3>(thisRequest),
-			std::ref(tempVec1), std::ref(tempVec2), nullptr, nullptr)))
-			return false;
+		try
+		{
+			if (!m_messageList.try_enqueue(std::make_shared<redisMessageListTypeSW>(
+				std::vector<std::string>{ std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend()},
+				std::get<1>(thisRequest),
+				std::get<2>(thisRequest).get(),
+				std::get<3>(thisRequest),
+				std::ref(tempVec1), std::ref(tempVec2), nullptr, nullptr)))
+				return false;
+		}
+		catch (const std::exception& e)
+		{
+			return true;
+		}
 
 		return true;
 	}
