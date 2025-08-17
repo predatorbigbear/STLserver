@@ -278,7 +278,7 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 		}
 		catch (const std::exception& e)
 		{
-			return true;
+			return false;
 		}
 
 		m_waitMessageListEnd = m_waitMessageListBegin;
@@ -312,7 +312,7 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 		}
 		catch (const std::exception& e)
 		{
-			return true;
+			return false;
 		}
 
 		return true;
