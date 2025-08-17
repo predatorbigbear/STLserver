@@ -22,7 +22,7 @@
 
 
 
-//待测试
+
 //短信验证码发送模块
 //基于spug推送对手
 //在设置keep-alive状态下，超时有效期为2分钟
@@ -80,9 +80,7 @@ private:
 
 	boost::system::error_code m_ec{};
 
-	std::atomic<bool> m_connect{ false };                        //是否已连接
-
-	std::atomic<bool> m_queryStatus{ false };                   //是否在发送状态中
+	std::atomic<int> m_queryStatus{ 0 };                   //是否在发送状态中    0 未连接   1  已连接不在发送状态   2  已连接在发送状态
 
 	unsigned int m_verifyTime{};
 
@@ -124,9 +122,6 @@ private:
 
 
 	void startResolver();
-
-
-	void resetConnect();
 
 
 	void startConnection(const boost::asio::ip::tcp::resolver::results_type& endpoints);
@@ -191,12 +186,13 @@ inline bool VERIFYCODE::insertVerifyCode(const char* verifyCode, const unsigned 
 			return false;
 	}
 
-	if (!m_connect.load())
+	int status = m_queryStatus.load();
+	if (!status)
 		return false;
 
-	if (!m_queryStatus.load())
+	else if (status == 1)
 	{
-		m_queryStatus.store(true);
+		m_queryStatus.store(2);
 
 		if constexpr (std::is_same_v<T, REALVERIFYCODE>)
 		{
@@ -213,17 +209,23 @@ inline bool VERIFYCODE::insertVerifyCode(const char* verifyCode, const unsigned 
 	}
 	else
 	{
-		if constexpr (std::is_same_v<T, REALVERIFYCODE>)
+		try
 		{
-			
+			if constexpr (std::is_same_v<T, REALVERIFYCODE>)
+			{
 
-			if (!m_messageList.try_enqueue(std::make_shared<std::pair<std::string, bool>>(std::string(verifyCode,verifyCode+verifyCodeLen).append(phone), true)))
-				return false;
+				if (!m_messageList.try_enqueue(std::make_shared<std::pair<std::string, bool>>(std::string(verifyCode, verifyCode + verifyCodeLen).append(phone), true)))
+					return false;
+			}
+			else
+			{
+				if (!m_messageList.try_enqueue(std::make_shared<std::pair<std::string, bool>>(m_verifyCode, false)))
+					return false;
+			}
 		}
-		else
+		catch (std::exception& e)
 		{
-			if (!m_messageList.try_enqueue(std::make_shared<std::pair<std::string, bool>>(m_verifyCode, false)))
-				return false;
+			return false;
 		}
 
 		return true;

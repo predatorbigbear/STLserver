@@ -156,11 +156,6 @@ void VERIFYCODE::startResolver()
 
 
 
-void VERIFYCODE::resetConnect()
-{
-    m_connect.store(false);
-}
-
 
 
 void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_type& endpoints)
@@ -220,7 +215,7 @@ void VERIFYCODE::sendVerifyCode(const std::string& request, bool isRealCode)
         }
         else
         {
-            m_connect.store(false);
+            m_queryStatus.store(0);
             //进入回收socket 并重连阶段
             sslShutdown();
         }
@@ -239,15 +234,12 @@ void VERIFYCODE::sendFirstVerifyCode()
         {
             if (!m_reConnect)
             {
-                m_connect.store(true);
                 std::cout << "verifyCode start\n";
                 checkList();
             }
             else
             {
                 m_reConnect = false;
-                m_queryStatus.store(true);
-                m_connect.store(true);
 
                 //重连后，检查m_isRealCode判断是否需要重发上次发送失败的真验证码
                 if (m_isRealCode)
@@ -288,7 +280,7 @@ void VERIFYCODE::checkList()
 {
     if (!m_messageList.try_dequeue(m_message))
     {
-        m_queryStatus.store(false);
+        m_queryStatus.store(1);
         return;
     }
 
@@ -311,7 +303,6 @@ void VERIFYCODE::runVerifyCode()
     resetResolver();
     resetSocket();
     resetTimer();
-    resetConnect();
     resetQueryStatus();
     startResolver();
 }
@@ -320,7 +311,7 @@ void VERIFYCODE::runVerifyCode()
 
 void VERIFYCODE::resetQueryStatus()
 {
-    m_queryStatus.store(true);
+    m_queryStatus.store(0);
 }
 
 
@@ -409,7 +400,6 @@ void VERIFYCODE::tryConnect()
     resetVerifyTime();
     resetResolver();
     resetSocket();
-    resetConnect();
     resetQueryStatus();
     startResolver();
 

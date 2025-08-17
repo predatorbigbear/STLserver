@@ -290,6 +290,8 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 		m_commandTotalSize = std::get<1>(thisRequest);
 
 		m_commandCurrentSize = 0;
+
+		m_logMessageIter = m_logMessage.get();
 		//////////////////////////////////////////////////////
 		//进入发送函数
 
@@ -3234,7 +3236,7 @@ void MULTIREDISWRITE::readyMessage()
 	//先将需要用到的关键变量复位，再尝试生成新的请求消息
 	std::vector<std::string>::const_iterator souceBegin, souceEnd;
 	std::vector<unsigned int>::const_iterator lenBegin, lenEnd;
-	char* messageIter{};
+	char* messageIter{}, * LMBegin{}, * LMEnd{};
 
 	//计算本次所需要的空间大小
 	static const int divisor{ 10 };
@@ -3266,7 +3268,7 @@ void MULTIREDISWRITE::readyMessage()
 		m_waitMessageListEnd = m_waitMessageListBegin;
 		m_waitMessageListBegin = m_waitMessageList.get();
 		totalLen = 0;
-
+		everyCommandNum = 0;
 
 		do
 		{
@@ -3274,7 +3276,7 @@ void MULTIREDISWRITE::readyMessage()
 
 			std::vector<std::string>& sourceVec = std::get<0>(request);
 			std::vector<unsigned int>& lenVec = std::get<2>(request);
-			everyCommandNum = std::get<1>(request);
+			everyCommandNum += std::get<1>(request);
 			souceBegin = sourceVec.cbegin(), souceEnd = sourceVec.cend();
 			lenBegin = lenVec.cbegin(), lenEnd = lenVec.cend();
 
@@ -3332,6 +3334,34 @@ void MULTIREDISWRITE::readyMessage()
 
 		m_messageBufferNowSize = totalLen;
 
+		//////////////////////////////////////////////////////////////////////////
+
+		if (m_logMessageSize < everyCommandNum)
+		{
+			try
+			{
+				m_logMessage.reset(new std::string_view[everyCommandNum]);
+				m_logMessageSize = everyCommandNum;
+			}
+			catch (const std::exception& e)
+			{
+				m_logMessageSize = 0;
+
+				m_waitMessageListBegin = m_waitMessageList.get();
+				do
+				{
+					std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
+
+				} while (++m_waitMessageListBegin != m_waitMessageListEnd);
+				continue;
+			}
+		}
+
+		m_logMessageIter = m_logMessage.get();
+
+
+
+
 
 
 		/////////生成请求命令字符串
@@ -3353,6 +3383,7 @@ void MULTIREDISWRITE::readyMessage()
 
 			do
 			{
+				LMBegin = messageIter;
 				everyLen = *lenBegin;
 				if (everyLen)
 				{
@@ -3418,6 +3449,9 @@ void MULTIREDISWRITE::readyMessage()
 						++souceBegin;
 					}
 				}
+				LMEnd = messageIter;
+				*m_logMessageIter++ = std::string_view(LMBegin, std::distance(LMBegin, LMEnd));
+
 			} while (++lenBegin != lenEnd);
 		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
 
@@ -3437,6 +3471,8 @@ void MULTIREDISWRITE::readyMessage()
 		m_commandTotalSize = std::get<1>(**m_waitMessageListBegin);
 
 		m_commandCurrentSize = 0;
+
+		m_logMessageIter = m_logMessage.get();
 		//////////////////////////////////////////////////////
 		//进入发送函数
 
