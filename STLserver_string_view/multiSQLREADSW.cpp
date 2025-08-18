@@ -172,6 +172,8 @@ void MULTISQLREADSW::firstQuery()
 		}
 		else
 		{
+			std::vector<std::string_view>& vec{ std::get<4>(**m_waitMessageListBegin).get() };
+			static const std::string sqlFail{ "fail" };
 			switch (m_status)
 			{
 			case NET_ASYNC_NOT_READY:
@@ -181,16 +183,44 @@ void MULTISQLREADSW::firstQuery()
 				//将待获取结果以及待插入队列进行处理，返回错误，然后清空，重连   首先将已连接置位false 
 				//如果是错误的查询会报错
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
-				handleAsyncError();
+				++m_posBegin;
+				try
+				{
+					std::vector<unsigned int>& rowFieldVec = std::get<3>(**m_waitMessageListBegin);
+					rowFieldVec.emplace_back(1);
+					rowFieldVec.emplace_back(0);
+
+					vec.emplace_back(sqlFail);
+					if (++m_currentCommandSize == m_thisCommandToalSize)
+					{
+						std::get<5>(**m_waitMessageListBegin)(true, ERRORMESSAGE::OK);
+					}
+				}
+				catch (const std::bad_alloc& e)
+				{
+					handleSqlMemoryError();
+					return;
+				}
+
+				if (std::distance(m_posBegin, m_posEnd) > 1)
+				{
+					m_sendMessage = *m_posBegin;
+					m_sendLen = m_messageBufferNowSize - std::distance(m_messageBuffer.get(), *m_posBegin);
+					firstQuery();
+				}
+				else
+				{
+					checkMakeMessage();
+				}
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:
-				std::cout << "firstQuery NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
+				//std::cout << "firstQuery NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
 				break;
 			case NET_ASYNC_COMPLETE:
 				store();
 				break;
 			default:
-				std::cout << "firstQuery default\n";
+				//std::cout << "firstQuery default\n";
 				store();                       // store_result
 				break;
 			}
@@ -251,13 +281,14 @@ void MULTISQLREADSW::store()
 				break;
 			case NET_ASYNC_ERROR:        // 回调函数处理
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
+				//std::cout << "store NET_ASYNC_ERROR\n";
 				handleAsyncError();
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:
-				std::cout << "store NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
+				//std::cout << "store NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
 				break;
 			case NET_ASYNC_COMPLETE:
-				++m_posbegin;
+				++m_posBegin;
 				if (!m_result)
 				{
 					try
@@ -341,7 +372,7 @@ void MULTISQLREADSW::store()
 				}
 				break;
 			default:
-				std::cout << "store default\n";
+				//std::cout << "store default\n";
 				break;
 			}
 		}
@@ -405,7 +436,7 @@ void MULTISQLREADSW::next_result()
 				next_result();
 				break;
 			case NET_ASYNC_ERROR:        // 回调函数处理
-				++m_posbegin;
+				++m_posBegin;
 				try
 				{
 					std::vector<unsigned int>& rowFieldVec = std::get<3>(**m_waitMessageListBegin);
@@ -438,8 +469,8 @@ void MULTISQLREADSW::next_result()
 				}	
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:
-				m_sendMessage = *m_posbegin;
-				m_sendLen = m_messageBufferNowSize - std::distance(m_messageBuffer.get(), *m_posbegin);
+				m_sendMessage = *m_posBegin;
+				m_sendLen = m_messageBufferNowSize - std::distance(m_messageBuffer.get(), *m_posBegin);
 				firstQuery();
 
 				break;
@@ -447,7 +478,7 @@ void MULTISQLREADSW::next_result()
 				store();
 				break;
 			default:
-				std::cout << "next_result  default\n";
+				//std::cout << "next_result  default\n";
 				break;
 			}
 		}
@@ -552,8 +583,8 @@ void MULTISQLREADSW::makeMessage()
 
 			
 			bufferBegin = bufferIter = m_messageBuffer.get();
-			m_posbegin = m_posBuffer.get();
-			*m_posbegin++ = bufferIter;
+			m_posBegin = m_posBuffer.get();
+			*m_posBegin++ = bufferIter;
 			do
 			{
 				sqlNumIter = std::get<6>(**waitBegin).get().cbegin();
@@ -567,7 +598,7 @@ void MULTISQLREADSW::makeMessage()
 						index = 0;
 						++sqlNumIter;
 						*bufferIter++ = ';';
-						*m_posbegin++ = bufferIter;
+						*m_posBegin++ = bufferIter;
 					}
 				}
 			} while (++waitBegin != waitEnd);
@@ -575,7 +606,9 @@ void MULTISQLREADSW::makeMessage()
 
 			m_messageBufferNowSize = totalLen;
 
-			m_posbegin = m_posBuffer.get();
+			m_posEnd = m_posBegin;
+
+			m_posBegin = m_posBuffer.get();
 
 			readyQuery();
 
@@ -655,11 +688,11 @@ void MULTISQLREADSW::fetch_row()
 				break;
 			case NET_ASYNC_ERROR:        // 回调函数处理
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
-
+				//std::cout << "fetch_row NET_ASYNC_ERROR\n";
 				handleAsyncError();
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:
-				std::cout << "fetch_row  NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
+				//std::cout << "fetch_row  NET_ASYNC_COMPLETE_NO_MORE_RESULTS\n";
 				break;
 			case NET_ASYNC_COMPLETE:
 				++m_rowCount;
@@ -735,7 +768,7 @@ void MULTISQLREADSW::fetch_row()
 				}
 				break;
 			default:
-				std::cout << "fetch_row  default\n";
+				//std::cout << "fetch_row  default\n";
 				break;
 			}
 		}

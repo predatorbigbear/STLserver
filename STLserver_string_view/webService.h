@@ -87,6 +87,7 @@ private:
 
 	bool hasLoginBack{ false };               //是否成功登录了后台
 	bool hasVerifyRegister{ false };          //是否成功在用户注册验证了手机号
+	bool hasUserLogin{ false };               //普通用户（非后台登录）是否已经登录账号
 
 	std::string m_IP{};                  //本次连接IP地址
 	std::string m_phone{};               //用户注册手机号
@@ -657,7 +658,15 @@ private:
 	void handleregistration22(bool result, ERRORMESSAGE em);
 
 
+	//用户登录账号
+	void userLogin();
 
+
+	void handleuserLogin(bool result, ERRORMESSAGE em);
+
+
+	//用户登录账号退出
+	void userLoginOut();
 
 
 

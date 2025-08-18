@@ -111,7 +111,7 @@ private:
 	//记录发送命令字符串执行到什么位置的buffer
 	std::unique_ptr<char* []>m_posBuffer{};
 
-	char** m_posbegin{};
+	char** m_posBegin{};
 
 	char** m_posEnd{};
 
@@ -352,8 +352,8 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 		char* buffer{ m_messageBuffer.get() };
 		int index{ 0 };
 		std::vector<unsigned int>::const_iterator sqlNumIter{ std::get<6>(thisRequest).get().cbegin() };
-		m_posbegin = m_posBuffer.get();
-		*m_posbegin++ = buffer;
+		m_posBegin = m_posBuffer.get();
+		*m_posBegin++ = buffer;
 		for (auto sw : std::get<0>(thisRequest).get())
 		{
 			std::copy(sw.cbegin(), sw.cend(), buffer);
@@ -363,7 +363,7 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 				index = 0;
 				++sqlNumIter;
 				*buffer++ = ';';
-				*m_posbegin++ = buffer;
+				*m_posBegin++ = buffer;
 			}
 		}
 
@@ -372,7 +372,9 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 		*(m_waitMessageList.get()) = sqlRequest;
 		m_commandNowSize = std::get<1>(thisRequest);
 		m_sendMessage = m_messageBuffer.get();
-		m_posbegin = m_posBuffer.get();
+
+		m_posEnd = m_posBegin;
+		m_posBegin = m_posBuffer.get();
 
 		readyQuery();
 

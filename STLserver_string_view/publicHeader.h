@@ -299,7 +299,11 @@ enum WEBSERVICEINTERFACE
 
 	web_checkVerifyCode = 5,
 
-	web_registration2 = 6
+	web_registration2 = 6,
+
+	web_userLogin = 7,
+
+	web_userLoginOut = 8
 
 };
 

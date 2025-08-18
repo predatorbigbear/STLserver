@@ -299,11 +299,11 @@ void VERIFYCODE::checkList()
 
 void VERIFYCODE::runVerifyCode()
 {
+    resetQueryStatus();
     resetVerifyTime();
     resetResolver();
     resetSocket();
     resetTimer();
-    resetQueryStatus();
     startResolver();
 }
 
@@ -396,11 +396,11 @@ void VERIFYCODE::closeLoop()
 
 void VERIFYCODE::tryConnect()
 {
+    resetQueryStatus();
     resetReConnect();
     resetVerifyTime();
     resetResolver();
     resetSocket();
-    resetQueryStatus();
     startResolver();
 
 }
