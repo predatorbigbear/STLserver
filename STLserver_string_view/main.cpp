@@ -71,7 +71,7 @@ int main()
 		//{}填入想要缓存起来的文件，内部会调用gzip预先进行压缩
 		//{}是一个vector，可以为空
 		
-		//启动HTTP示例
+		//启动HTTP示例,测试接口4性能开启setHTTPServer，注释setCheckIP  setVerifyCode    setWebserviceServer即可
 		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
 		
 		//启动HTTPS可以仿照以下示例
