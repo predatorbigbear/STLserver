@@ -378,7 +378,7 @@ void MULTIREDISWRITE::firstConnect()
 		}
 		else
 		{
-			std::cout << "connect multi RedisRead success\n";
+			std::cout << "connect multi RedisWrite success\n";
 			setConnectSuccess();
 			(*m_unlockFun)();
 		}

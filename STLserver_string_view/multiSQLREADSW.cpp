@@ -93,10 +93,10 @@ MULTISQLREADSW::~MULTISQLREADSW()
 
 void MULTISQLREADSW::FreeConnect()
 {
-	if (m_hasConnect.load())
+	if (m_queryStatus.load())
 	{
 		mysql_close(m_mysql);
-		m_hasConnect.store(false);
+		m_queryStatus.store(0);
 	}
 }
 
@@ -104,7 +104,7 @@ void MULTISQLREADSW::FreeConnect()
 
 void MULTISQLREADSW::ConnectDatabase()
 {
-	if (!m_hasConnect.load())
+	if (!m_queryStatus.load())
 	{
 		ConnectDatabaseLoop();
 	}
@@ -140,7 +140,7 @@ void MULTISQLREADSW::ConnectDatabaseLoop()
 			case NET_ASYNC_COMPLETE:
 				if (!resetConnect)
 					std::cout << "connect multi mysqlRead string_view success\n";
-				m_hasConnect.store(true);
+				m_queryStatus.store(1);
 				if (!resetConnect)
 					(*m_unlockFun)();
 				else
@@ -232,7 +232,7 @@ void MULTISQLREADSW::firstQuery()
 
 void MULTISQLREADSW::handleAsyncError()
 {
-	m_hasConnect.store(false);
+	m_queryStatus.store(0);
 	
 	std::shared_ptr<resultTypeSW>* request{};
 
@@ -253,7 +253,6 @@ void MULTISQLREADSW::handleAsyncError()
 	m_waitMessageListNowSize = 0;
 
 	resetConnect = true;
-	m_queryStatus.store(false);
 
 	ConnectDatabase();
 }
@@ -524,7 +523,7 @@ void MULTISQLREADSW::makeMessage()
 		} while (++waitBegin != waitEnd);
 		if (waitBegin == m_waitMessageList.get())
 		{
-			m_queryStatus.store(false);
+			m_queryStatus.store(1);
 			break;
 		}
 
@@ -620,7 +619,7 @@ void MULTISQLREADSW::makeMessage()
 		}
 		else
 		{
-			m_queryStatus.store(false);
+			m_queryStatus.store(1);
 			break;
 		}
 

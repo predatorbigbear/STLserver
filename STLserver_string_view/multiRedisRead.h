@@ -101,8 +101,7 @@ private:
 	unsigned int m_outRangeNowSize{};
 
 
-	std::atomic<bool>m_connect{ false };                  //判断是否已经建立与redis端的连接
-	std::atomic<bool>m_queryStatus{ false };
+	std::atomic<int>m_queryStatus{ 0 };               //0 未连接    1 已连接未处理状态    2   已连接正在处理状态
 	
 
 

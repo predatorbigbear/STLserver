@@ -303,7 +303,9 @@ enum WEBSERVICEINTERFACE
 
 	web_userLogin = 7,
 
-	web_userLoginOut = 8
+	web_userLoginOut = 8,
+
+	web_userInfo = 9
 
 };
 

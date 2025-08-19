@@ -668,6 +668,9 @@ private:
 	//用户登录账号退出
 	void userLoginOut();
 
+	//用户提交信息登记
+	void userInfo();
+
 
 
 

@@ -131,9 +131,7 @@ private:
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-	std::atomic<bool> m_hasConnect{ false };         //是否已经处于连接状态
-	std::atomic<bool> m_queryStatus{ false };
+	std::atomic<int> m_queryStatus{ 0 };         //0 未连接    1 已连接未处理状态    2   已连接正在处理状态
 
 
 	bool m_jumpThisRes{ false };                     //是否跳过本次请求的标志
@@ -321,13 +319,14 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 	}
 
 
-	if (!m_hasConnect.load())
+	int status{ m_queryStatus.load() };
+	if (!status)
 	{
 		return false;
 	}
-	if (!m_queryStatus.load())
+	else if (status == 1)
 	{
-		m_queryStatus.store(true);
+		m_queryStatus.store(2);
 
 		m_sendLen = std::accumulate(std::get<0>(*sqlRequest).get().cbegin(), std::get<0>(*sqlRequest).get().cend(), 0, [](auto& sum, auto const sw)
 		{
@@ -344,7 +343,7 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 		}
 		catch (const std::bad_alloc& e)
 		{
-			m_queryStatus.store(false);
+			m_queryStatus.store(1);
 			return false;
 		}
 

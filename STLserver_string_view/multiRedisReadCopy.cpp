@@ -81,13 +81,14 @@ bool MULTIREDISREADCOPY::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& 
 		)
 		return false;
 
-	if (!m_connect.load())
+	int status{ m_queryStatus.load() };
+	if (!status)
 	{
 		return false;
 	}
-	if (!m_queryStatus.load())
+	else if (status == 1)
 	{
-		m_queryStatus.store(true);
+		m_queryStatus.store(2);
 
 
 		//////////////////////////////////////////////////////////////////////
@@ -136,7 +137,7 @@ bool MULTIREDISREADCOPY::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& 
 			catch (const std::exception& e)
 			{
 				m_messageBufferMaxSize = 0;
-				m_queryStatus.store(false);
+				m_queryStatus.store(1);
 
 				return false;
 			}
@@ -348,7 +349,7 @@ void MULTIREDISREADCOPY::reconnect()
 
 void MULTIREDISREADCOPY::setConnectSuccess()
 {
-	m_connect.store(true);
+	m_queryStatus.store(1);
 }
 
 
@@ -356,7 +357,7 @@ void MULTIREDISREADCOPY::setConnectSuccess()
 
 void MULTIREDISREADCOPY::setConnectFail()
 {
-	m_connect.store(false);
+	m_queryStatus.store(0);
 }
 
 
@@ -369,6 +370,8 @@ void MULTIREDISREADCOPY::query()
 	{
 		if (err)  //log
 		{
+			m_queryStatus.store(0);
+
 			m_log->writeLog(__FUNCTION__, __LINE__, err.what());
 			m_connectStatus = 2;
 
@@ -3086,6 +3089,8 @@ void MULTIREDISREADCOPY::handlelRead(const boost::system::error_code& err, const
 {
 	if (err)
 	{
+		m_queryStatus.store(0);
+
 		m_log->writeLog(__FILE__, __LINE__, err.what());
 
 		m_connectStatus = 2;
@@ -3193,7 +3198,7 @@ void MULTIREDISREADCOPY::readyMessage()
 		} while (m_waitMessageListBegin != m_waitMessageListEnd);
 		if (m_waitMessageListBegin == m_waitMessageList.get())
 		{
-			m_queryStatus.store(false);
+			m_queryStatus.store(1);
 			break;
 		}
 

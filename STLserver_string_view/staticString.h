@@ -196,10 +196,14 @@ namespace STATICSTRING
 
 	static const char* verifyCode{ "verifyCode" };
 
+	static const char* height{ "height" };
+
 ////////////////////////////////////////////////////////////////////////////////////////
 	static size_t serverRSASize{ 128 };
 
 	static size_t serverHashLen{ 32 };
+
+	static size_t heightLen{ strlen(height) };
 
 	static size_t verifyCodeLen{ strlen(verifyCode) };
 

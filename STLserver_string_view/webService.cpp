@@ -259,6 +259,13 @@ void WEBSERVICE::switchPOSTInterface()
 		userLoginOut();
 		break;
 
+
+		//用户提交信息登记
+	case WEBSERVICEINTERFACE::web_userInfo:
+		userInfo();
+		break;
+
+
 		//默认，不匹配任何接口情况
 	default:
 		startWrite(WEBSERVICEANSWER::result3.data(), WEBSERVICEANSWER::result3.size());
@@ -5369,6 +5376,43 @@ void WEBSERVICE::userLoginOut()
 	hasUserLogin = false;
 
 	return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+}
+
+
+
+//用户提交信息登记
+void WEBSERVICE::userInfo()
+{
+	if(!hasUserLogin)
+		return startWrite(WEBSERVICEANSWER::result5.data(), WEBSERVICEANSWER::result5.size());
+
+	if (m_httpresult.isBodyEmpty())
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	std::string_view bodyView{ m_httpresult.getBody() };
+	if (!praseBody(bodyView.cbegin(), bodyView.size(), m_buffer->bodyPara(), STATICSTRING::name, STATICSTRING::nameLen, STATICSTRING::height, STATICSTRING::heightLen,
+		STATICSTRING::age, STATICSTRING::ageLen, STATICSTRING::province, STATICSTRING::provinceLen, STATICSTRING::city, STATICSTRING::cityLen))
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	const char** BodyBuffer{ m_buffer->bodyPara() };
+
+	std::string_view& nameView{ keyVec[0] };
+	nameView = std::string_view(*(BodyBuffer), *(BodyBuffer + 1) - *(BodyBuffer));
+
+	std::string_view& heightView{ keyVec[1] };
+	heightView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
+
+	std::string_view& ageView{ keyVec[2] };
+	ageView = std::string_view(*(BodyBuffer + 4), *(BodyBuffer + 5) - *(BodyBuffer + 4));
+
+	std::string_view& provinceView{ keyVec[3] };
+	provinceView = std::string_view(*(BodyBuffer + 6), *(BodyBuffer + 7) - *(BodyBuffer + 6));
+
+	std::string_view& cityView{ keyVec[4] };
+	cityView = std::string_view(*(BodyBuffer + 8), *(BodyBuffer + 9) - *(BodyBuffer + 8));
+
+	return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+
 }
 
 
