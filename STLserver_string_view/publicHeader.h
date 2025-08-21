@@ -47,7 +47,7 @@
 #include "redisNameSpace.h"
 #include "ContentTypeMap.h"
 #include "MemoryCheck.h"
-
+#include "commonStruct.h"
 
 
 using boost::asio::steady_timer;
@@ -305,7 +305,11 @@ enum WEBSERVICEINTERFACE
 
 	web_userLoginOut = 8,
 
-	web_userInfo = 9
+	web_userInfo = 9,
+
+	web_getUserInfo = 10,
+
+	web_getUserInfoExamine = 11
 
 };
 
@@ -1331,6 +1335,268 @@ static bool UrlDecodeWithTransChinese(const char* source, const int len, int& de
 	}
 	return true;
 }
+
+
+
+
+
+//mysql字符转义函数   对特殊字符以及;进行转义
+//直接传入原string_view，在没有找到需要转义的字符的情况下，不会发生任何拷贝 分配内存情况
+template<typename T1 = int,typename T2 = int>
+static bool mysqlEscape(const std::string_view source, std::string_view& out, MEMORYPOOL<> &pool)
+{
+	if (source.empty())
+	{
+		if constexpr (std::is_same_v<T2, OTHERSW>)
+		{
+			out = source;
+		}
+		return true;
+	}
+
+	std::string_view::const_iterator iterBegin{ source.cbegin() }, iterFind{ source.cbegin() };
+
+	const char* outbuf{};
+	iterFind = std::find_if(iterBegin, source.cend(), [&outbuf](const char ch)
+	{
+		static const char* str1{ "\\\'" };
+		static const char* str2{ "\\\"" };
+		static const char* str3{ "\\\\" };
+		static const char* str4{ "\\0" };
+		static const char* str5{ "\\n" };
+		static const char* str6{ "\\r" };
+		static const char* str7{ "\\t" };
+		static const char* str8{ "\\b" };
+		static const char* str9{ "\\v" };
+		static const char* str10{ "\\%" };
+		static const char* str11{ "\\_" };
+		static const char* str12{ "\\Z" };
+		static const char* str13{ "\\?" };
+		static const char* str14{ "\\;" };
+
+		switch (ch)
+		{
+		case '\'':
+			outbuf = str1;
+			return true;
+			break;
+		case '"':
+			outbuf = str2;
+			return true;
+			break;
+		case '\\':
+			outbuf = str3;
+			return true;
+			break;
+		case 0:
+			outbuf = str4;
+			return true;
+			break;
+		case 10:
+			outbuf = str5;
+			return true;
+			break;
+		case 13:
+			outbuf = str6;
+			return true;
+			break;
+		case 9:
+			outbuf = str7;
+			return true;
+			break;
+		case 8:
+			outbuf = str8;
+			return true;
+			break;
+		case 26:
+			outbuf = str12;
+			return true;
+			break;
+		case '%':
+			if constexpr (std::is_same_v<T1, ISLIKE>)
+			{
+				outbuf = str10;
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+			break;
+		case '_':
+			if constexpr (std::is_same_v<T1, ISLIKE>)
+			{
+				outbuf = str11;
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+			break;
+		case 11:
+			outbuf = str9;
+			return true;
+			break;
+		case '?':
+			outbuf = str13;
+			return true;
+			break;
+		case ';':
+			outbuf = str14;
+			return true;
+			break;
+		default:
+			return false;
+		}
+
+		return false;
+	});
+
+	if (iterFind == source.cend())
+	{
+		if constexpr (std::is_same_v<T2, OTHERSW>)
+		{
+			out = source;
+		}
+		return true;
+	}
+
+	int needLen{ std::distance(source.cbegin(),iterFind) + std::distance(iterFind,source.cend()) * 2 };
+
+	//从内存池申请内存，
+	//如果申请失败，返回false
+
+	char* outBuf{ pool.getMemory<char*>(needLen) };
+	if (!outBuf)
+		return false;
+
+	char* outBegin{ outBuf }, * outIter{ outBuf };
+
+	std::copy(source.cbegin(), iterFind, outIter);
+	outIter += std::distance(source.cbegin(), iterFind);
+	std::copy(outbuf, outbuf + 2, outIter);
+	outIter += 2;
+	iterBegin = iterFind + 1;
+
+	while (iterBegin != source.cend())
+	{
+		iterFind = std::find_if(iterBegin, source.cend(), [&outbuf](const char ch)
+		{
+			static const char* str1{ "\\\'" };
+			static const char* str2{ "\\\"" };
+			static const char* str3{ "\\\\" };
+			static const char* str4{ "\\0" };
+			static const char* str5{ "\\n" };
+			static const char* str6{ "\\r" };
+			static const char* str7{ "\\t" };
+			static const char* str8{ "\\b" };
+			static const char* str9{ "\\v" };
+			static const char* str10{ "\\%" };
+			static const char* str11{ "\\_" };
+			static const char* str12{ "\\Z" };
+			static const char* str13{ "\\?" };
+			static const char* str14{ "\\;" };
+
+			switch (ch)
+			{
+			case '\'':
+				outbuf = str1;
+				return true;
+				break;
+			case '"':
+				outbuf = str2;
+				return true;
+				break;
+			case '\\':
+				outbuf = str3;
+				return true;
+				break;
+			case 0:
+				outbuf = str4;
+				return true;
+				break;
+			case 10:
+				outbuf = str5;
+				return true;
+				break;
+			case 13:
+				outbuf = str6;
+				return true;
+				break;
+			case 9:
+				outbuf = str7;
+				return true;
+				break;
+			case 8:
+				outbuf = str8;
+				return true;
+				break;
+			case 26:
+				outbuf = str12;
+				return true;
+				break;
+			case '%':
+				if constexpr (std::is_same_v<T1, ISLIKE>)
+				{
+					outbuf = str10;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+				break;
+			case '_':
+				if constexpr (std::is_same_v<T1, ISLIKE>)
+				{
+					outbuf = str11;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+				break;
+			case 11:
+				outbuf = str9;
+				return true;
+				break;
+			case '?':
+				outbuf = str13;
+				return true;
+				break;
+			case ';':
+				outbuf = str14;
+				return true;
+				break;
+			default:
+				return false;
+			}
+
+			return false;
+		});
+
+		if (iterFind == source.cend())
+		{
+			std::copy(iterBegin, iterFind, outIter);
+			outIter += std::distance(iterBegin, iterFind);
+			out = std::string_view(outBegin, std::distance(outBegin, outIter));
+			return true;
+		}
+
+		std::copy(iterBegin, iterFind, outIter);
+		outIter += std::distance(iterBegin, iterFind);
+		std::copy(outbuf, outbuf + 2, outIter);
+		outIter += 2;
+		iterBegin = iterFind + 1;
+	}
+
+	out = std::string_view(outBegin, std::distance(outBegin, outIter));
+	return true;
+}
+
+
 
 
 

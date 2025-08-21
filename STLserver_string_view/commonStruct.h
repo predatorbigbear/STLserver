@@ -32,3 +32,16 @@ struct CHECKSQL
 {
 
 };
+
+
+//是否是mysql like语句,用于mysqlEscape
+struct ISLIKE
+{
+
+};
+
+//是否是其他string_view,用于mysqlEscape
+struct OTHERSW
+{
+
+};

@@ -91,6 +91,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	hasVerifyRegister = false;
 	m_requestTime = 0;
 	m_phone.clear();
+	m_userInfo.clear();
 
 	boost::system::error_code ec;
 	boost::asio::ip::tcp::endpoint remote_ep = m_buffer->getSSLSock()->lowest_layer().remote_endpoint(ec);
@@ -263,6 +264,18 @@ void WEBSERVICE::switchPOSTInterface()
 		//用户提交信息登记
 	case WEBSERVICEINTERFACE::web_userInfo:
 		userInfo();
+		break;
+
+
+		//查询用户五项信息
+	case WEBSERVICEINTERFACE::web_getUserInfo:
+		getUserInfo();
+		break;
+
+
+		//查询用户待审核信息到后台
+	case WEBSERVICEINTERFACE::web_getUserInfoExamine:
+		getUserInfoExamine();
 		break;
 
 
@@ -5104,8 +5117,12 @@ void WEBSERVICE::registration2()
 	passwordView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
 
 	//判断是否是非法密码  至少8位长度  且包含数字大小写字母  且不能包含;字符
-	if (usernameView.empty() || std::find(usernameView.cbegin(), usernameView.cend(),';')!= usernameView.cend() || !REGEXFUNCTION::isVaildPassword(passwordView))
+	if (usernameView.empty() || !REGEXFUNCTION::isVaildPassword(passwordView))
 		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	if(!mysqlEscape(usernameView, usernameView,m_MemoryPool))
+		return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
 
 	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
 
@@ -5283,8 +5300,11 @@ void WEBSERVICE::userLogin()
 	passwordView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
 
 	//判断是否是非法密码  至少8位长度  且包含数字大小写字母  且不能包含;字符
-	if (usernameView.empty() || std::find(usernameView.cbegin(), usernameView.cend(), ';') != usernameView.cend() || !REGEXFUNCTION::isVaildPassword(passwordView))
+	if (usernameView.empty() || !REGEXFUNCTION::isVaildPassword(passwordView))
 		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	if(!mysqlEscape(usernameView, usernameView,m_MemoryPool))
+		return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 
 	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
 	redisResultTypeSW& thisRequest{ *redisRequest };
@@ -5342,6 +5362,7 @@ void WEBSERVICE::handleuserLogin(bool result, ERRORMESSAGE em)
 			if(resultVec[0].empty())
 				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
+			std::string_view& usernameView{ keyVec[0] };
 			std::string_view& passwordView{ keyVec[1] };
 
 
@@ -5349,6 +5370,7 @@ void WEBSERVICE::handleuserLogin(bool result, ERRORMESSAGE em)
 			if (std::equal(passwordView.cbegin(), passwordView.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
 			{
 				hasUserLogin = true;
+				m_userInfo.setAccount(usernameView);
 				return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
 			}
 			else
@@ -5399,19 +5421,592 @@ void WEBSERVICE::userInfo()
 	std::string_view& nameView{ keyVec[0] };
 	nameView = std::string_view(*(BodyBuffer), *(BodyBuffer + 1) - *(BodyBuffer));
 
+	//0-300
 	std::string_view& heightView{ keyVec[1] };
 	heightView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
 
+	//0-150
 	std::string_view& ageView{ keyVec[2] };
 	ageView = std::string_view(*(BodyBuffer + 4), *(BodyBuffer + 5) - *(BodyBuffer + 4));
 
+	//1-34
 	std::string_view& provinceView{ keyVec[3] };
 	provinceView = std::string_view(*(BodyBuffer + 6), *(BodyBuffer + 7) - *(BodyBuffer + 6));
 
+	//1-38
 	std::string_view& cityView{ keyVec[4] };
 	cityView = std::string_view(*(BodyBuffer + 8), *(BodyBuffer + 9) - *(BodyBuffer + 8));
 
-	return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+
+	//校验参数
+	if(nameView.empty() ||
+		heightView.empty() || heightView.size() > 3 ||
+		ageView.empty() || ageView.size() > 3 ||
+		provinceView.empty() || provinceView.size() > 2 ||
+		cityView.empty() || cityView.size() > 2)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	if(!mysqlEscape(nameView, nameView,m_MemoryPool))
+		return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+
+	//判断身高 0-300
+	int index{ -1 }, num{ 1 }, sum{}, provinceNum{}, cityNum{};
+	//使用自定义实现函数，在判断是否全部是数字字符的情况下，同时完成数值累加计算，避免两次循环调用
+	if (!std::all_of(std::make_reverse_iterator(heightView.cend()), std::make_reverse_iterator(heightView.cbegin()), [&index, &num, &sum](const char ch)
+	{
+		if (!std::isdigit(ch))
+		{
+			return false;
+		}
+		if (++index)
+			num *= 10;
+		sum += (ch - '0') * num;
+		return true;
+	}) || sum > 300)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+
+	//判断年龄
+	index = -1, num = 1, sum = 0;
+	if (!std::all_of(std::make_reverse_iterator(ageView.cend()), std::make_reverse_iterator(ageView.cbegin()), [&index, &num, &sum](const char ch)
+	{
+		if (!std::isdigit(ch))
+		{
+			return false;
+		}
+		if (++index)
+			num *= 10;
+		sum += (ch - '0') * num;
+		return true;
+	}) || sum > 150)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+
+	//判断省份代号
+	index = -1, num = 1, sum = 0;
+	if (!std::all_of(std::make_reverse_iterator(provinceView.cend()), std::make_reverse_iterator(provinceView.cbegin()), [&index, &num, &sum](const char ch)
+	{
+		if (!std::isdigit(ch))
+		{
+			return false;
+		}
+		if (++index)
+			num *= 10;
+		sum += (ch - '0') * num;
+		return true;
+	}) || !sum || sum > 34)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	provinceNum = sum;
+
+
+	//判断城市代号
+	index = -1, num = 1, sum = 0;
+	if (!std::all_of(std::make_reverse_iterator(provinceView.cend()), std::make_reverse_iterator(provinceView.cbegin()), [&index, &num, &sum](const char ch)
+	{
+		if (!std::isdigit(ch))
+		{
+			return false;
+		}
+		if (++index)
+			num *= 10;
+		sum += (ch - '0') * num;
+		return true;
+	}) || !sum || sum > 38)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+	cityNum = sum;
+	
+
+	//与前端省份  城市代号进行比对
+	/*
+
+	const provinces=[
+[1,"北京市"],[2,"天津市"],[3,"河北省"],[4,"山西省"],[5,"内蒙古自治区"],
+[6,"辽宁省"],[7,"吉林省"],[8,"黑龙江省"],[9,"上海市"],[10,"江苏省"],
+[11,"浙江省"],[12,"安徽省"],[13,"福建省"],[14,"江西省"],[15,"山东省"],
+[16,"河南省"],[17,"湖北省"],[18,"湖南省"],[19,"广东省"],[20,"广西壮族自治区"],
+[21,"海南省"],[22,"重庆市"],[23,"四川省"],[24,"贵州省"],[25,"云南省"],
+[26,"西藏自治区"],[27,"陕西省"],[28,"甘肃省"],[29,"青海省"],[30,"宁夏回族自治区"],
+[31,"新疆维吾尔自治区"],[32,"香港特别行政区"],[33,"澳门特别行政区"],[34,"台湾省"]
+];
+
+
+
+	const cityData={
+1:[[1,"东城区"],[2,"西城区"],[3,"朝阳区"],[4,"丰台区"],[5,"石景山区"],[6,"海淀区"],[7,"顺义区"],[8,"通州区"],[9,"大兴区"],[10,"房山区"],[11,"门头沟区"],[12,"昌平区"],[13,"平谷区"],[14,"密云区"],[15,"延庆区"]], 
+2:[[1,"和平区"],[2,"河东区"],[3,"河西区"],[4,"南开区"],[5,"河北区"],[6,"红桥区"],[7,"东丽区"],[8,"西青区"],[9,"津南区"],[10,"北辰区"],[11,"武清区"],[12,"宝坻区"],[13,"滨海新区"],[14,"宁河区"],[15,"静海区"],[16,"蓟州区"]], 
+3:[[1,"石家庄市"],[2,"唐山市"],[3,"秦皇岛市"],[4,"邯郸市"],[5,"邢台市"],[6,"保定市"],[7,"张家口市"],[8,"承德市"],[9,"沧州市"],[10,"廊坊市"],[11,"衡水市"]], 
+4:[[1,"太原市"],[2,"大同市"],[3,"阳泉市"],[4,"长治市"],[5,"晋城市"],[6,"朔州市"],[7,"晋中市"],[8,"运城市"],[9,"忻州市"],[10,"临汾市"],[11,"吕梁市"]], 
+5:[[1,"呼和浩特市"],[2,"包头市"],[3,"乌海市"],[4,"赤峰市"],[5,"通辽市"],[6,"鄂尔多斯市"],[7,"呼伦贝尔市"],[8,"巴彦淖尔市"],[9,"乌兰察布市"],[10,"兴安盟"],[11,"锡林郭勒盟"],[12,"阿拉善盟"]], 
+6:[[1,"沈阳市"],[2,"大连市"],[3,"鞍山市"],[4,"抚顺市"],[5,"本溪市"],[6,"丹东市"],[7,"锦州市"],[8,"营口市"],[9,"阜新市"],[10,"辽阳市"],[11,"盘锦市"],[12,"铁岭市"],[13,"朝阳市"],[14,"葫芦岛市"]], 
+7:[[1,"长春市"],[2,"吉林市"],[3,"四平市"],[4,"辽源市"],[5,"通化市"],[6,"白山市"],[7,"松原市"],[8,"白城市"],[9,"延边朝鲜族自治州"]], 
+8:[[1,"哈尔滨市"],[2,"齐齐哈尔市"],[3,"鸡西市"],[4,"鹤岗市"],[5,"双鸭山市"],[6,"大庆市"],[7,"伊春市"],[8,"佳木斯市"],[9,"七台河市"],[10,"牡丹江市"],[11,"黑河市"],[12,"绥化市"],[13,"大兴安岭地区"]], 
+9:[[1,"黄浦区"],[2,"徐汇区"],[3,"长宁区"],[4,"静安区"],[5,"普陀区"],[6,"虹口区"],[7,"杨浦区"],[8,"闵行区"],[9,"宝山区"],[10,"嘉定区"],[11,"浦东新区"],[12,"金山区"],[13,"松江区"],[14,"青浦区"],[15,"奉贤区"],[16,"崇明区"]], 
+10:[[1,"南京市"],[2,"无锡市"],[3,"徐州市"],[4,"常州市"],[5,"苏州市"],[6,"南通市"],[7,"连云港市"],[8,"淮安市"],[9,"盐城市"],[10,"扬州市"],[11,"镇江市"],[12,"泰州市"],[13,"宿迁市"]], 
+11:[[1,"杭州市"],[2,"宁波市"],[3,"温州市"],[4,"嘉兴市"],[5,"湖州市"],[6,"绍兴市"],[7,"金华市"],[8,"衢州市"],[9,"舟山市"],[10,"台州市"],[11,"丽水市"]], 
+12:[[1,"合肥市"],[2,"芜湖市"],[3,"蚌埠市"],[4,"淮南市"],[5,"马鞍山市"],[6,"淮北市"],[7,"铜陵市"],[8,"安庆市"],[9,"黄山市"],[10,"滁州市"],[11,"阜阳市"],[12,"宿州市"],[13,"六安市"],[14,"亳州市"],[15,"池州市"],[16,"宣城市"]], 
+13:[[1,"福州市"],[2,"厦门市"],[3,"莆田市"],[4,"三明市"],[5,"泉州市"],[6,"漳州市"],[7,"南平市"],[8,"龙岩市"],[9,"宁德市"]], 
+14:[[1,"南昌市"],[2,"景德镇市"],[3,"萍乡市"],[4,"九江市"],[5,"新余市"],[6,"鹰潭市"],[7,"赣州市"],[8,"吉安市"],[9,"宜春市"],[10,"抚州市"],[11,"上饶市"]], 
+15:[[1,"济南市"],[2,"青岛市"],[3,"淄博市"],[4,"枣庄市"],[5,"东营市"],[6,"烟台市"],[7,"潍坊市"],[8,"济宁市"],[9,"泰安市"],[10,"威海市"],[11,"日照市"],[12,"临沂市"],[13,"德州市"],[14,"聊城市"],[15,"滨州市"],[16,"菏泽市"]], 
+16:[[1,"郑州市"],[2,"开封市"],[3,"洛阳市"],[4,"平顶山市"],[5,"安阳市"],[6,"鹤壁市"],[7,"新乡市"],[8,"焦作市"],[9,"濮阳市"],[10,"许昌市"],[11,"漯河市"],[12,"三门峡市"],[13,"南阳市"],[14,"商丘市"],[15,"信阳市"],[16,"周口市"],[17,"驻马店市"],[18,"济源市"]], 
+17:[[1,"武汉市"],[2,"黄石市"],[3,"十堰市"],[4,"宜昌市"],[5,"襄阳市"],[6,"鄂州市"],[7,"荆门市"],[8,"孝感市"],[9,"荆州市"],[10,"黄冈市"],[11,"咸宁市"],[12,"随州市"],[13,"恩施土家族苗族自治州"],[14,"仙桃市"],[15,"潜江市"],[16,"天门市"],[17,"神农架林区"]], 
+18:[[1,"长沙市"],[2,"株洲市"],[3,"湘潭市"],[4,"衡阳市"],[5,"邵阳市"],[6,"岳阳市"],[7,"常德市"],[8,"张家界市"],[9,"益阳市"],[10,"郴州市"],[11,"永州市"],[12,"怀化市"],[13,"娄底市"],[14,"湘西土家族苗族自治州"]], 
+19:[[1,"广州市"],[2,"韶关市"],[3,"深圳市"],[4,"珠海市"],[5,"汕头市"],[6,"佛山市"],[7,"江门市"],[8,"湛江市"],[9,"茂名市"],[10,"肇庆市"],[11,"惠州市"],[12,"梅州市"],[13,"汕尾市"],[14,"河源市"],[15,"阳江市"],[16,"清远市"],[17,"东莞市"],[18,"中山市"],[19,"潮州市"],[20,"揭阳市"],[21,"云浮市"]], 
+20:[[1,"南宁市"],[2,"柳州市"],[3,"桂林市"],[4,"梧州市"],[5,"北海市"],[6,"防城港市"],[7,"钦州市"],[8,"贵港市"],[9,"玉林市"],[10,"百色市"],[11,"贺州市"],[12,"河池市"],[13,"来宾市"],[14,"崇左市"]], 
+21:[[1,"海口市"],[2,"三亚市"],[3,"三沙市"],[4,"儋州市"],[5,"五指山市"],[6,"琼海市"],[7,"文昌市"],[8,"万宁市"],[9,"东方市"],[10,"定安县"],[11,"屯昌县"],[12,"澄迈县"],[13,"临高县"],[14,"白沙黎族自治县"],[15,"昌江黎族自治县"],[16,"乐东黎族自治县"],[17,"陵水黎族自治县"],[18,"保亭黎族苗族自治县"],[19,"琼中黎族苗族自治县"]], 
+22:[[1,"万州区"],[2,"涪陵区"],[3,"渝中区"],[4,"大渡口区"],[5,"江北区"],[6,"沙坪坝区"],[7,"九龙坡区"],[8,"南岸区"],[9,"北碚区"],[10,"綦江区"],[11,"大足区"],[12,"渝北区"],[13,"巴南区"],[14,"黔江区"],[15,"长寿区"],[16,"江津区"],[17,"合川区"],[18,"永川区"],[19,"南川区"],[20,"璧山区"],[21,"铜梁区"],[22,"潼南区"],[23,"荣昌区"],[24,"开州区"],[25,"梁平区"],[26,"武隆区"],[27,"城口县"],[28,"丰都县"],[29,"垫江县"],[30,"忠县"],[31,"云阳县"],[32,"奉节县"],[33,"巫山县"],[34,"巫溪县"],[35,"石柱土家族自治县"],[36,"秀山土家族苗族自治县"],[37,"酉阳土家族苗族自治县"],[38,"彭水苗族土家族自治县"]], 
+23:[[1,"成都市"],[2,"自贡市"],[3,"攀枝花市"],[4,"泸州市"],[5,"德阳市"],[6,"绵阳市"],[7,"广元市"],[8,"遂宁市"],[9,"内江市"],[10,"乐山市"],[11,"南充市"],[12,"眉山市"],[13,"宜宾市"],[14,"广安市"],[15,"达州市"],[16,"雅安市"],[17,"巴中市"],[18,"资阳市"],[19,"阿坝藏族羌族自治州"],[20,"甘孜藏族自治州"],[21,"凉山彝族自治州"]], 
+24:[[1,"贵阳市"],[2,"六盘水市"],[3,"遵义市"],[4,"安顺市"],[5,"毕节市"],[6,"铜仁市"],[7,"黔西南布依族苗族自治州"],[8,"黔东南苗族侗族自治州"],[9,"黔南布依族苗族自治州"]], 
+25:[[1,"昆明市"],[2,"曲靖市"],[3,"玉溪市"],[4,"保山市"],[5,"昭通市"],[6,"丽江市"],[7,"普洱市"],[8,"临沧市"],[9,"楚雄彝族自治州"],[10,"红河哈尼族彝族自治州"],[11,"文山壮族苗族自治州"],[12,"西双版纳傣族自治州"],[13,"大理白族自治州"],[14,"德宏傣族景颇族自治州"],[15,"怒江傈僳族自治州"],[16,"迪庆藏族自治州"]], 
+26:[[1,"拉萨市"],[2,"日喀则市"],[3,"昌都市"],[4,"林芝市"],[5,"山南市"],[6,"那曲市"],[7,"阿里地区"]], 
+27:[[1,"西安市"],[2,"铜川市"],[3,"宝鸡市"],[4,"咸阳市"],[5,"渭南市"],[6,"延安市"],[7,"汉中市"],[8,"榆林市"],[9,"安康市"],[10,"商洛市"]], 
+28:[[1,"兰州市"],[2,"嘉峪关市"],[3,"金昌市"],[4,"白银市"],[5,"天水市"],[6,"武威市"],[7,"张掖市"],[8,"平凉市"],[9,"酒泉市"],[10,"庆阳市"],[11,"定西市"],[12,"陇南市"],[13,"临夏回族自治州"],[14,"甘南藏族自治州"]], 
+29:[[1,"西宁市"],[2,"海东市"],[3,"海北藏族自治州"],[4,"黄南藏族自治州"],[5,"海南藏族自治州"],[6,"果洛藏族自治州"],[7,"玉树藏族自治州"],[8,"海西蒙古族藏族自治州"]], 
+30:[[1,"银川市"],[2,"石嘴山市"],[3,"吴忠市"],[4,"固原市"],[5,"中卫市"]], 
+31:[[1,"乌鲁木齐市"],[2,"克拉玛依市"],[3,"吐鲁番市"],[4,"哈密市"],[5,"昌吉回族自治州"],[6,"博尔塔拉蒙古自治州"],[7,"巴音郭楞蒙古自治州"],[8,"阿克苏地区"],[9,"克孜勒苏柯尔克孜自治州"],[10,"喀什地区"],[11,"和田地区"],[12,"伊犁哈萨克自治州"],[13,"塔城地区"],[14,"阿勒泰地区"],[15,"石河子市"],[16,"阿拉尔市"],[17,"图木舒克市"],[18,"五家渠市"],[19,"北屯市"],[20,"铁门关市"],[21,"双河市"],[22,"可克达拉市"],[23,"昆玉市"],[24,"胡杨河市"]], 
+32:[[1,"中西区"],[2,"湾仔区"],[3,"东区"],[4,"南区"],[5,"油尖旺区"],[6,"深水埗区"],[7,"九龙城区"],[8,"黄大仙区"],[9,"观塘区"],[10,"荃湾区"],[11,"屯门区"],[12,"元朗区"],[13,"北区"],[14,"大埔区"],[15,"西贡区"],[16,"沙田区"],[17,"葵青区"],[18,"离岛区"]], 
+33:[[1,"花地玛堂区"],[2,"圣安多尼堂区"],[3,"大堂区"],[4,"望德堂区"],[5,"风顺堂区"],[6,"嘉模堂区"],[7,"圣方济各堂区"],[8,"路氹城"]], 
+34:[[1,"台北市"],[2,"新北市"],[3,"桃园市"],[4,"台中市"],[5,"台南市"],[6,"高雄市"],[7,"基隆市"],[8,"新竹市"],[9,"嘉义市"],[10,"新竹县"],[11,"苗栗县"],[12,"彰化县"],[13,"南投县"],[14,"云林县"],[15,"嘉义县"],[16,"屏东县"],[17,"宜兰县"],[18,"花莲县"],[19,"台东县"],[20,"澎湖县"],[21,"金门县"],[22,"连江县"]]
+};
+
+	
+	
+	*/
+	switch (provinceNum)
+	{
+	case 1:
+		if (cityNum > 15)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 2:
+		if (cityNum > 16)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 3:
+		if (cityNum > 11)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 4:
+		if (cityNum > 11)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 5:
+		if (cityNum > 12)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 6:
+		if (cityNum > 14)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 7:
+		if (cityNum > 9)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 8:
+		if (cityNum > 13)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 9:
+		if (cityNum > 16)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 10:
+		if (cityNum > 13)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 11:
+		if (cityNum > 11)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 12:
+		if (cityNum > 16)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 13:
+		if (cityNum > 9)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 14:
+		if (cityNum > 11)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 15:
+		if (cityNum > 16)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 16:
+		if (cityNum > 18)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 17:
+		if (cityNum > 17)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 18:
+		if (cityNum > 14)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 19:
+		if (cityNum > 21)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 20:
+		if (cityNum > 14)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 21:
+		if (cityNum > 19)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 22:
+		if (cityNum > 38)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 23:
+		if (cityNum > 21)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 24:
+		if (cityNum > 9)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 25:
+		if (cityNum > 16)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 26:
+		if (cityNum > 7)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 27:
+		if (cityNum > 10)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 28:
+		if (cityNum > 14)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 29:
+		if (cityNum > 8)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 30:
+		if (cityNum > 5)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 31:
+		if (cityNum > 24)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 32:
+		if (cityNum > 18)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 33:
+		if (cityNum > 8)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	case 34:
+		if (cityNum > 22)
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	default:
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+		break;
+	}
+
+	////////////////////////////////////插入sql 等待管理员审核信息
+
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
+
+
+	command.clear();
+	rowField.clear();
+	result.clear();
+	sqlNum.clear();
+
+	try
+	{
+
+		command.emplace_back(SQLCOMMAND::updateUser1);
+		command.emplace_back(nameView);
+		command.emplace_back(SQLCOMMAND::updateUser2);
+		command.emplace_back(heightView);
+		command.emplace_back(SQLCOMMAND::updateUser3);
+		command.emplace_back(ageView);
+		command.emplace_back(SQLCOMMAND::updateUser4);
+		command.emplace_back(provinceView);
+		command.emplace_back(SQLCOMMAND::updateUser5);
+		command.emplace_back(cityView);
+		command.emplace_back(SQLCOMMAND::updateUser6);
+		command.emplace_back(m_userInfo.getAccountView());
+		command.emplace_back(SQLCOMMAND::updateUser7);
+
+
+		//获取结果次数
+		std::get<1>(thisRequest) = 1;
+		//sql组成string_view个数
+		sqlNum.emplace_back(13);
+		std::get<5>(thisRequest) = std::bind(&WEBSERVICE::handleuserInfo, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest<SQLFREE, int>(sqlRequest))
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+	}
+
+}
+
+
+
+void WEBSERVICE::handleuserInfo(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+		resultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<std::string_view>& resultvec{ std::get<4>(thisRequest).get() };
+
+
+		if (resultvec.empty() || resultvec[0] != "success")
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+
+		return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+
+}
+
+
+
+//获取用户五项信息
+void WEBSERVICE::getUserInfo()
+{
+	if(!hasUserLogin)
+		return startWrite(WEBSERVICEANSWER::result5.data(), WEBSERVICEANSWER::result5.size());
+
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+	redisResultTypeSW& thisRequest{ *redisRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& commandSize{ std::get<2>(thisRequest).get() };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+	//获取用户五项信息
+
+	static std::string_view name{ "name" }, height{ "height" }, age{ "age" }, province{ "province" }, city{ "city" };
+
+	command.clear();
+	commandSize.clear();
+	resultVec.clear();
+	resultNumVec.clear();
+	try
+	{
+		command.emplace_back(std::string_view(REDISNAMESPACE::hmget, REDISNAMESPACE::hmgetLen));
+		command.emplace_back(m_userInfo.getAccountView());
+		command.emplace_back(name);
+		command.emplace_back(height);
+		command.emplace_back(age);
+		command.emplace_back(province);
+		command.emplace_back(city);
+		
+		commandSize.emplace_back(command.size());
+
+		std::get<1>(thisRequest) = 1;
+		std::get<3>(thisRequest) = 1;
+		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handlegetUserInfo, this, std::placeholders::_1, std::placeholders::_2);
+
+
+		if (!m_multiRedisReadMaster->insertRedisRequest(redisRequest))
+			startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+	}
+}
+
+
+
+void WEBSERVICE::handlegetUserInfo(bool result, ERRORMESSAGE em)
+{
+	std::shared_ptr<redisResultTypeSW>& redisRequest{ m_multiRedisRequestSWVec[0] };
+
+	redisResultTypeSW& thisRequest{ *redisRequest };
+	std::vector<std::string_view>& resultVec{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& resultNumVec{ std::get<5>(thisRequest).get() };
+
+
+	if (result)
+	{
+		if (resultVec.size() != 5)
+			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
+
+
+		static std::string_view name{ "name" }, height{ "height" }, age{ "age" }, province{ "province" }, city{ "city" }, 
+			result{ "result" }, one{"1"};
+
+		STLtreeFast& st1{ m_STLtreeFastVec[0] };
+
+		st1.reset();
+
+		if (!st1.clear())
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if (!st1.put(result.cbegin(), result.cend(), one.cbegin(), one.cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+
+		if (!st1.put(name.cbegin(), name.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if (!st1.put(height.cbegin(), height.cend(), resultVec[1].cbegin(), resultVec[1].cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if (!st1.put(age.cbegin(), age.cend(), resultVec[2].cbegin(), resultVec[2].cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if (!st1.put(province.cbegin(), province.cend(), resultVec[3].cbegin(), resultVec[3].cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if (!st1.put(city.cbegin(), city.cend(), resultVec[4].cbegin(), resultVec[4].cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+
+		makeSendJson(st1);
+		
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+}
+
+
+//后台查询待审核用户信息
+void WEBSERVICE::getUserInfoExamine()
+{
+	if(!hasLoginBack)
+		return startWrite(WEBSERVICEANSWER::result4.data(), WEBSERVICEANSWER::result4.size());
+
+	std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+	resultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+	std::vector<unsigned int>& rowField{ std::get<3>(thisRequest).get() };
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+	std::vector<unsigned int>& sqlNum{ std::get<6>(thisRequest).get() };
+
+
+	command.clear();
+	rowField.clear();
+	result.clear();
+	sqlNum.clear();
+
+	try
+	{
+
+		command.emplace_back(SQLCOMMAND::queryUserExamine);
+
+		//获取结果次数
+		std::get<1>(thisRequest) = 1;
+		//sql组成string_view个数
+		sqlNum.emplace_back(command.size());
+		std::get<5>(thisRequest) = std::bind(&WEBSERVICE::handlegetUserInfoExamine, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadSWMaster->insertSqlRequest<SQLFREE, int>(sqlRequest))
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+	}
+
+}
+
+void WEBSERVICE::handlegetUserInfoExamine(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+		std::shared_ptr<resultTypeSW>& sqlRequest{ m_multiSqlRequestSWVec[0] };
+
+		resultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<std::string_view>& resultvec{ std::get<4>(thisRequest).get() };
+
+		if(resultvec.size() % 2)
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+		if (resultvec.empty())
+			return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
+		STLtreeFast& st1{ m_STLtreeFastVec[0] }, &st2{ m_STLtreeFastVec[1] };
+
+		st1.reset();
+		st2.reset();
+		
+
+		if (!st1.clear())
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if (!st2.clear())
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+
+		static std::string_view account{ "account" }, name{ "name" }, result{ "result" }, one{ "1" }, data{"data"};
+
+		for (auto iter = resultvec.cbegin(); iter != resultvec.cend(); iter += 2)
+		{
+			if(!st1.put<TRANSFORMTYPE>(account.cbegin(), account.cend(), iter->cbegin(),iter->cend()))
+				return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+			if (!st1.put<TRANSFORMTYPE>(name.cbegin(), name.cend(), (iter+1)->cbegin(), (iter+1)->cend()))
+				return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+			if (!st2.push_back<TRANSFORMTYPE>(st1))
+				return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+			if (!st1.clear())
+				return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		}
+
+		if (!st1.put<TRANSFORMTYPE>(result.cbegin(), result.cend(), one.cbegin(), one.cend()))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+		if(!st1.putArray<TRANSFORMTYPE>(data.cbegin(), data.cend(),st2))
+			return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+		
+
+		makeSendJson<TRANSFORMTYPE>(st1);
+
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
 
 }
 

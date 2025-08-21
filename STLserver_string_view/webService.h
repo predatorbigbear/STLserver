@@ -20,7 +20,7 @@
 #include "CheckIP.h"
 #include "randomCodeGenerator.h"
 #include "verifyCode.h"
-
+#include "userInfo.h"
 
 
 
@@ -365,6 +365,8 @@ private:
 
 	std::string_view m_message{};
 
+	USERINFO m_userInfo;
+
 	/////////////////////////////////////////
 
 private:
@@ -672,9 +674,20 @@ private:
 	void userInfo();
 
 
+	void handleuserInfo(bool result, ERRORMESSAGE em);
 
 
+	//获取用户五项信息
+	void getUserInfo();
 
+	void handlegetUserInfo(bool result, ERRORMESSAGE em);
+
+
+	//后台查询待审核用户信息
+	void getUserInfoExamine();
+
+
+	void handlegetUserInfoExamine(bool result, ERRORMESSAGE em);
 
 
 

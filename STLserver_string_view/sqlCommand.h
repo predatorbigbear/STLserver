@@ -54,16 +54,25 @@ namespace SQLCOMMAND
 	static const int testTestLoginSQLLen{ strlen(testTestLoginSQL) };
 
 
-
+	
 	static const std::string_view insertUser1{ "insert into user(account,password,phone) value('" };
 	static const std::string_view insertUser2{ "','" };
 	static const std::string_view insertUser3{ "','" };
 	static const std::string_view insertUser4{ "')" };
 
 
+	static const std::string_view updateUser1{ "update user set name='" };
+	static const std::string_view updateUser2{ "',height=" };
+	static const std::string_view updateUser3{ ",age=" };
+	static const std::string_view updateUser4{ ",province=" };
+	static const std::string_view updateUser5{ ",city=" };
+
+	//待审核状态
+	static const std::string_view updateUser6{ ",examine=1 where account='" };
+	static const std::string_view updateUser7{ "'" };
 
 
-
+	static const std::string_view queryUserExamine{ "select account,name from user where examine=1 limit 10" };
 
 
 
