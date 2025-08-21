@@ -177,6 +177,10 @@ https://b23.tv/ENpHX9d
 
 
 vs2022编译选项设置：
+
+库文件为  mysqlclient;boost_system;pthread;boost_thread;z;workflow;ssl;crypto;brotlienc
+
+
 ![QQ20250630-075541](https://github.com/user-attachments/assets/e48d1fee-c0fb-440d-bb53-1fc784cbc389)
 
 ![QQ20250630-075551](https://github.com/user-attachments/assets/6fd00da1-3e50-4a33-9172-64032b01911d)
