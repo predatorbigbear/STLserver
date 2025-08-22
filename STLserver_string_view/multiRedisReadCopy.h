@@ -45,7 +45,7 @@ struct MULTIREDISREADCOPY
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, 
 		std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
-		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
 
 
 	MULTIREDISREADCOPY(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log, std::shared_ptr<std::function<void()>>unlockFun,

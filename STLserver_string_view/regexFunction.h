@@ -74,15 +74,8 @@ namespace REGEXFUNCTION
 			return false;
 
 		//计算前三位值
-		int index{ -1 }, num{ 1 };
-		num = std::accumulate(std::make_reverse_iterator(phone.cbegin() + 3), std::make_reverse_iterator(phone.cbegin()), 0, [&](int sum, const char ch)
-		{
-			if (++index)
-				num *= 10;
-			return sum += (ch - '0') * num;
-		});
 
-		switch (num)
+		switch (((phone[0] - '0') * 100 + (phone[1] - '0') * 10 + (phone[2] - '0')))
 		{
 		case 134:
 		case 135:
@@ -237,7 +230,7 @@ namespace REGEXFUNCTION
 	}
 
 
-	//因为需要插入mysql中，所以对;进行检查
+	//因为需要插入mysql中
 	static bool isVaildPassword(const std::string_view password)
 	{
 		if (password.size() < 8)
@@ -295,13 +288,8 @@ namespace REGEXFUNCTION
 					case 'y':
 					case 'z':
 						iter2 = std::find_if(iter1 + 1, password.cend(),
-							std::bind(std::logical_or<bool>(), std::bind(isupper, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+							std::bind(isupper, std::placeholders::_1));
 						if (iter2 == password.cend())
-							return false;
-
-						if (*iter2 == ';')
-							return false;
-						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
 							return false;
 
 
@@ -334,23 +322,13 @@ namespace REGEXFUNCTION
 					case 'Y':
 					case 'Z':
 						iter2 = std::find_if(iter1 + 1, password.cend(),
-							std::bind(std::logical_or<bool>(), std::bind(islower, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+							std::bind(islower, std::placeholders::_1));
 						if (iter2 == password.cend())
 							return false;
-
-						if (*iter2 == ';')
-							return false;
-						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
-							return false;
-
 
 						return true;
 
 						break;
-					case ';':
-						return false;
-						break;
-
 					default:
 						++iter1;
 						break;
@@ -406,13 +384,8 @@ namespace REGEXFUNCTION
 					case '8':
 					case '9':
 						iter2 = std::find_if(iter1 + 1, password.cend(),
-							std::bind(std::logical_or<bool>(), std::bind(isupper, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+							std::bind(isupper, std::placeholders::_1));
 						if (iter2 == password.cend())
-							return false;
-
-						if (*iter2 == ';')
-							return false;
-						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
 							return false;
 
 						return true;
@@ -444,22 +417,14 @@ namespace REGEXFUNCTION
 					case 'Y':
 					case 'Z':
 						iter2 = std::find_if(iter1 + 1, password.cend(),
-							std::bind(std::logical_or<bool>(), std::bind(isdigit, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+							std::bind(isdigit, std::placeholders::_1));
 						if (iter2 == password.cend())
-							return false;
-
-						if (*iter2 == ';')
-							return false;
-						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
 							return false;
 
 						return true;
 
 						break;
-					case ';':
-						return false;
-						break;
-
+		
 					default:
 						iter = iter1 + 1;
 						continue;
@@ -517,13 +482,8 @@ namespace REGEXFUNCTION
 					case '8':
 					case '9':
 						iter2 = std::find_if(iter1 + 1, password.cend(),
-							std::bind(std::logical_or<bool>(), std::bind(islower, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+							std::bind(islower, std::placeholders::_1));
 						if (iter2 == password.cend())
-							return false;
-
-						if (*iter2 == ';')
-							return false;
-						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
 							return false;
 
 						return true;
@@ -555,31 +515,19 @@ namespace REGEXFUNCTION
 					case 'y':
 					case 'z':
 						iter2 = std::find_if(iter1 + 1, password.cend(),
-							std::bind(std::logical_or<bool>(), std::bind(isdigit, std::placeholders::_1), std::bind(std::equal_to<>(), std::placeholders::_1, ';')));
+							std::bind(isdigit, std::placeholders::_1));
 						if (iter2 == password.cend())
-							return false;
-
-						if (*iter2 == ';')
-							return false;
-						else if (std::any_of(iter2 + 1, password.cend(), std::bind(std::equal_to<>(), std::placeholders::_1, ';')))
 							return false;
 
 						return true;
 
 						break;
-					case ';':
-						return false;
-						break;
-
+					
 					default:
 						++iter1;
 						break;
 					}
 				} while (iter1 != password.cend());
-				return false;
-				break;
-
-			case ';':
 				return false;
 				break;
 

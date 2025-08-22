@@ -74,7 +74,7 @@ bool MULTIREDISREADCOPY::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& 
 		return false;
 
 	redisResultTypeSW& thisRequest{ *redisRequest };
-	if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) || !std::get<7>(thisRequest) 
+	if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) 
 		|| std::get<1>(thisRequest) > m_commandMaxSize
 		|| !std::get<3>(thisRequest) || std::get<1>(thisRequest) != std::get<2>(thisRequest).get().size() ||
 		std::accumulate(std::get<2>(thisRequest).get().cbegin(), std::get<2>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size()
@@ -3453,7 +3453,7 @@ void MULTIREDISREADCOPY::makeCopy(redisResultTypeSW& thisRequest, const char* so
 {
 	if (!source)
 		return;
-	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(sourceLen) };
+	char* buf{ std::get<7>(thisRequest).getMemory<char*>(sourceLen) };
 	if (!buf)
 		std::get<4>(thisRequest).get().emplace_back(std::string_view(nullptr, 0));
 	else
@@ -3471,7 +3471,7 @@ void MULTIREDISREADCOPY::makeCopy(redisResultTypeSW& thisRequest, const char* so
 	if (!source1 || !source2)
 		return;
 	int needLen{ sourceLen1 + sourceLen2 };
-	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(needLen) };
+	char* buf{ std::get<7>(thisRequest).getMemory<char*>(needLen) };
 	if (!buf)
 		std::get<4>(thisRequest).get().emplace_back(std::string_view(nullptr, 0));
 	else
@@ -3488,7 +3488,7 @@ void MULTIREDISREADCOPY::makeCopy(std::vector<std::string_view>& arrayResult, re
 {
 	if (!source)
 		return;
-	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(sourceLen) };
+	char* buf{ std::get<7>(thisRequest).getMemory<char*>(sourceLen) };
 	if (!buf)
 		arrayResult.emplace_back(std::string_view(nullptr, 0));
 	else
@@ -3503,7 +3503,7 @@ void MULTIREDISREADCOPY::makeCopy(std::vector<std::string_view>& arrayResult, re
 	if (!source1 || !source2)
 		return;
 	int needLen{ sourceLen1 + sourceLen2 };
-	char* buf{ std::get<7>(thisRequest)->getMemory<char*>(needLen) };
+	char* buf{ std::get<7>(thisRequest).getMemory<char*>(needLen) };
 	if (!buf)
 		arrayResult.emplace_back(std::string_view(nullptr, 0));
 	else

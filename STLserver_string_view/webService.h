@@ -159,7 +159,7 @@ private:
 	// redis类型
 	using redisResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
-		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>*>;
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
 
 
 
@@ -832,6 +832,10 @@ inline void WEBSERVICE::startWriteLoop(const char* source, const int size)
 					parseReadData(messageBegin, messageEnd - messageBegin);
 					break;
 					//default处理请求非法以及因内存申请错误的情况
+				case PARSERESULT::invaild:
+					recoverMemory();
+					clean();
+					break;
 				default:
 					recoverMemory();
 					startRead();

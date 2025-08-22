@@ -863,7 +863,7 @@ void WEBSERVICE::prepare()
 	while (++i != 3)
 	{
 		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));
-		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, &m_MemoryPool));
+		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, m_MemoryPool));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
 	}
 
@@ -5115,12 +5115,17 @@ void WEBSERVICE::registration2()
 	usernameView = std::string_view(*(BodyBuffer), *(BodyBuffer + 1) - *(BodyBuffer));
 	std::string_view& passwordView{ keyVec[1] };
 	passwordView = std::string_view(*(BodyBuffer + 2), *(BodyBuffer + 3) - *(BodyBuffer + 2));
+	std::string_view& mysqlPasswordView{ keyVec[2] };
+	
 
 	//判断是否是非法密码  至少8位长度  且包含数字大小写字母  且不能包含;字符
 	if (usernameView.empty() || !REGEXFUNCTION::isVaildPassword(passwordView))
 		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
 	if(!mysqlEscape(usernameView, usernameView,m_MemoryPool))
+		return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
+
+	if (!mysqlEscape<int, OTHERSW>(passwordView, mysqlPasswordView, m_MemoryPool))
 		return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
 
 
@@ -5145,7 +5150,7 @@ void WEBSERVICE::registration2()
 		command.emplace_back(SQLCOMMAND::insertUser1);
 		command.emplace_back(usernameView);
 		command.emplace_back(SQLCOMMAND::insertUser2);
-		command.emplace_back(passwordView);
+		command.emplace_back(mysqlPasswordView);
 		command.emplace_back(SQLCOMMAND::insertUser3);
 		command.emplace_back(m_phone);
 		command.emplace_back(SQLCOMMAND::insertUser4);
