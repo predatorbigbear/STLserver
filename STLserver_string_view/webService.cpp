@@ -90,6 +90,8 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	hasUserLogin = false;
 	hasVerifyRegister = false;
 	m_requestTime = 0;
+	m_loginBackTime = 0;           //输入后台登录密码错误计数
+	m_userLoginTime = 0;           //输入用户登录密码错误计数
 	m_phone.clear();
 	m_userInfo.clear();
 
@@ -4569,6 +4571,9 @@ after_parse_Content_Type:
 //后台登录接口
 void WEBSERVICE::loginBackGround()
 {
+	if (m_loginBackTime >= 3)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
@@ -4654,6 +4659,7 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 			{
 				//密码比对正确
 				hasLoginBack = true;
+				m_loginBackTime = 0;
 
 				if (!st1.put(result.cbegin(), result.cend(), one.cbegin(), one.cend()))
 					return startWrite(WEBSERVICEANSWER::result2memory.data(), WEBSERVICEANSWER::result2memory.size());
@@ -4663,6 +4669,8 @@ void WEBSERVICE::handleloginBackGround(bool result, ERRORMESSAGE em)
 			}
 			else
 			{
+				++m_loginBackTime;
+
 				//密码比对错误
 				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
@@ -5289,6 +5297,9 @@ void WEBSERVICE::handleregistration22(bool result, ERRORMESSAGE em)
 //用户登录账号
 void WEBSERVICE::userLogin()
 {
+	if(m_userLoginTime>=3)
+		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
+
 	if (m_httpresult.isBodyEmpty())
 		return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 
@@ -5375,11 +5386,14 @@ void WEBSERVICE::handleuserLogin(bool result, ERRORMESSAGE em)
 			if (std::equal(passwordView.cbegin(), passwordView.cend(), resultVec[0].cbegin(), resultVec[0].cend()))
 			{
 				hasUserLogin = true;
+				m_userLoginTime = 0;
 				m_userInfo.setAccount(usernameView);
 				return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
 			}
 			else
 			{
+				++m_userLoginTime;
+
 				return startWrite(WEBSERVICEANSWER::result0.data(), WEBSERVICEANSWER::result0.size());
 			}
 

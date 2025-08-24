@@ -139,12 +139,13 @@ void MULTISQLREADSW::ConnectDatabaseLoop()
 
 			case NET_ASYNC_COMPLETE:
 				if (!resetConnect)
+				{
 					std::cout << "connect multi mysqlRead string_view success\n";
-				m_queryStatus.store(1);
-				if (!resetConnect)
 					(*m_unlockFun)();
+				}
 				else
 					resetConnect = false;
+				m_queryStatus.store(1);
 				break;
 
 			default:
@@ -183,34 +184,45 @@ void MULTISQLREADSW::firstQuery()
 				//将待获取结果以及待插入队列进行处理，返回错误，然后清空，重连   首先将已连接置位false 
 				//如果是错误的查询会报错
 				//std::get<5>(*m_sqlRequest)(false, ERRORMESSAGE::SQL_NET_ASYNC_ERROR);
-				++m_posBegin;
-				try
+				// 
+				//检测是否已经断开连接
+				if (mysql_ping(m_mysql))
 				{
-					std::vector<unsigned int>& rowFieldVec = std::get<3>(**m_waitMessageListBegin);
-					rowFieldVec.emplace_back(1);
-					rowFieldVec.emplace_back(0);
-
-					vec.emplace_back(sqlFail);
-					if (++m_currentCommandSize == m_thisCommandToalSize)
-					{
-						std::get<5>(**m_waitMessageListBegin)(true, ERRORMESSAGE::OK);
-					}
-				}
-				catch (const std::bad_alloc& e)
-				{
-					handleSqlMemoryError();
-					return;
-				}
-
-				if (std::distance(m_posBegin, m_posEnd) > 1)
-				{
-					m_sendMessage = *m_posBegin;
-					m_sendLen = m_messageBufferNowSize - std::distance(m_messageBuffer.get(), *m_posBegin);
-					firstQuery();
+					mysql_close(m_mysql);
+					m_mysql = mysql_init(nullptr);
+					handleAsyncError();
 				}
 				else
 				{
-					checkMakeMessage();
+					++m_posBegin;
+					try
+					{
+						std::vector<unsigned int>& rowFieldVec = std::get<3>(**m_waitMessageListBegin);
+						rowFieldVec.emplace_back(1);
+						rowFieldVec.emplace_back(0);
+
+						vec.emplace_back(sqlFail);
+						if (++m_currentCommandSize == m_thisCommandToalSize)
+						{
+							std::get<5>(**m_waitMessageListBegin)(true, ERRORMESSAGE::OK);
+						}
+					}
+					catch (const std::bad_alloc& e)
+					{
+						handleSqlMemoryError();
+						return;
+					}
+
+					if (std::distance(m_posBegin, m_posEnd) > 1)
+					{
+						m_sendMessage = *m_posBegin;
+						m_sendLen = m_messageBufferNowSize - std::distance(m_messageBuffer.get(), *m_posBegin);
+						firstQuery();
+					}
+					else
+					{
+						checkMakeMessage();
+					}
 				}
 				break;
 			case NET_ASYNC_COMPLETE_NO_MORE_RESULTS:

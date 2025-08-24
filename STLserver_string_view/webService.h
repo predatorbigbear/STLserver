@@ -89,6 +89,11 @@ private:
 	bool hasVerifyRegister{ false };          //是否成功在用户注册验证了手机号
 	bool hasUserLogin{ false };               //普通用户（非后台登录）是否已经登录账号
 
+
+	unsigned char m_loginBackTime{};           //输入后台登录密码错误计数
+	unsigned char m_userLoginTime{};           //输入用户登录密码错误计数
+
+
 	std::string m_IP{};                  //本次连接IP地址
 	std::string m_phone{};               //用户注册手机号
 	unsigned int m_port{};               //本次连接端口
