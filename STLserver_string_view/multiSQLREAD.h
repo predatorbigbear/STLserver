@@ -9,6 +9,11 @@
 #include "errorMessage.h"
 #include "STLTimeWheel.h"
 
+#include <openssl/sha.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
 #include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>
 
@@ -18,6 +23,8 @@
 #include<exception>
 #include<atomic>
 #include<memory>
+#include<algorithm>
+#include<functional>
 #include "commonStruct.h"
 
 
@@ -55,6 +62,7 @@ private:
 	std::string m_user{};
 	std::string m_passwd{};
 	std::string m_db{};
+	const std::string plugin_name{ "caching_sha2_password" };
 	const unsigned int m_port{};
 	
 
@@ -91,13 +99,60 @@ private:
 	//已接收字段长度
 	int m_readLen{};
 
+	//本次数据包消息长度
 	unsigned int m_messageLen{};
 
+	//本次数据包序列号
 	unsigned int m_seqID{};
 
-	///////////////////////
+	///////////////////////   握手包解析参数
+
+	//每次数据包首尾位置  排除前四位   
+	const unsigned char* strBegin{}, * strEnd{};
 
 
+	// 握手包参数参考 https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_handshake_v10.html
+	unsigned int protocolVersion{};
+
+	const unsigned char* serverVersionBegin{}, * serverVersionEnd{};
+
+	unsigned int threadID{};
+
+	const unsigned char* autuPluginDataPart1Begin{}, * autuPluginDataPart1End{};
+
+	int filler{};
+
+	const unsigned char* capabilityFlags1Begin{}, * capabilityFlags1End{};
+
+	unsigned int characterSet{};
+
+	const unsigned char* statusFlagsBegin{}, * statusFlagsEnd{};
+
+	const unsigned char* capabilityFlags2Begin{}, * capabilityFlags2End{};
+
+	unsigned int capabilityFlags1{};
+	unsigned int capabilityFlags2{};
+	unsigned int capabilityFlags{};
+	unsigned int serverCapabilityFlags{};
+
+	unsigned int authPluginDataLen{};
+	unsigned int authPluginDataLeftLen{};
+
+	const unsigned char* autuPluginDataPart2Begin{}, * autuPluginDataPart2End{};
+
+	const unsigned char* authPluginNameBegin{}, * authPluginNameEnd{};
+
+	std::string autuPluginData{};
+
+	////////////////////////////////////////   构建认证握手包参数
+
+	unsigned char* clientBegin{}, * clientEnd{}, * clientIter{};
+
+	unsigned int handShakeLen{ };
+
+	unsigned int clientFlag{};
+
+	unsigned int clientSendLen{};
 
 
 	
@@ -179,9 +234,12 @@ private:
 
 	void recvHandShake();
 
+	bool parseHandShake();
+	
 
-	
-	
+	bool makeHandshakeResponse41();
+
+	void sendHandshakeResponse41();
 };
 
 
