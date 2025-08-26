@@ -39,8 +39,9 @@ struct MULTIREDISREAD
 		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
 
 
-	MULTIREDISREAD(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<ASYNCLOG> log, std::shared_ptr<std::function<void()>>unlockFun,
-		std::shared_ptr<STLTimeWheel> timeWheel,
+	MULTIREDISREAD(const std::shared_ptr<boost::asio::io_context> &ioc,const std::shared_ptr<ASYNCLOG> &log, 
+		const std::shared_ptr<std::function<void()>> &unlockFun,
+		const std::shared_ptr<STLTimeWheel> &timeWheel,
 		const std::string &redisIP, const unsigned int redisPort,
 		const unsigned int memorySize, const unsigned int outRangeMaxSize, const unsigned int commandSize);
 
@@ -59,15 +60,15 @@ struct MULTIREDISREAD
 
 
 private:
-	std::shared_ptr<boost::asio::io_context> m_ioc{};
+	const std::shared_ptr<boost::asio::io_context> m_ioc{};
 	boost::system::error_code m_err;
 	std::unique_ptr<boost::asio::ip::tcp::endpoint>m_endPoint{};
 	std::unique_ptr<boost::asio::ip::tcp::socket>m_sock{};
 
-	std::shared_ptr<ASYNCLOG> m_log{};
-	std::shared_ptr<STLTimeWheel> m_timeWheel{};
+	const std::shared_ptr<ASYNCLOG> m_log{};
+	const std::shared_ptr<STLTimeWheel> m_timeWheel{};
 
-	std::shared_ptr<std::function<void()>> m_unlockFun{};
+	const std::shared_ptr<std::function<void()>> m_unlockFun{};
 	std::string m_redisIP;
 	unsigned int m_redisPort{};
 	

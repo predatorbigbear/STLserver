@@ -1,6 +1,6 @@
 ﻿#include "readBuffer.h"
 
-ReadBuffer::ReadBuffer(std::shared_ptr<boost::asio::io_context> ioc, const unsigned int bufNum)
+ReadBuffer::ReadBuffer(const std::shared_ptr<boost::asio::io_context> &ioc, const unsigned int bufNum)
 {
 	try
 	{

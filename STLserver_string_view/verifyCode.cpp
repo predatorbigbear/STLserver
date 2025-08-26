@@ -150,6 +150,7 @@ void VERIFYCODE::startResolver()
         {
             if (m_reConnect)
                 m_timeWheel->insert([this]() {startResolver(); }, 5);
+            m_log->writeLog("VERIFYCODE::startResolver", err.value(), err.message());
         }
     });
 }
@@ -172,6 +173,7 @@ void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_t
         {
             if (m_reConnect)
                 m_timeWheel->insert([this]() {startResolver(); }, 5);
+            m_log->writeLog("VERIFYCODE::startConnection", error.value(), error.message());
         }
     });
 }
@@ -191,6 +193,7 @@ void VERIFYCODE::handshake()
         {
             if (m_reConnect)
                 sslShutdown();
+            m_log->writeLog("VERIFYCODE::handshake", error.value(), error.message());
         }
     });
 }
@@ -253,6 +256,7 @@ void VERIFYCODE::sendFirstVerifyCode()
         {
             if (m_reConnect)
                 sslShutdown();
+            m_log->writeLog("VERIFYCODE::sendFirstVerifyCode", error.value(), error.message());
         }
     });
 }

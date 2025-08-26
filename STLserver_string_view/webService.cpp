@@ -4808,6 +4808,10 @@ void WEBSERVICE::handleregistration1(bool result, ERRORMESSAGE em)
 				std::string_view& verifyCodeView{ keyVec[2] };
 				verifyCodeView = std::string_view(buf, 6);
 
+				//先发送验证码，成功后再记录进redis
+				if (!m_verifyCode->insertVerifyCode(verifyCodeView.data(), verifyCodeView.size(), phoneView))
+					return startWrite(WEBSERVICEANSWER::result2verifyCode.data(), WEBSERVICEANSWER::result2verifyCode.size());
+
 				static std::string_view set{ "set" }, EX{ "EX" }, sec3600{ "3600" }, NX{ "NX" }, one{ "1" }, three{ "3" };
 
 				////////////////////////////////////////////////////
@@ -4915,11 +4919,7 @@ void WEBSERVICE::handleregistration11(bool result, ERRORMESSAGE em)
 	{
 		if (resultVec.size() != 2 || resultVec[0]!="OK" || resultVec[1]!="OK")
 			return startWrite(WEBSERVICEANSWER::result2redis.data(), WEBSERVICEANSWER::result2redis.size());
-		
-		std::string_view& verifyCodeView{ keyVec[2] };
-		std::string_view& phoneView{ keyVec[0] };
-		if(!m_verifyCode->insertVerifyCode(verifyCodeView.data(), verifyCodeView.size(), phoneView))
-			return startWrite(WEBSERVICEANSWER::result2verifyCode.data(), WEBSERVICEANSWER::result2verifyCode.size());
+
 
 		return startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
 

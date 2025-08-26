@@ -1,8 +1,9 @@
 ﻿#include "multiSQLREADSW.h"
 
-MULTISQLREADSW::MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>> unlockFun, const std::string & SQLHOST, 
-	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, 
-	std::shared_ptr<ASYNCLOG> log, const unsigned int bufferSize)
+MULTISQLREADSW::MULTISQLREADSW(const std::shared_ptr<boost::asio::io_context> &ioc,const std::shared_ptr<std::function<void()>> &unlockFun,
+	const std::string & SQLHOST, const std::string & SQLUSER, const std::string & SQLPASSWORD, 
+	const std::string & SQLDB, const std::string & SQLPORT, const unsigned int commandMaxSize, 
+	const std::shared_ptr<ASYNCLOG> &log, const unsigned int bufferSize)
 	:m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB), m_unlockFun(unlockFun), m_commandMaxSize(commandMaxSize),m_log(log),
 	m_messageBufferMaxSize(bufferSize), m_posBufferLen(commandMaxSize* commandMaxSize + 1), m_messageList(commandMaxSize * 4)
 {

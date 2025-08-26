@@ -64,8 +64,10 @@ struct MULTISQLREADSW
 		std::reference_wrapper<std::vector<unsigned int>>>;
 
 
-	MULTISQLREADSW(std::shared_ptr<boost::asio::io_context> ioc, std::shared_ptr<std::function<void()>>unlockFun, const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const unsigned int commandMaxSize, std::shared_ptr<ASYNCLOG> log,const unsigned int bufferSize);
+	MULTISQLREADSW(const std::shared_ptr<boost::asio::io_context> &ioc,const std::shared_ptr<std::function<void()>> &unlockFun,
+		const std::string &SQLHOST, const std::string &SQLUSER,
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, 
+		const unsigned int commandMaxSize, const std::shared_ptr<ASYNCLOG> &log,const unsigned int bufferSize);
 
 
 	//默认开启释放MYSQL_RES操作，需要多次查询mysql时可以置为false，复用结果
@@ -141,7 +143,7 @@ private:
 	net_async_status m_cleanAsyncStatus;   
 	std::unique_ptr<boost::asio::steady_timer> m_timer{};
 	std::unique_ptr<boost::asio::steady_timer> m_cleanTimer{};
-	std::shared_ptr<std::function<void()>>m_unlockFun{};
+	const std::shared_ptr<std::function<void()>>m_unlockFun{};
 
 
 	//等待释放结果集的指针，结果集个数
@@ -197,7 +199,7 @@ private:
 	*/
 
 
-	std::shared_ptr<ASYNCLOG> m_log{};
+	const std::shared_ptr<ASYNCLOG> m_log{};
 	/////////////////////////////////////////////////////////
 
 	MYSQL_FIELD *fd;    //字段列数组

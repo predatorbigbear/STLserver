@@ -15,7 +15,7 @@
 struct ReadBuffer
 {
 	//初始化时从外部传入buffer分配空间大小
-	ReadBuffer(std::shared_ptr<boost::asio::io_context> ioc, const unsigned int bufNum);
+	ReadBuffer(const std::shared_ptr<boost::asio::io_context> &ioc, const unsigned int bufNum);
 
 	char* getBuffer();
 

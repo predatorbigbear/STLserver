@@ -1,7 +1,8 @@
 ﻿#include "multiSqlReadSWPool.h"
 
-MULTISQLREADSWPOOL::MULTISQLREADSWPOOL(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<std::function<void()>> unlockFun, const std::string & SQLHOST,
-	const std::string & SQLUSER, const std::string & SQLPASSWORD, const std::string & SQLDB, const std::string & SQLPORT, std::shared_ptr<LOGPOOL> logPool,
+MULTISQLREADSWPOOL::MULTISQLREADSWPOOL(const std::shared_ptr<IOcontextPool> &ioPool,const std::shared_ptr<std::function<void()>> &unlockFun,
+	const std::string & SQLHOST,const std::string & SQLUSER, const std::string & SQLPASSWORD,
+	const std::string & SQLDB, const std::string & SQLPORT,const std::shared_ptr<LOGPOOL> &logPool,
 	const unsigned int commandMaxSize, const int bufferNum, const unsigned int bufferSize) :
 	m_bufferNum(bufferNum), m_unlockFun(unlockFun), m_SQLHOST(SQLHOST), m_SQLUSER(SQLUSER), m_SQLPASSWORD(SQLPASSWORD),
 	m_SQLDB(SQLDB), m_SQLPORT(SQLPORT), m_ioPool(ioPool), m_commandMaxSize(commandMaxSize),m_logPool(logPool), m_bufferSize(bufferSize)

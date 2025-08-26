@@ -10,24 +10,25 @@
 
 struct MULTISQLREADSWPOOL
 {
-	MULTISQLREADSWPOOL(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<std::function<void()>>unlockFun, const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, std::shared_ptr<LOGPOOL> logPool, 
+	MULTISQLREADSWPOOL(const std::shared_ptr<IOcontextPool> &ioPool,const std::shared_ptr<std::function<void()>> &unlockFun, 
+		const std::string &SQLHOST, const std::string &SQLUSER,
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const std::string &SQLPORT, const std::shared_ptr<LOGPOOL> &logPool, 
 		const unsigned int commandMaxSize = 50, const int bufferNum = 4, const unsigned int bufferSize = 4096000);
 
 	std::shared_ptr<MULTISQLREADSW> getSqlNext();
 
 
 private:
-	std::shared_ptr<IOcontextPool> m_ioPool{};
+	const std::shared_ptr<IOcontextPool> m_ioPool{};
 	int m_bufferNum{};
 	unsigned int m_commandMaxSize{};
 	unsigned int m_bufferSize{};
 
 	std::mutex m_sqlMutex;
 	std::vector<std::shared_ptr<MULTISQLREADSW>>m_sqlPool{};
-	std::shared_ptr<std::function<void()>>m_unlockFun{};
+	const std::shared_ptr<std::function<void()>>m_unlockFun{};
 	std::shared_ptr<std::function<void()>>m_loop{};
-	std::shared_ptr<LOGPOOL> m_logPool;
+	const std::shared_ptr<LOGPOOL> m_logPool{};
 
 	std::shared_ptr<MULTISQLREADSW> m_sql_temp{};
 

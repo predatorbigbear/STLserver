@@ -1,7 +1,8 @@
-#include "multiRedisReadPool.h"
+﻿#include "multiRedisReadPool.h"
 
-MULTIREDISREADPOOL::MULTIREDISREADPOOL(std::shared_ptr<IOcontextPool> ioPool, std::shared_ptr<LOGPOOL> logPool, std::shared_ptr<std::function<void()>> unlockFun, 
-	std::shared_ptr<STLTimeWheel> timeWheel,
+MULTIREDISREADPOOL::MULTIREDISREADPOOL(const std::shared_ptr<IOcontextPool> &ioPool,const std::shared_ptr<LOGPOOL> &logPool,
+	const std::shared_ptr<std::function<void()>> &unlockFun, 
+	const std::shared_ptr<STLTimeWheel> &timeWheel,
 	const std::string & redisIP,
 	const unsigned int redisPort,
 	const unsigned int bufferNum,
