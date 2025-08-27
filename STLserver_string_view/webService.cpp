@@ -98,6 +98,8 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 	boost::system::error_code ec;
 	boost::asio::ip::tcp::endpoint remote_ep = m_buffer->getSSLSock()->lowest_layer().remote_endpoint(ec);
 
+
+
 	if (!ec)
 	{
 		m_IP = remote_ep.address().to_string();

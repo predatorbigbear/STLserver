@@ -1046,6 +1046,64 @@ ASYNCLOG& ASYNCLOG::operator<<(const std::string_view log)
 
 
 
+ASYNCLOG& ASYNCLOG::operator<<(const PRINTHEX& log)
+{
+	// TODO: 在此处插入 return 语句
+	if (log.m_data && log.m_len)
+	{
+		static const std::string hexBegin{ "hexBegin:" }, hexEnd{ "hexEnd" };
+		int neeSize = log.m_len * 3 + hexBegin.size() + hexEnd.size();
+		static const char hexBuf[] = "0123456789ABCDEF";
+		const char* begin{ log.m_data }, * end{ log.m_data + log.m_len };
+		char* beginBuf{ };
+		if (m_bufferSize - (m_beginSize + m_nowSize) > neeSize)
+		{
+			beginBuf = m_Buffer.get() + m_beginSize + m_nowSize;
+			std::copy(hexBegin.cbegin(), hexBegin.cend(), beginBuf);
+			beginBuf += hexBegin.size();
+			do
+			{	
+				*beginBuf++ = hexBuf[static_cast<unsigned char>(*begin) / 16];
+				*beginBuf++ = hexBuf[static_cast<unsigned char>(*begin) % 16];
+				*beginBuf++ = ' ';
+			} while (++begin != end);
+			std::copy(hexEnd.cbegin(), hexEnd.cend(), beginBuf);
+			beginBuf += hexEnd.size();
+			m_nowSize += neeSize;
+
+		}
+		else
+		{
+			if (m_nowSize)
+			{
+				m_messageList.try_enqueue(std::string_view(m_Buffer.get() + m_beginSize, m_nowSize));
+				startWrite();
+			}
+			m_beginSize = m_nowSize = 0;
+			if (m_bufferSize > neeSize)
+			{
+				beginBuf = m_Buffer.get();
+				std::copy(hexBegin.cbegin(), hexBegin.cend(), beginBuf);
+				beginBuf += hexBegin.size();
+				do
+				{
+					*beginBuf++ = hexBuf[static_cast<unsigned char>(*begin) / 16];
+					*beginBuf++ = hexBuf[static_cast<unsigned char>(*begin) % 16];
+					*beginBuf++ = ' ';
+				} while (++begin != end);
+				std::copy(hexEnd.cbegin(), hexEnd.cend(), beginBuf);
+				beginBuf += hexEnd.size();
+				m_nowSize += neeSize;
+
+			}
+		}
+	}
+
+	return *this;
+}
+
+
+
 
 
 

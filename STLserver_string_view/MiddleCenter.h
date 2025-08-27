@@ -14,6 +14,7 @@
 #include "STLTimeWheel.h"
 #include "randomCodeGenerator.h"
 #include "verifyCode.h"
+#include "multiSQLREAD.h"
 
 
 #include<unordered_map>
@@ -129,6 +130,8 @@ private:
 
 
 	std::shared_ptr<VERIFYCODE>m_verifyCode{};
+
+	std::unique_ptr<MULTISQLREAD>m_test{};
 
 
 	bool m_hasSetLog{ false };

@@ -120,8 +120,7 @@ void VERIFYCODE::startCheck()
     {
         if (err)
         {
-
-
+            m_log->writeLog("VERIFYCODE::startCheck", err.value(), err.message());
 
         }
         else
@@ -348,7 +347,7 @@ void VERIFYCODE::shutdownLoop()
 {
     if (ec.value() != 107 && ec.value())
     {
-        m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+        m_log->writeLog("VERIFYCODE::shutdownLoop", ec.value(), ec.message());
         m_socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
         m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
     }
@@ -367,7 +366,7 @@ void VERIFYCODE::cancelLoop()
 {
     if (ec.value() != 107 && ec.value())
     {
-        m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+        m_log->writeLog("VERIFYCODE::cancelLoop", ec.value(), ec.message());
         m_socket->lowest_layer().cancel(ec);
         m_timeWheel->insert([this]() {cancelLoop(); }, 5);
     }
@@ -385,7 +384,7 @@ void VERIFYCODE::closeLoop()
 {
     if (ec.value() != 107 && ec.value())
     {
-        m_log->writeLog(__FUNCTION__, __LINE__, ec.value(), ec.message());
+        m_log->writeLog("VERIFYCODE::closeLoop", ec.value(), ec.message());
         m_socket->lowest_layer().close(ec);
         m_timeWheel->insert([this]() {closeLoop(); }, 5);
     }

@@ -19,6 +19,21 @@
 #include<vector>
 
 
+struct PRINTHEX
+{
+
+	PRINTHEX(const char* data, const unsigned int len)
+		:m_data(data), m_len(len)
+	{}
+
+	PRINTHEX(const unsigned char* data, const unsigned int len)
+		:m_data(reinterpret_cast<const char*>(data)), m_len(len)
+	{}
+
+	const char* m_data{};
+	const unsigned int m_len{};
+};
+
 // 日志模块采取直接写入缓存部分的方式以提高性能
 // 异步log通过在一块超大缓冲区内反复写入实现
 // 发送给无锁队列的为string_view，不作拷贝，根据一个临界值大小来保证数据不被覆写
@@ -46,6 +61,7 @@ struct ASYNCLOG
 		makeReadyTime();
 		sendLog(t1, args...);
 	}
+	
 
 
 	template<typename T>
@@ -56,6 +72,7 @@ struct ASYNCLOG
 		makeReadyTime();
 		sendLog(t1);
 	}
+
 
 	template<typename T, size_t N>
 	void writeLog(const T(&arr)[N])
@@ -124,6 +141,8 @@ private:
 
 	ASYNCLOG& operator<<(const std::string_view log);
 
+	ASYNCLOG& operator<<(const PRINTHEX &log);
+
 	template<typename T, size_t N>
 	ASYNCLOG& operator<<(const T(&arr)[N])
 	{
@@ -151,6 +170,7 @@ private:
 	}
 
 
+
 	template<typename T>
 	void sendLog(const T& t1)
 	{
@@ -165,6 +185,7 @@ private:
 
 		m_logMutex.unlock();
 	}
+
 
 	template<typename T, size_t N>
 	void sendLog(const T(&arr)[N])

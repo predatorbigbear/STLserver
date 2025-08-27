@@ -34,6 +34,7 @@
 //于是决定实现新的mysql自解析 真正意义上的零拷贝客户端
 
 //该实现版本为无SSL 且密码认证插件为caching_sha2_password 方式
+// mysql_native_password暂不支持，因为9.4版本已经移除了这种认证方式
 //使用环境主要是在内网或者本机场景
 
 
@@ -67,7 +68,7 @@ private:
 	
 
 	bool* m_success{};
-	
+	bool firstConnect{ true };
 
 	const std::shared_ptr<boost::asio::io_context> m_ioc{};
 	const std::shared_ptr<std::function<void()>> m_unlockFun{};
@@ -81,7 +82,8 @@ private:
 	std::unique_ptr<boost::asio::ip::tcp::socket>m_sock{};
 
 
-	
+	//第一次发送命令时数据包序列号为0，不需要递增
+	bool firstQuery{ true };
 	
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,7 +105,7 @@ private:
 	unsigned int m_messageLen{};
 
 	//本次数据包序列号
-	unsigned int m_seqID{};
+	unsigned char m_seqID{};
 
 	///////////////////////   握手包解析参数
 
@@ -127,7 +129,16 @@ private:
 	unsigned int clientSendLen{};
 
 
-	
+
+	const unsigned char OKPacket[7]{ 0x00,0x00,0x00,0x02,0x00,0x00,0x00 };
+	const unsigned char reqPubkey[5]{ 0x01,0x00,0x00,0x00,0x02 };
+
+	//////////////////////////////////////////////////////////  公钥相关参数
+
+	const std::string publicKey1{ "-----BEGIN PUBLIC KEY-----" };
+	const std::string publicKey2{ "-----END PUBLIC KEY-----" };
+
+	const unsigned char* publicKeyBegin{}, * publicKeyEnd{};
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -182,18 +193,18 @@ private:
 
 
 	// 能力标志位定义 (MySQL 8.0)
-	static const unsigned int CLIENT_LONG_PASSWORD = 1;
-	static const unsigned int CLIENT_FOUND_ROWS = 2;
-	static const unsigned int CLIENT_LONG_FLAG = 4;
-	static const unsigned int CLIENT_CONNECT_WITH_DB = 8;
-	static const unsigned int CLIENT_PROTOCOL_41 = 512;
-	static const unsigned int CLIENT_PLUGIN_AUTH = 0x80000;
-	static const unsigned int CLIENT_SECURE_CONNECTION = 0x8000;
-	static const unsigned int CLIENT_MULTI_STATEMENTS = (1UL << 16);
-	static const unsigned int CLIENT_MULTI_RESULTS = (1UL << 17);
-	static const unsigned int CLIENT_PS_MULTI_RESULTS = 0x00040000;
-	static const unsigned int CLIENT_LOCAL_FILES = 0x00000080;
-	static const unsigned int CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA = 0x00200000;
+	static const unsigned int MYSQL_CLIENT_LONG_PASSWORD = 1;
+	static const unsigned int MYSQL_CLIENT_FOUND_ROWS = 2;
+	static const unsigned int MYSQL_CLIENT_LONG_FLAG = 4;
+	static const unsigned int MYSQL_CLIENT_CONNECT_WITH_DB = 8;
+	static const unsigned int MYSQL_CLIENT_PROTOCOL_41 = 512;
+	static const unsigned int MYSQL_CLIENT_PLUGIN_AUTH = 0x80000;
+	static const unsigned int MYSQL_CLIENT_SECURE_CONNECTION = 0x8000;
+	static const unsigned int MYSQL_CLIENT_MULTI_STATEMENTS = (1UL << 16);
+	static const unsigned int MYSQL_CLIENT_MULTI_RESULTS = (1UL << 17);
+	static const unsigned int MYSQL_CLIENT_PS_MULTI_RESULTS = 0x00040000;
+	static const unsigned int MYSQL_CLIENT_LOCAL_FILES = 0x00000080;
+	static const unsigned int MYSQL_CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA = 0x00200000;
 	static const unsigned int utf8mb4_unicode_ci = 224;
 
 
@@ -204,14 +215,38 @@ private:
 private:
 	void connectMysql();
 
+	//接收服务器握手包
 	void recvHandShake();
 
+	//解析握手包
 	bool parseHandShake();
 	
-
+	//生成客户端登录握手包
 	bool makeHandshakeResponse41();
 
+	//发送客户端登录握手包
 	void sendHandshakeResponse41();
+
+	//解析每隔数据包前三位  获取数据长度
+	unsigned int parseMessageLen(const unsigned char* messageIter);
+
+	//获取认证结果接口1
+	void recvAuthResult1();
+
+	//解析认证结果接口1     0  解析出错    1 快速认证成功    2 需要完全认证
+	int parseAuthResult1();
+
+	//接收快速认证成功后跟随的OK包
+	void recvAuthOKPacket();
+
+	//请求获取服务器公钥
+	void sendReqPubkey();
+
+	// 接收服务器公钥数据包
+	void recvPubkey();
+
+	//提取公钥
+	bool parsePubkey();
 };
 
 
