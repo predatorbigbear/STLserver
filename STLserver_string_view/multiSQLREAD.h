@@ -111,36 +111,8 @@ private:
 	const unsigned char* strBegin{}, * strEnd{};
 
 
-	// 握手包参数参考 https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_handshake_v10.html
-	unsigned int protocolVersion{};
-
-	const unsigned char* serverVersionBegin{}, * serverVersionEnd{};
-
-	unsigned int threadID{};
-
-	const unsigned char* autuPluginDataPart1Begin{}, * autuPluginDataPart1End{};
-
-	int filler{};
-
-	const unsigned char* capabilityFlags1Begin{}, * capabilityFlags1End{};
-
-	unsigned int characterSet{};
-
-	const unsigned char* statusFlagsBegin{}, * statusFlagsEnd{};
-
-	const unsigned char* capabilityFlags2Begin{}, * capabilityFlags2End{};
-
-	unsigned int capabilityFlags1{};
-	unsigned int capabilityFlags2{};
-	unsigned int capabilityFlags{};
 	unsigned int serverCapabilityFlags{};
 
-	unsigned int authPluginDataLen{};
-	unsigned int authPluginDataLeftLen{};
-
-	const unsigned char* autuPluginDataPart2Begin{}, * autuPluginDataPart2End{};
-
-	const unsigned char* authPluginNameBegin{}, * authPluginNameEnd{};
 
 	std::string autuPluginData{};
 

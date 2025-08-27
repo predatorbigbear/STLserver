@@ -100,6 +100,36 @@ bool MULTISQLREAD::parseHandShake()
 	strBegin = m_msgBuf.get() + 4;
 	strEnd = strBegin + m_messageLen;
 
+    // 握手包参数参考 https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_handshake_v10.html
+    unsigned int protocolVersion{};
+
+    const unsigned char* serverVersionBegin{}, * serverVersionEnd{};
+
+    unsigned int threadID{};
+
+    const unsigned char* autuPluginDataPart1Begin{}, * autuPluginDataPart1End{};
+
+    int filler{};
+
+    const unsigned char* capabilityFlags1Begin{}, * capabilityFlags1End{};
+
+    unsigned int characterSet{};
+
+    const unsigned char* statusFlagsBegin{}, * statusFlagsEnd{};
+
+    const unsigned char* capabilityFlags2Begin{}, * capabilityFlags2End{};
+
+    unsigned int capabilityFlags1{};
+    unsigned int capabilityFlags2{};
+    unsigned int capabilityFlags{};
+
+    unsigned int authPluginDataLen{};
+    unsigned int authPluginDataLeftLen{};
+
+    const unsigned char* autuPluginDataPart2Begin{}, * autuPluginDataPart2End{};
+
+    const unsigned char* authPluginNameBegin{}, * authPluginNameEnd{};
+
 
     authPluginDataLen = 0;
     protocolVersion = *strBegin;
@@ -293,7 +323,7 @@ bool MULTISQLREAD::makeHandshakeResponse41()
 
     unsigned char buf1[32]{};
     unsigned char buf2[52]{};
-    int i{};
+   
     //https://dev.mysql.com/doc/dev/mysql-server/latest/page_caching_sha2_authentication_exchanges.html
     // 第一轮：对原始密码进行SHA256哈希
     SHA256((unsigned char*)m_passwd.data(), m_passwd.size(), buf1);
@@ -304,7 +334,7 @@ bool MULTISQLREAD::makeHandshakeResponse41()
     // 第三轮：SHA256(hash2 + challenge)
     std::copy(autuPluginData.cbegin(), autuPluginData.cend(), buf2 + 32);
     SHA256(buf2, 52, buf2);
-    for (i = 0; i < 32; i++)
+    for (int i = 0; i < 32; i++)
         buf1[i] ^= buf2[i];
 
 
