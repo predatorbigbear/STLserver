@@ -59,12 +59,15 @@ struct MULTISQLREAD
 
 private:
 
-	std::string m_host{};
-	std::string m_user{};
-	std::string m_passwd{};
-	std::string m_db{};
+	const std::string m_host{};
+	const std::string m_user{};
+	const std::string m_passwd{};
+	const std::string m_db{};
 	const std::string plugin_name{ "caching_sha2_password" };
 	const unsigned int m_port{};
+
+	//用于公钥加密密码时使用
+	std::string m_encryptPass{};
 	
 
 	bool* m_success{};
@@ -193,19 +196,19 @@ private:
 
 
 	// 能力标志位定义 (MySQL 8.0)
-	static const unsigned int MYSQL_CLIENT_LONG_PASSWORD = 1;
-	static const unsigned int MYSQL_CLIENT_FOUND_ROWS = 2;
-	static const unsigned int MYSQL_CLIENT_LONG_FLAG = 4;
-	static const unsigned int MYSQL_CLIENT_CONNECT_WITH_DB = 8;
-	static const unsigned int MYSQL_CLIENT_PROTOCOL_41 = 512;
-	static const unsigned int MYSQL_CLIENT_PLUGIN_AUTH = 0x80000;
-	static const unsigned int MYSQL_CLIENT_SECURE_CONNECTION = 0x8000;
-	static const unsigned int MYSQL_CLIENT_MULTI_STATEMENTS = (1UL << 16);
-	static const unsigned int MYSQL_CLIENT_MULTI_RESULTS = (1UL << 17);
-	static const unsigned int MYSQL_CLIENT_PS_MULTI_RESULTS = 0x00040000;
-	static const unsigned int MYSQL_CLIENT_LOCAL_FILES = 0x00000080;
-	static const unsigned int MYSQL_CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA = 0x00200000;
-	static const unsigned int utf8mb4_unicode_ci = 224;
+	static const unsigned int MYSQL_CLIENT_LONG_PASSWORD{ 1 };
+	static const unsigned int MYSQL_CLIENT_FOUND_ROWS{ 2 };
+	static const unsigned int MYSQL_CLIENT_LONG_FLAG{ 4 };
+	static const unsigned int MYSQL_CLIENT_CONNECT_WITH_DB{ 8 };
+	static const unsigned int MYSQL_CLIENT_PROTOCOL_41{ 512 };
+	static const unsigned int MYSQL_CLIENT_PLUGIN_AUTH{ 0x80000 };
+	static const unsigned int MYSQL_CLIENT_SECURE_CONNECTION{ 0x8000 };
+	static const unsigned int MYSQL_CLIENT_MULTI_STATEMENTS{ (1UL << 16) };
+	static const unsigned int MYSQL_CLIENT_MULTI_RESULTS{ (1UL << 17) };
+	static const unsigned int MYSQL_CLIENT_PS_MULTI_RESULTS{ 0x00040000 };
+	static const unsigned int MYSQL_CLIENT_LOCAL_FILES{ 0x00000080 };
+	static const unsigned int MYSQL_CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA{ 0x00200000 };
+	static const unsigned int utf8mb4_unicode_ci{ 224 };
 
 
 	////////////////////////////////////////////////////
@@ -247,6 +250,16 @@ private:
 
 	//提取公钥
 	bool parsePubkey();
+
+	//使用公钥加密密码生成认证包
+	bool makePubkeyAuth();
+
+
+	//发送公钥加密密码认证包
+	void sendPubkeyAuth();
+
+	//接收公钥加密密码认证结果
+	void recvPubkeyAuth();
 };
 
 

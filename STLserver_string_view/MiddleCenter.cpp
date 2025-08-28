@@ -245,7 +245,9 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
 				sendStr.append("Connection:keep-alive\r\n");
-				sendStr.append("Keep-Alive:timeout=30\r\n");
+				sendStr.append("Keep-Alive:timeout=");
+				sendStr.append(std::to_string(timeOut));
+				sendStr.append("\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
 				if (brotli_compress(fileBuf.get(), fileSize, output))
@@ -300,7 +302,9 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
 				sendStr.append("Connection:keep-alive\r\n");
-				sendStr.append("Keep-Alive:timeout=30\r\n");
+				sendStr.append("Keep-Alive:timeout=");
+				sendStr.append(std::to_string(timeOut));
+				sendStr.append("\r\n");
 				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
 
 				if (brotli_compress(fileBuf.get(), fileSize, output))

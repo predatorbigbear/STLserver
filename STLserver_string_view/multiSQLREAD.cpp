@@ -340,6 +340,9 @@ bool MULTISQLREAD::makeHandshakeResponse41()
 
     *clientIter++ = 32;
 
+    //密码加密实现参考了搜狗workflow，在workflow基础上进行了进一步优化
+    // workflow-0.11.10/src/protocol/MySQLMessage.cc    
+    // static std::string __caching_sha2_password_encrypt(const std::string& password,unsigned char seed[20])
     //https://dev.mysql.com/doc/dev/mysql-server/latest/page_caching_sha2_authentication_exchanges.html
      // 第一轮：对原始密码进行SHA256哈希
     SHA256((unsigned char*)m_passwd.data(), m_passwd.size(), clientIter);
@@ -434,13 +437,13 @@ void MULTISQLREAD::recvAuthResult1()
             m_readLen += bytes_transferred;
             
             if (m_readLen < 4)
-                return recvHandShake();
+                return recvAuthResult1();
 
             //解析本次数据包消息长度
             m_messageLen = parseMessageLen(m_msgBuf.get());
 
             if (m_readLen < m_messageLen + 4)
-                return recvHandShake();
+                return recvAuthResult1();
 
             //解析本次数据包消息序列号
             m_seqID = *(m_msgBuf.get() + 3);
@@ -468,16 +471,6 @@ void MULTISQLREAD::recvAuthResult1()
                 }
 
                 m_messageLen = parseMessageLen(m_msgBuf.get() + thisMessageLen);
-                if (m_messageLen != 7)
-                {
-                    m_log->writeLog("MULTISQLREAD::parseAuthResult1OK", PRINTHEX(strBegin, m_messageLen));
-                    if (firstConnect)
-                    {
-                        *m_success = false;
-                        (*m_unlockFun)();
-                    }
-                    return;
-                }
     
                 if ((m_readLen - thisMessageLen) < (m_messageLen + 4))
                 {
@@ -508,6 +501,7 @@ void MULTISQLREAD::recvAuthResult1()
                     m_seqID = 0;
                     firstQuery = true;
                     m_queryStatus.store(1);
+                    m_log->writeLog("connect mysql success");
                 }
             }
             else
@@ -596,13 +590,13 @@ void MULTISQLREAD::recvAuthOKPacket()
             m_readLen += bytes_transferred;
             
             if (m_readLen < 4)
-                return recvHandShake();
+                return recvAuthOKPacket();
 
             //解析本次数据包消息长度
             m_messageLen = parseMessageLen(m_msgBuf.get());
 
             if (m_readLen < m_messageLen + 4)
-                return recvHandShake();
+                return recvAuthOKPacket();
 
             //解析本次数据包消息序列号
             m_seqID = *(m_msgBuf.get() + 3);
@@ -629,11 +623,12 @@ void MULTISQLREAD::recvAuthOKPacket()
                 m_seqID = 0;
                 firstQuery = true;
                 m_queryStatus.store(1);
-
+                m_log->writeLog("connect mysql success");
             }
         }
     });
 }
+
 
 
 
@@ -664,6 +659,7 @@ void MULTISQLREAD::sendReqPubkey()
 
 
 
+
 void MULTISQLREAD::recvPubkey()
 {
     m_sock->async_read_some(boost::asio::buffer(m_msgBuf.get() + m_readLen, m_msgBufMaxSize - m_readLen),
@@ -683,7 +679,7 @@ void MULTISQLREAD::recvPubkey()
             m_readLen += bytes_transferred;
 
             if (m_readLen < 4)
-                return recvHandShake();
+                return recvPubkey();
 
             //解析本次数据包消息长度
             m_messageLen = parseMessageLen(m_msgBuf.get());
@@ -699,7 +695,7 @@ void MULTISQLREAD::recvPubkey()
             }
 
             if (m_readLen < m_messageLen + 4)
-                return recvHandShake();
+                return recvPubkey();
 
             //解析本次数据包消息序列号
             m_seqID = *(m_msgBuf.get() + 3);
@@ -714,14 +710,21 @@ void MULTISQLREAD::recvPubkey()
                 }
 				return m_log->writeLog("MULTISQLREAD::parsePubkey", PRINTHEX(strBegin, m_messageLen));
             }
-            else
+
+
+            //组装新的公钥加密密码认证包
+            if (!makePubkeyAuth())
             {
-                //组装新的认证包
-
-
-
+                if (firstConnect)
+                {
+                    *m_success = false;
+                    (*m_unlockFun)();
+                }
+                return m_log->writeLog("MULTISQLREAD::makePubkeyAuth");
             }
 
+            //发送公钥加密密码认证包进行认证
+            sendPubkeyAuth();
         }
     });
 
@@ -751,6 +754,165 @@ bool MULTISQLREAD::parsePubkey()
 
 
     return true;
+}
+
+
+
+
+
+bool MULTISQLREAD::makePubkeyAuth()
+{
+    BIO* bio = BIO_new_mem_buf(publicKeyBegin, std::distance(publicKeyBegin, publicKeyEnd));
+    RSA* rsa = PEM_read_bio_RSA_PUBKEY(bio, NULL, NULL, NULL);
+
+    if (!rsa)
+    {
+        ERR_print_errors_fp(stderr);
+        BIO_free(bio);
+        return false;
+    }
+
+    int rsa_len = RSA_size(rsa);
+    if ((m_msgBufMaxSize - 4) < rsa_len)
+    {
+        RSA_free(rsa);
+        BIO_free(bio);
+        return false;
+    }
+
+    // 确保密码长度不超过RSA密钥长度减去11（PKCS1填充）末尾需要填充0
+    if (m_passwd.size() > rsa_len - 10)
+    {
+        RSA_free(rsa);
+        BIO_free(bio);
+        return false;
+    }
+
+    m_encryptPass = m_passwd;
+    m_encryptPass += '\0';
+
+    for (int i = 0; i < m_encryptPass.size(); ++i)
+        m_encryptPass[i] ^= autuPluginData[i % autuPluginData.size()];
+
+    int result = RSA_public_encrypt(
+        m_encryptPass.size(),
+        (const unsigned char*)m_encryptPass.c_str(),
+        m_msgBuf.get() + 4,
+        rsa,
+        RSA_PKCS1_OAEP_PADDING
+    );
+
+    RSA_free(rsa);
+    BIO_free(bio);
+
+    if (result == -1)
+        return false;
+    
+
+    ///////////////////////////////// 封装加密后的密码认证数据包并发送给服务器 //////////////////////
+
+    clientSendLen = result;
+
+    clientBegin = m_msgBuf.get();
+    *clientBegin = clientSendLen % 256;
+    *(clientBegin + 1) = clientSendLen / 256 % 256;
+    *(clientBegin + 2) = clientSendLen / 65536 % 256;
+    *(clientBegin + 3) = ++m_seqID;
+
+    clientSendLen += 4;
+
+
+    return true;
+}
+
+
+
+void MULTISQLREAD::sendPubkeyAuth()
+{
+    boost::asio::async_write(*m_sock, boost::asio::buffer(m_msgBuf.get(), clientSendLen),
+        [this](const boost::system::error_code& err, const std::size_t size)
+    {
+        if (err)
+        {
+            if (firstConnect)
+            {
+                *m_success = false;
+                (*m_unlockFun)();
+            }
+            m_log->writeLog("MULTISQLREAD::sendHandshakeResponse41", err.value(), err.message());
+        }
+        else
+        {
+            //开始接收公钥
+
+            m_readLen = 0;
+            recvPubkeyAuth();
+        }
+    });
+}
+
+
+
+void MULTISQLREAD::recvPubkeyAuth()
+{
+    m_sock->async_read_some(boost::asio::buffer(m_msgBuf.get() + m_readLen, m_msgBufMaxSize - m_readLen),
+        [this](const boost::system::error_code& err, const std::size_t bytes_transferred)
+    {
+        if (err)
+        {
+            if (firstConnect)
+            {
+                *m_success = false;
+                (*m_unlockFun)();
+            }
+            m_log->writeLog("MULTISQLREAD::recvHandShake", err.value(), err.message());
+        }
+        else
+        {
+            m_readLen += bytes_transferred;
+            //解析握手包
+            if (m_readLen < 4)
+                return recvPubkeyAuth();
+
+            //解析本次数据包消息长度
+            m_messageLen = parseMessageLen(m_msgBuf.get());
+
+
+            if (m_readLen < m_messageLen + 4)
+                return recvPubkeyAuth();
+
+            //解析本次数据包消息序列号
+            m_seqID = *(m_msgBuf.get() + 3);
+
+            //判断是否是OK包，不是就报错
+           
+
+            strBegin = m_msgBuf.get() + 4;
+            strEnd = strBegin + m_messageLen;
+            if (!std::equal(strBegin, strEnd, OKPacket, OKPacket + 7))
+            {
+                m_log->writeLog("MULTISQLREAD::recvPubkeyAuth", PRINTHEX(strBegin, m_messageLen));
+                if (firstConnect)
+                {
+                    *m_success = false;
+                    (*m_unlockFun)();
+                }
+            }
+            else
+            {
+                if (firstConnect)
+                {
+                    *m_success = true;
+                    (*m_unlockFun)();
+                }
+                m_seqID = 0;
+                firstQuery = true;
+                m_queryStatus.store(1);
+                m_log->writeLog("connect mysql success");
+            }
+           
+        }
+    });
 }
 
 
