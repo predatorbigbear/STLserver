@@ -141,7 +141,6 @@ void VERIFYCODE::startResolver()
     m_resolver->async_resolve("push.spug.cc", "443", [this](const boost::system::error_code& err,
         const boost::asio::ip::tcp::resolver::results_type &endpoints)
     {
-        m_log->writeLog("VERIFYCODE::startResolver");
         if (!err)
         {
             startConnection(endpoints);
@@ -165,7 +164,6 @@ void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_t
         [this](const boost::system::error_code& error,
             const boost::asio::ip::tcp::endpoint& endpoint)
     {
-        m_log->writeLog("VERIFYCODE::startConnection");
         if (!error)
         {
             handshake();
@@ -186,7 +184,6 @@ void VERIFYCODE::handshake()
     m_socket->async_handshake(boost::asio::ssl::stream_base::client,
         [this](const boost::system::error_code& error)
     {
-        m_log->writeLog("VERIFYCODE::handshake");
         if (!error)
         {
             sendFirstVerifyCode();
@@ -220,10 +217,17 @@ void VERIFYCODE::sendVerifyCode(const std::string& request, bool isRealCode)
         }
         else
         {
-            m_log->writeLog("VERIFYCODE::sendVerifyCode");
+            
             m_queryStatus.store(0);
             //进入回收socket 并重连阶段
             sslShutdown();
+   
+            m_timeWheel->insert([this]()
+            {
+                ec = {};
+                m_socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+                m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+            },10);
         }
     });
 }
@@ -236,7 +240,6 @@ void VERIFYCODE::sendFirstVerifyCode()
         boost::asio::buffer(m_forgedCode),
         [this](const boost::system::error_code& error, std::size_t length)
     {
-        m_log->writeLog("VERIFYCODE::sendFirstVerifyCode");
         if (!error)
         {
             if (!m_reConnect)
@@ -337,11 +340,9 @@ void VERIFYCODE::sslShutdown()
     m_socket->async_shutdown([this](const boost::system::error_code& err)
     {
         //async_shutdown调用之后，无论成功与否，都可以进行下面的处理
-        m_log->writeLog("VERIFYCODE::sslShutdown");
+        m_log->writeLog("VERIFYCODE::sslShutdown",err.value(),err.message());
 
-        ec = {};
-        m_socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
-        m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
+       
     });
 
 }
@@ -406,7 +407,6 @@ void VERIFYCODE::closeLoop()
 
 void VERIFYCODE::tryConnect()
 {
-    m_log->writeLog("VERIFYCODE::tryConnect");
     resetQueryStatus();
     resetReConnect();
     resetVerifyTime();

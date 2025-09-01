@@ -118,7 +118,7 @@ struct MiddleCenter
 
 	void setVerifyCode(const std::shared_ptr<IOcontextPool>& ioPool, bool &success , const unsigned int listSize = 1024,
 		const unsigned int codeLen = 6,
-		const unsigned int checkTime = 110);
+		const unsigned int checkTime = 117);
 
 private:
 	std::unique_ptr<listener>m_listener{};

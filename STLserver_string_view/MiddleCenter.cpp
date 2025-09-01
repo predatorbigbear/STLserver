@@ -87,6 +87,10 @@ void MiddleCenter::setHTTPServer(const std::shared_ptr<IOcontextPool> &ioPool, b
 				throw std::runtime_error("privateKey is invaild path");
 		}
 
+		std::string kp{ "Keep-Alive:timeout=" };
+		kp.append(std::to_string(timeOut));
+		kp.append("\r\n");
+
 
 		m_fileVec = fileVec;
 		m_fileMap.reset(new std::unordered_map<std::string_view, std::string>{});
@@ -122,8 +126,8 @@ void MiddleCenter::setHTTPServer(const std::shared_ptr<IOcontextPool> &ioPool, b
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
 				sendStr.append("Connection:keep-alive\r\n");
-				sendStr.append("Keep-Alive:timeout=30\r\n");
-				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
+				sendStr.append(kp);
+				sendStr.append("Cache-Control:public,max-age=86400,immutable\r\n");
 
 				if (gzip(fileBuf.get(), fileSize, output))
 				{
@@ -210,6 +214,9 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 		if (!privateKey || !fs::exists(privateKey))
 			throw std::runtime_error("privateKey is invaild path");
 
+		std::string kp{ "Keep-Alive:timeout=" };
+		kp.append(std::to_string(timeOut));
+		kp.append("\r\n");
 
 		//网页普通页面html资源初始化
 		m_webFileVec.reset(new std::vector<std::string>{});
@@ -245,10 +252,8 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
 				sendStr.append("Connection:keep-alive\r\n");
-				sendStr.append("Keep-Alive:timeout=");
-				sendStr.append(std::to_string(timeOut));
-				sendStr.append("\r\n");
-				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
+				sendStr.append(kp);
+				sendStr.append("Cache-Control:public,max-age=86400,immutable\r\n");
 
 				if (brotli_compress(fileBuf.get(), fileSize, output))
 				{
@@ -302,10 +307,8 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 
 				sendStr.assign("HTTP/1.1 200 OK\r\n");
 				sendStr.append("Connection:keep-alive\r\n");
-				sendStr.append("Keep-Alive:timeout=");
-				sendStr.append(std::to_string(timeOut));
-				sendStr.append("\r\n");
-				sendStr.append("Cache-Control:public,max-age=3600,immutable\r\n");
+				sendStr.append(kp);
+				sendStr.append("Cache-Control:public,max-age=86400,immutable\r\n");
 
 				if (brotli_compress(fileBuf.get(), fileSize, output))
 				{

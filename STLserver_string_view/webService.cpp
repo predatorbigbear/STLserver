@@ -640,10 +640,14 @@ void WEBSERVICE::sslShutdownLoop()
 		{
 			m_log->writeLog(__FUNCTION__, __LINE__, err.value(), err.message());
 		}
+	});
+
+	m_timeWheel->insert([this]() 
+	{
 		ec = {};
 		m_buffer->getSSLSock()->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
 		m_timeWheel->insert([this]() {shutdownLoop(); }, 5);
-	});
+	}, 10);
 }
 
 
