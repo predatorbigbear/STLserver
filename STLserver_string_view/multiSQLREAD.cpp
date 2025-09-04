@@ -4,9 +4,10 @@ MULTISQLREAD::MULTISQLREAD(const std::shared_ptr<boost::asio::io_context>& ioc, 
 	const std::shared_ptr<STLTimeWheel>& timeWheel, const std::shared_ptr<ASYNCLOG>& log, 
 	const std::string& SQLHOST, const std::string& SQLUSER, const std::string& SQLPASSWORD,
 	const std::string& SQLDB, const unsigned int& SQLPORT, 
-	const unsigned int commandMaxSize, bool& success, const unsigned int bufferSize):m_ioc(ioc),m_unlockFun(unlockFun),
-	m_timeWheel(timeWheel),m_log(log), m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB),
-	m_port(SQLPORT), m_commandMaxSize(commandMaxSize), m_msgBufMaxSize(bufferSize), m_success(&success)
+    const unsigned int commandMaxSize, bool& success, const unsigned int bufferSize) :m_ioc(ioc), m_unlockFun(unlockFun),
+    m_timeWheel(timeWheel), m_log(log), m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB),
+    m_port(SQLPORT), m_commandMaxSize(commandMaxSize), m_msgBufMaxSize(bufferSize * 6), m_clientBufMaxSize(bufferSize),
+    m_success(&success),m_messageList(commandMaxSize * 6)
 {
 	//在外层进行数据检查
 
@@ -16,7 +17,126 @@ MULTISQLREAD::MULTISQLREAD(const std::shared_ptr<boost::asio::io_context>& ioc, 
 
 	m_sock.reset(new boost::asio::ip::tcp::socket(*m_ioc));
 
+    m_waitMessageList.reset(new std::shared_ptr<MYSQLResultTypeSW>[m_commandMaxSize]);
+
+    m_waitMessageListMaxSize = m_commandMaxSize;
+
 	connectMysql();
+}
+
+
+
+
+bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlRequest)
+{
+    if (!mysqlRequest)
+        return false;
+
+    MYSQLResultTypeSW& thisRequest{ *mysqlRequest };
+    if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize
+        || !std::get<3>(thisRequest) || std::get<1>(thisRequest) != std::get<2>(thisRequest).get().size() ||
+        std::accumulate(std::get<2>(thisRequest).get().cbegin(), std::get<2>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size()
+        )
+        return false;
+
+    int status{ m_queryStatus.load() };
+    if (!status)
+    {
+        return false;
+    }
+    else if (status == 1)
+    {
+        m_queryStatus.store(2);
+
+        /*
+          执行命令string_view集
+          执行命令个数
+          每条命令的string_view个数（方便进行拼接）
+          获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
+
+          返回结果string_view
+          每个结果的词语个数
+
+          回调函数
+    */
+    // 
+        //////////////////////////////////////////////////////////////////////
+        clientSendLen = std::accumulate(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), 0, [](auto& sum, auto const sw)
+        {
+            return sum += sw.size();
+        });
+        clientSendLen += std::get<1>(thisRequest);
+
+        try
+        {
+            if (m_msgBufMaxSize < (clientSendLen + 4))
+            {
+                m_msgBuf.reset(new unsigned char[clientSendLen + 4]);
+                m_msgBufMaxSize = clientSendLen + 4;
+            }
+        }
+        catch (const std::bad_alloc& e)
+        {
+            m_queryStatus.store(1);
+            return false;
+        }
+
+
+        unsigned char* buffer{ m_msgBuf.get() + 4 };
+        int index{ 0 };
+        std::vector<unsigned int>::const_iterator sqlNumIter{ std::get<2>(thisRequest).get().cbegin() };
+        
+        for (auto sw : std::get<0>(thisRequest).get())
+        {
+            std::copy(sw.cbegin(), sw.cend(), buffer);
+            buffer += sw.size();
+            if (++index == *sqlNumIter)
+            {
+                index = 0;
+                ++sqlNumIter;
+                *buffer++ = ';';
+            }
+        }
+
+
+        clientBegin = m_msgBuf.get();
+        *clientBegin = clientSendLen % 256;
+        *(clientBegin + 1) = clientSendLen / 256 % 256;
+        *(clientBegin + 2) = clientSendLen / 65536 % 256;
+
+        if (firstQuery)
+        {
+            firstQuery = false;
+            *(clientBegin + 3) = m_seqID = 0;
+        }
+        else
+            *(clientBegin + 3) = ++m_seqID;
+
+        clientSendLen += 4;
+
+        m_msgBufNowSize = clientSendLen;
+        m_waitMessageListNowSize = 1;
+        *(m_waitMessageList.get()) = mysqlRequest;
+        m_commandTotalSize = std::get<3>(thisRequest);
+       
+
+
+
+
+
+
+
+       
+
+        return true;
+    }
+    else
+    {
+        if (!m_messageList.try_enqueue(std::shared_ptr<MYSQLResultTypeSW>(mysqlRequest)))
+            return false;
+
+        return true;
+    }
 }
 
 
@@ -320,10 +440,10 @@ bool MULTISQLREAD::makeHandshakeResponse41()
     *clientIter++ = clientFlag / 16777216;
 
 
-    *clientIter++ = m_msgBufMaxSize % 256;
-    *clientIter++ = m_msgBufMaxSize / 256 % 256;
-    *clientIter++ = m_msgBufMaxSize / 65536 % 256;
-    *clientIter++ = m_msgBufMaxSize / 16777216;
+    *clientIter++ = m_clientBufMaxSize % 256;
+    *clientIter++ = m_clientBufMaxSize / 256 % 256;
+    *clientIter++ = m_clientBufMaxSize / 65536 % 256;
+    *clientIter++ = m_clientBufMaxSize / 16777216;
 
     //utf8mb4_unicode_ci 
     *clientIter++ = utf8mb4_unicode_ci;

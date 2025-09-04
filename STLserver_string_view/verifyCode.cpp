@@ -161,10 +161,10 @@ void VERIFYCODE::startResolver()
 void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_type& endpoints)
 {
     boost::asio::async_connect(m_socket->lowest_layer(), endpoints,
-        [this](const boost::system::error_code& error,
+        [this](const boost::system::error_code& err,
             const boost::asio::ip::tcp::endpoint& endpoint)
     {
-        if (!error)
+        if (!err)
         {
             handshake();
         }
@@ -172,7 +172,7 @@ void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_t
         {
             if (m_reConnect)
                 m_timeWheel->insert([this]() {startResolver(); }, 5);
-            m_log->writeLog("VERIFYCODE::startConnection", error.value(), error.message());
+            m_log->writeLog("VERIFYCODE::startConnection", err.value(), err.message());
         }
     });
 }
@@ -182,9 +182,9 @@ void VERIFYCODE::startConnection(const boost::asio::ip::tcp::resolver::results_t
 void VERIFYCODE::handshake()
 {
     m_socket->async_handshake(boost::asio::ssl::stream_base::client,
-        [this](const boost::system::error_code& error)
+        [this](const boost::system::error_code& err)
     {
-        if (!error)
+        if (!err)
         {
             sendFirstVerifyCode();
         }
@@ -192,7 +192,7 @@ void VERIFYCODE::handshake()
         {
             if (m_reConnect)
                 sslShutdown();
-            m_log->writeLog("VERIFYCODE::handshake", error.value(), error.message());
+            m_log->writeLog("VERIFYCODE::handshake", err.value(), err.message());
         }
     });
 }
@@ -238,9 +238,9 @@ void VERIFYCODE::sendFirstVerifyCode()
 {
     boost::asio::async_write(*m_socket,
         boost::asio::buffer(m_forgedCode),
-        [this](const boost::system::error_code& error, std::size_t length)
+        [this](const boost::system::error_code& err, std::size_t length)
     {
-        if (!error)
+        if (!err)
         {
             if (!m_reConnect)
             {
@@ -263,7 +263,7 @@ void VERIFYCODE::sendFirstVerifyCode()
         {
             if (m_reConnect)
                 sslShutdown();
-            m_log->writeLog("VERIFYCODE::sendFirstVerifyCode", error.value(), error.message());
+            m_log->writeLog("VERIFYCODE::sendFirstVerifyCode", err.value(), err.message());
         }
     });
 }
@@ -397,7 +397,6 @@ void VERIFYCODE::closeLoop()
     }
     else
     {
-        m_log->writeLog("VERIFYCODE::closeLoop");
         tryConnect();
     }
 }

@@ -38,7 +38,7 @@ struct VERIFYCODE
 		const std::shared_ptr<STLTimeWheel> &timeWheel,
 		const unsigned int listSize = 1024,
 		const unsigned int codeLen = 6,
-		const unsigned int checkTime = 117);      //构造函数
+		const unsigned int checkTime = 118);      //构造函数
 
 
 	//phone在应用层调用REGEXFUNCTION::isVaildPhone进行校验

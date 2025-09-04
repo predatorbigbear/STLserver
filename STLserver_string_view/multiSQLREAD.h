@@ -8,6 +8,7 @@
 #include "concurrentqueue.h"
 #include "errorMessage.h"
 #include "STLTimeWheel.h"
+#include "memoryPool.h"
 
 #include <openssl/sha.h>
 #include <openssl/rsa.h>
@@ -40,7 +41,25 @@
 
 struct MULTISQLREAD
 {
-	
+	/*
+	执行命令string_view集
+	执行命令个数
+	每条命令的string_view个数（方便进行拼接）
+	获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
+
+	返回结果string_view
+	每个结果的词语个数
+
+	回调函数
+	*/
+	// 
+	using MYSQLResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int,
+		std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
+		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
+
+
+
 
 	MULTISQLREAD(const std::shared_ptr<boost::asio::io_context> &ioc,const std::shared_ptr<std::function<void()>> &unlockFun, 
 		const std::shared_ptr<STLTimeWheel>& timeWheel,
@@ -50,7 +69,10 @@ struct MULTISQLREAD
 		const unsigned int commandMaxSize, bool& success, const unsigned int bufferSize = 67108864);
 
 
-	
+	//插入请求，首先判断是否连接redis服务器成功，
+	//如果没有连接，插入直接返回错误
+	//连接成功的情况下，检查请求是否符合要求
+	bool insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlRequest);
 
 
 
@@ -96,10 +118,13 @@ private:
 
 	//接收发送缓冲区最大值
 	//每次发送数据量不要大于m_msgBufMaxSize - 4 （根据mysql协议）
-	const unsigned int m_msgBufMaxSize{};
+	unsigned int m_msgBufMaxSize{};
+
+	//客户端接收消息单个数据包最大大小
+	const unsigned int m_clientBufMaxSize{};
 
 	// 接收发送缓冲区当前值
-	unsigned int m_msgBufMaxNowSize{};
+	unsigned int m_msgBufNowSize{};
 
 	//已接收字段长度
 	int m_readLen{};
@@ -150,40 +175,44 @@ private:
 
 	bool m_jumpThisRes{ false };                     //是否跳过本次请求的标志
 
+	//检查次数
+	int checkTime{};
 
+	//是否开始获取结果
+	bool getResult{ false };
 
 
 
 
 	const unsigned int m_commandMaxSize{};        // 命令个数最大大小（长度）
 
-	unsigned int m_commandNowSize{};        // 命令个数实际大小（长度）
 
-	unsigned int m_thisCommandToalSize{};       // 本条节点的总请求个数
+	unsigned int m_commandTotalSize{};                //本次节点结果数总计
 
-	unsigned int m_currentCommandSize{};        // 当前命令的已处理个数
+
+	unsigned int m_commandCurrentSize{};              //本次节点结果数当前计数
 
 
 	///////////////////////////////////////////////////////////////////
 	// 
 	//待投递队列，未/等待拼凑消息的队列
 	//使用开源无锁队列进一步提升qps ，这是github地址  https://github.com/cameron314/concurrentqueue
-	//moodycamel::ConcurrentQueue<std::shared_ptr<resultTypeSW>>m_messageList;
+	moodycamel::ConcurrentQueue<std::shared_ptr<MYSQLResultTypeSW>>m_messageList;
 
 
 
 	//待获取结果队列，已经发送请求的队列，处理时使用m_waitMessageList进行处理，减少使用m_messageList的锁的机会
-	//std::unique_ptr<std::shared_ptr<resultTypeSW>[]>m_waitMessageList{};
+	std::unique_ptr<std::shared_ptr<MYSQLResultTypeSW>[]>m_waitMessageList{};
 
-	//unsigned int m_waitMessageListMaxSize{};
+	unsigned int m_waitMessageListMaxSize{};
 
-	//unsigned int m_waitMessageListNowSize{};
+	unsigned int m_waitMessageListNowSize{};
 
 
 	//  根据m_waitMessageListBegin获取每次的RES
-	//std::shared_ptr<resultTypeSW> *m_waitMessageListBegin{};
+	std::shared_ptr<MYSQLResultTypeSW> *m_waitMessageListBegin{};
 
-	//std::shared_ptr<resultTypeSW> *m_waitMessageListEnd{};
+	std::shared_ptr<MYSQLResultTypeSW> *m_waitMessageListEnd{};
 
 	///////////////////////////////////////////////////////////
 

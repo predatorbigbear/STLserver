@@ -238,7 +238,7 @@ bool MULTIREDISREADCOPY::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& 
 
 		m_jumpNode = false;
 
-		m_commandTotalSize = std::get<1>(thisRequest);
+		m_commandTotalSize = std::get<3>(thisRequest);
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
@@ -531,7 +531,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 							jumpNode = false;
 							if (++waitMessageListBegin != waitMessageListEnd)
 							{
-								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandTotalSize = std::get<3>(**waitMessageListBegin);
 								commandCurrentSize = 0;
 							}
 						}
@@ -623,7 +623,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 							jumpNode = false;
 							if (++waitMessageListBegin != waitMessageListEnd)
 							{
-								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandTotalSize = std::get<3>(**waitMessageListBegin);
 								commandCurrentSize = 0;
 							}
 						}
@@ -698,7 +698,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -757,7 +757,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -816,7 +816,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -1020,7 +1020,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -1123,7 +1123,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 								jumpNode = false;
 								if (++waitMessageListBegin != waitMessageListEnd)
 								{
-									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandTotalSize = std::get<3>(**waitMessageListBegin);
 									commandCurrentSize = 0;
 								}
 							}
@@ -1184,7 +1184,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 								jumpNode = false;
 								if (++waitMessageListBegin != waitMessageListEnd)
 								{
-									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandTotalSize = std::get<3>(**waitMessageListBegin);
 									commandCurrentSize = 0;
 								}
 							}
@@ -1392,7 +1392,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 								jumpNode = false;
 								if (++waitMessageListBegin != waitMessageListEnd)
 								{
-									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandTotalSize = std::get<3>(**waitMessageListBegin);
 									commandCurrentSize = 0;
 								}
 							}
@@ -1509,7 +1509,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 								jumpNode = false;
 								if (++waitMessageListBegin != waitMessageListEnd)
 								{
-									commandTotalSize = std::get<1>(**waitMessageListBegin);
+									commandTotalSize = std::get<3>(**waitMessageListBegin);
 									commandCurrentSize = 0;
 								}
 							}
@@ -1684,7 +1684,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -1842,7 +1842,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -2000,7 +2000,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -2487,7 +2487,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -2567,7 +2567,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 							jumpNode = false;
 							if (++waitMessageListBegin != waitMessageListEnd)
 							{
-								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandTotalSize = std::get<3>(**waitMessageListBegin);
 								commandCurrentSize = 0;
 							}
 						}
@@ -2656,7 +2656,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 							jumpNode = false;
 							if (++waitMessageListBegin != waitMessageListEnd)
 							{
-								commandTotalSize = std::get<1>(**waitMessageListBegin);
+								commandTotalSize = std::get<3>(**waitMessageListBegin);
 								commandCurrentSize = 0;
 							}
 						}
@@ -2731,7 +2731,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -2790,7 +2790,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -2849,7 +2849,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -3053,7 +3053,7 @@ bool MULTIREDISREADCOPY::parse(const int size)
 					jumpNode = false;
 					if (++waitMessageListBegin != waitMessageListEnd)
 					{
-						commandTotalSize = std::get<1>(**waitMessageListBegin);
+						commandTotalSize = std::get<3>(**waitMessageListBegin);
 						commandCurrentSize = 0;
 					}
 				}
@@ -3374,7 +3374,7 @@ void MULTIREDISREADCOPY::readyMessage()
 
 		m_jumpNode = false;
 
-		m_commandTotalSize = std::get<1>(**m_waitMessageListBegin);
+		m_commandTotalSize = std::get<3>(**m_waitMessageListBegin);
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
