@@ -65,7 +65,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         {
             return sum += sw.size();
         });
-        clientSendLen += std::get<1>(thisRequest);
+        clientSendLen += std::get<1>(thisRequest) + 1;
 
         try
         {
@@ -78,6 +78,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         catch (const std::bad_alloc& e)
         {
             m_queryStatus.store(1);
+            m_msgBufMaxSize = 0;
             return false;
         }
 
@@ -86,6 +87,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         int index{ 0 };
         std::vector<unsigned int>::const_iterator sqlNumIter{ std::get<2>(thisRequest).get().cbegin() };
         
+		*buffer++ = 0x03; //com_query
         for (auto sw : std::get<0>(thisRequest).get())
         {
             std::copy(sw.cbegin(), sw.cend(), buffer);
