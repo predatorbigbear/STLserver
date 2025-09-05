@@ -117,18 +117,23 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         clientSendLen += 4;
 
         m_msgBufNowSize = clientSendLen;
+
         m_waitMessageListNowSize = 1;
+
         *(m_waitMessageList.get()) = mysqlRequest;
+
+        m_waitMessageListBegin = m_waitMessageList.get();
+
+        m_waitMessageListEnd = m_waitMessageListBegin + 1;
+
         m_commandTotalSize = std::get<3>(thisRequest);
        
+        m_jumpNode = false;
 
+        m_commandCurrentSize = 0;
 
-
-
-
-
-
-       
+		//发送sql请求
+        mysqlQuery();       
 
         return true;
     }
@@ -1035,6 +1040,79 @@ void MULTISQLREAD::recvPubkeyAuth()
            
         }
     });
+}
+
+
+
+
+void MULTISQLREAD::mysqlQuery()
+{
+    boost::asio::async_write(*m_sock, boost::asio::buffer(m_msgBuf.get(), clientSendLen),
+        [this](const boost::system::error_code& err, const std::size_t size)
+    {
+        if (err)
+        {
+           //重连  通知所有请求发生错误
+            m_queryStatus.store(0);
+        }
+        else
+        {
+            //开始接收mysql查询结果
+
+            m_readLen = 0;
+            recvMysqlResult();
+        }
+    });
+
+}
+
+
+
+void MULTISQLREAD::recvMysqlResult()
+{
+    m_sock->async_read_some(boost::asio::buffer(m_msgBuf.get() + m_readLen, m_msgBufMaxSize - m_readLen),
+        [this](const boost::system::error_code& err, const std::size_t bytes_transferred)
+    {
+        if (err)
+        {
+            //重连  通知所有请求发生错误
+            m_queryStatus.store(0);
+        }
+        else
+        {
+            //解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收
+            switch(parseMysqlResult(bytes_transferred))
+            {
+            case 0:
+
+
+                break;
+            case 1:
+
+
+                break;
+            case 2:
+
+
+                break;
+            case 3:
+
+
+                break;
+            default:
+
+                break;
+            }
+        }
+    });
+}
+
+
+
+//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收
+int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
+{
+    return 0;
 }
 
 

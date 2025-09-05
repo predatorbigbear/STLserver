@@ -173,7 +173,7 @@ private:
 	std::atomic<int> m_queryStatus{ 0 };         //0 未连接    1 已连接未处理状态    2   已连接正在处理状态
 
 
-	bool m_jumpThisRes{ false };                     //是否跳过本次请求的标志
+	bool m_jumpNode{ false };                     //是否跳过本次请求的标志
 
 	//检查次数
 	int checkTime{};
@@ -289,6 +289,16 @@ private:
 
 	//接收公钥加密密码认证结果
 	void recvPubkeyAuth();
+
+	//发送mysql查询命令
+	void mysqlQuery();
+
+	//接收mysql查询结果
+	void recvMysqlResult();
+
+
+	//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收
+	int parseMysqlResult(const std::size_t bytes_transferred);
 };
 
 
