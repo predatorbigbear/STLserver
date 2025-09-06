@@ -116,6 +116,12 @@ private:
 	//接收发送缓冲区
 	std::unique_ptr<unsigned char[]>m_msgBuf{};
 
+	//发送缓冲区起始位置
+	unsigned char* m_sendBuf{};
+
+	//接收缓冲区起始位置
+	unsigned char* m_recvBuf{};
+
 	//接收发送缓冲区最大值
 	//每次发送数据量不要大于m_msgBufMaxSize - 4 （根据mysql协议）
 	unsigned int m_msgBufMaxSize{};
@@ -176,10 +182,10 @@ private:
 	bool m_jumpNode{ false };                     //是否跳过本次请求的标志
 
 	//检查次数
-	int checkTime{};
+	int m_checkTime{};
 
 	//是否开始获取结果
-	bool getResult{ false };
+	bool m_getResult{ false };
 
 
 
@@ -297,7 +303,7 @@ private:
 	void recvMysqlResult();
 
 
-	//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收
+	//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收   
 	int parseMysqlResult(const std::size_t bytes_transferred);
 };
 

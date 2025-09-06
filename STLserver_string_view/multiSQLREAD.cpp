@@ -67,8 +67,16 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         });
         clientSendLen += std::get<1>(thisRequest) + 1;
 
+        if (clientSendLen > (m_clientBufMaxSize - 4))
+        {
+            m_queryStatus.store(1);
+            return false;
+        }
+
+
         try
         {
+            //其实这里是不可能走到的，因为m_msgBufMaxSize大小是m_clientBufMaxSize的6倍
             if (m_msgBufMaxSize < (clientSendLen + 4))
             {
                 m_msgBuf.reset(new unsigned char[clientSendLen + 4]);
@@ -127,10 +135,12 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         m_waitMessageListEnd = m_waitMessageListBegin + 1;
 
         m_commandTotalSize = std::get<3>(thisRequest);
-       
-        m_jumpNode = false;
 
         m_commandCurrentSize = 0;
+
+		m_sendBuf = m_msgBuf.get();
+
+        m_recvBuf = m_msgBuf.get() + clientSendLen;
 
 		//发送sql请求
         mysqlQuery();       
@@ -1047,7 +1057,7 @@ void MULTISQLREAD::recvPubkeyAuth()
 
 void MULTISQLREAD::mysqlQuery()
 {
-    boost::asio::async_write(*m_sock, boost::asio::buffer(m_msgBuf.get(), clientSendLen),
+    boost::asio::async_write(*m_sock, boost::asio::buffer(m_sendBuf, clientSendLen),
         [this](const boost::system::error_code& err, const std::size_t size)
     {
         if (err)
@@ -1058,8 +1068,17 @@ void MULTISQLREAD::mysqlQuery()
         else
         {
             //开始接收mysql查询结果
+            //是否跳过本次请求的标志
+            m_jumpNode = false;
+
+            //检查次数
+            m_checkTime = 0;
+
+            //是否开始获取结果
+            m_getResult = false;
 
             m_readLen = 0;
+
             recvMysqlResult();
         }
     });
@@ -1070,7 +1089,7 @@ void MULTISQLREAD::mysqlQuery()
 
 void MULTISQLREAD::recvMysqlResult()
 {
-    m_sock->async_read_some(boost::asio::buffer(m_msgBuf.get() + m_readLen, m_msgBufMaxSize - m_readLen),
+    m_sock->async_read_some(boost::asio::buffer(m_recvBuf + m_readLen , m_msgBufMaxSize - m_readLen - std::distance(m_msgBuf.get(), m_recvBuf)),
         [this](const boost::system::error_code& err, const std::size_t bytes_transferred)
     {
         if (err)
@@ -1080,7 +1099,7 @@ void MULTISQLREAD::recvMysqlResult()
         }
         else
         {
-            //解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收
+            //解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收 
             switch(parseMysqlResult(bytes_transferred))
             {
             case 0:
@@ -1099,6 +1118,10 @@ void MULTISQLREAD::recvMysqlResult()
 
 
                 break;
+            case 4:
+
+
+                break;
             default:
 
                 break;
@@ -1109,10 +1132,199 @@ void MULTISQLREAD::recvMysqlResult()
 
 
 
-//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收
+//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收  
 int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 {
-    return 0;
+    if (!bytes_transferred)
+        return 3;
+
+    //总接收数据
+    const unsigned char* sourceBegin{ m_recvBuf }, * sourceEnd{ m_recvBuf + bytes_transferred };
+
+    //单条数据的首尾位置
+    const unsigned char* strBegin{}, * strEnd{};
+
+    ///////////////////////////////////////////////////
+    std::shared_ptr<MYSQLResultTypeSW>* waitMessageListBegin{ m_waitMessageListBegin };
+    std::shared_ptr<MYSQLResultTypeSW>* waitMessageListEnd{ m_waitMessageListEnd };
+
+    //本次节点结果数总计                      本次节点结果数当前计数
+    unsigned int commandTotalSize{ m_commandTotalSize }, commandCurrentSize{ m_commandCurrentSize };
+
+    //检查次数
+    int checkTime{ m_checkTime };
+
+	//是否开始获取结果
+    bool getResult{ m_getResult };
+
+	//是否跳过本次请求的标志
+	bool jumpNode{ m_jumpNode };
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+
+    //本次数据包消息长度
+    unsigned int messageLen{};
+
+    //本次数据包序列号
+    unsigned char seqID{};
+
+    //每个字段字符串长度
+    int papaLen{};
+
+    //上次执行命令是否成功  true 成功  false  失败
+    // 失败时需要根据当前命令指针位置 重新构建请求包进行处理  
+    bool queryOK{ true };
+
+    //每条查询结果总string_view个数
+    int everyCommandResultSum{};
+
+    //执行成功           执行失败
+    static std::string_view success{ "success" }, fail{ "fail" };
+
+
+    while (sourceBegin != sourceEnd)
+    {
+        if (std::distance(sourceBegin, sourceEnd) < 4)
+        {
+            m_waitMessageListBegin = waitMessageListBegin;
+            m_commandCurrentSize = commandCurrentSize;
+            m_checkTime = checkTime;
+            m_getResult = getResult;
+            m_jumpNode = jumpNode;
+            if (sourceBegin != m_recvBuf)
+            {
+                std::copy(sourceBegin, sourceEnd, m_recvBuf);
+                m_readLen = std::distance(sourceBegin, sourceEnd);
+            }
+            return 3;
+        }
+
+        messageLen = static_cast<unsigned int>(*(sourceBegin)) + static_cast<unsigned int>(*(sourceBegin + 1)) * 256 +
+            static_cast<unsigned int>(*(sourceBegin + 2)) * 65536;
+
+        if (!messageLen)
+        {
+            //空包
+            sourceBegin += 4;
+            continue;
+        }
+
+        if (std::distance(sourceBegin, sourceEnd) < messageLen + 4)
+        {
+            m_waitMessageListBegin = waitMessageListBegin;
+            m_commandCurrentSize = commandCurrentSize;
+            m_checkTime = checkTime;
+            m_getResult = getResult;
+            m_jumpNode = jumpNode;
+            if (sourceBegin != m_recvBuf)
+            {
+                std::copy(sourceBegin, sourceEnd, m_recvBuf);
+                m_readLen = std::distance(sourceBegin, sourceEnd);
+            }
+            return 3;
+        }
+
+        seqID = static_cast<unsigned int>(*(sourceBegin + 3));
+
+        strBegin = sourceBegin + 4;
+        strEnd = strBegin + messageLen;
+       
+        //目前仅对int  varchar短字符串类型进行处理  其他情况待测试    (update  insert  delete 等已经支持)
+        
+        if (!checkTime)
+        {
+            switch (*strBegin)
+            {
+            case 10:
+                //select语句执行成功
+                queryOK = true;
+
+                break;
+            case 0:
+                //update  insert  delete语句执行成功
+                queryOK = true;
+
+                break;
+            case 0xff:
+                //update  insert  delete语句执行失败
+                queryOK = false;
+
+                break;
+            default:
+                //未知情况
+                sourceBegin = strEnd;
+                continue;
+                break;
+            }
+            
+        }
+        else
+        {
+            if (!getResult)
+            {
+                if (*strBegin == 0xfe)
+                {
+                    getResult = true;
+                    everyCommandResultSum = 0;
+                }
+            }
+            else
+            {
+                if (*strBegin == 0xfe)
+                {
+                    getResult = false;
+                    //将everyCommandResultSum 存储起来
+                    checkTime = -1;
+                }
+                else
+                {
+                    while (strBegin != strEnd)
+                    {
+                        papaLen = *strBegin;
+
+                        if (papaLen != 251)
+                        {
+                            //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+                            
+                            
+                            strBegin += papaLen + 1;
+                        }
+                        else
+                        {
+                            //存储空string_view
+                            
+                            ++strBegin;
+                        }
+                        ++everyCommandResultSum;
+                    }
+
+                    
+                }
+            }
+        }
+
+
+
+
+
+
+        
+
+
+        ++checkTime;
+        sourceBegin = strEnd;
+    }
+
+
+    if (!queryOK)
+    {
+        //检查出错的命令是否已经是最后一个命令，否则需要构建请求包发送
+
+    }
+
+    m_seqID = seqID;
+    return 1;
+
 }
 
 
