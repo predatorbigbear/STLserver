@@ -1118,10 +1118,7 @@ void MULTISQLREAD::recvMysqlResult()
 
 
                 break;
-            case 4:
-
-
-                break;
+           
             default:
 
                 break;
