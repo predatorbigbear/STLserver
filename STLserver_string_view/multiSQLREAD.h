@@ -42,19 +42,31 @@
 struct MULTISQLREAD
 {
 	/*
-	执行命令string_view集
-	执行命令个数
-	每条命令的string_view个数（方便进行拼接）
-	获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
+	0执行命令string_view集
+	1执行命令个数
+	2每条命令的string_view个数（方便进行拼接）
 
-	返回结果string_view
-	每个结果的词语个数
+	3 first 每条命令获取结果个数，second 是否为事务语句  （因为比如一些事务操作可能不一定有结果返回，利用second
+	可以在事务中发生错误时快速跳转指针指向）、
+	
+	4总结果个数  这一项不需要填写，内部会进行计算
 
-	回调函数
+	对于存储过程调用,使用CALL 存储过程名(参数列表)格式 传入，设置好获取结果次数，
+	存储过程需预先在服务器中设置好，因为如果在这里调用命令组装还需要再增加一项参数  每个获取结果对应的执行命令个数
+	简单的事务语句测试过每条命令也对应一个结果，复杂的需要进行测试验证
+
+
+
+	5返回结果string_view
+	6每个结果的string_view个数
+
+	7回调函数
 	*/
 	// 
 	using MYSQLResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int,
-		std::reference_wrapper<std::vector<unsigned int>>, unsigned int,
+		std::reference_wrapper<std::vector<unsigned int>>, 
+		std::reference_wrapper<std::vector<std::pair<unsigned int, bool>>>,
+		unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
 
@@ -69,7 +81,7 @@ struct MULTISQLREAD
 		const unsigned int commandMaxSize, bool& success, const unsigned int bufferSize = 67108864);
 
 
-	//插入请求，首先判断是否连接redis服务器成功，
+	//插入请求，首先判断是否连接mysql服务器成功，
 	//如果没有连接，插入直接返回错误
 	//连接成功的情况下，检查请求是否符合要求
 	bool insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlRequest);
@@ -113,6 +125,16 @@ private:
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	 
+	//存储每条命令的起始位置缓冲区
+	std::unique_ptr<unsigned char*[]>m_commandBuf{};
+
+	//存储命令起始位置
+	unsigned char** m_commandBufBegin{};
+
+	//存储命令结束位置
+	unsigned char** m_commandBufEnd{};
+
+
 	//接收发送缓冲区
 	std::unique_ptr<unsigned char[]>m_msgBuf{};
 
