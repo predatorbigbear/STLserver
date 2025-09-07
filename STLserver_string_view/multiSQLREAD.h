@@ -49,7 +49,6 @@ struct MULTISQLREAD
 	3 first 每条命令获取结果个数，second 是否为事务语句  （因为比如一些事务操作可能不一定有结果返回，利用second
 	可以在事务中发生错误时快速跳转指针指向）、
 	
-	4总结果个数  这一项不需要填写，内部会进行计算
 
 	对于存储过程调用,使用CALL 存储过程名(参数列表)格式 传入，设置好获取结果次数，
 	存储过程需预先在服务器中设置好，因为如果在这里调用命令组装还需要再增加一项参数  每个获取结果对应的执行命令个数
@@ -57,16 +56,15 @@ struct MULTISQLREAD
 
 
 
-	5返回结果string_view
-	6每个结果的string_view个数
+	4返回结果string_view
+	5每个结果的string_view个数
 
-	7回调函数
+	6回调函数
 	*/
 	// 
 	using MYSQLResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int,
 		std::reference_wrapper<std::vector<unsigned int>>, 
 		std::reference_wrapper<std::vector<std::pair<unsigned int, bool>>>,
-		unsigned int,
 		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
 		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
 
@@ -163,6 +161,9 @@ private:
 	//本次数据包序列号
 	unsigned char m_seqID{};
 
+	//指向MYSQLResultTypeSW 第3位vector的迭代器
+	std::vector<std::pair<unsigned int, bool>>::const_iterator m_VecBegin{}, m_VecEnd{};
+
 	///////////////////////   握手包解析参数
 
 	//每次数据包首尾位置  排除前四位   
@@ -210,6 +211,8 @@ private:
 	bool m_getResult{ false };
 
 
+	//每条查询结果总string_view个数
+	int m_everyCommandResultSum{};
 
 
 	const unsigned int m_commandMaxSize{};        // 命令个数最大大小（长度）

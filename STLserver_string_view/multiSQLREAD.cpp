@@ -28,7 +28,20 @@ MULTISQLREAD::MULTISQLREAD(const std::shared_ptr<boost::asio::io_context>& ioc, 
 
 
 
+/*
+    0执行命令string_view集
+    1执行命令个数
+    2每条命令的string_view个数（方便进行拼接）
 
+    3 first 每条命令获取结果个数，second 是否为事务语句  （因为比如一些事务操作可能不一定有结果返回，利用second
+    可以在事务中发生错误时快速跳转指针指向）
+
+
+    4返回结果string_view
+    5每个结果的string_view个数
+
+    6回调函数
+    */
 bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlRequest)
 {
     if (!mysqlRequest)
@@ -36,11 +49,15 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
 
     MYSQLResultTypeSW& thisRequest{ *mysqlRequest };
 
-    /*
+    
     if (std::get<0>(thisRequest).get().empty() || !std::get<1>(thisRequest) || std::get<1>(thisRequest) > m_commandMaxSize
-        || !std::get<3>(thisRequest) || std::get<1>(thisRequest) != std::get<2>(thisRequest).get().size() ||
+        || std::get<3>(thisRequest).get().size() != std::get<1>(thisRequest)
+        || std::get<1>(thisRequest) != std::get<2>(thisRequest).get().size() ||
         std::accumulate(std::get<2>(thisRequest).get().cbegin(), std::get<2>(thisRequest).get().cend(), 0) != std::get<0>(thisRequest).get().size()
-        )
+         || std::find_if(std::get<3>(thisRequest).get().cbegin(), std::get<3>(thisRequest).get().cend(), [](const std::pair<unsigned int, bool>& everyPair)
+    {
+        return everyPair.first;
+    })== std::get<3>(thisRequest).get().cend())
         return false;
 
     int status{ m_queryStatus.load() };
@@ -51,17 +68,6 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
     else if (status == 1)
     {
         m_queryStatus.store(2);
-
-        
-          执行命令string_view集
-          执行命令个数
-          每条命令的string_view个数（方便进行拼接）
-          获取结果次数  （因为比如一些事务操作可能不一定有结果返回）
-
-          返回结果string_view
-          每个结果的词语个数
-
-          回调函数
     
     // 
         //////////////////////////////////////////////////////////////////////
@@ -119,6 +125,16 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         m_commandBufEnd = m_commandBufBegin;
         m_commandBufBegin = m_commandBuf.get();
 
+        m_VecBegin = std::get<3>(thisRequest).get().cbegin();
+        m_VecEnd = std::get<3>(thisRequest).get().cbegin();
+
+        do
+        {
+            if (m_VecBegin->first)
+                break;
+            ++m_commandBufBegin;
+        }while (++m_VecBegin != m_VecEnd);
+
         clientBegin = m_msgBuf.get();
         *clientBegin = clientSendLen % 256;
         *(clientBegin + 1) = clientSendLen / 256 % 256;
@@ -144,13 +160,26 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
 
         m_waitMessageListEnd = m_waitMessageListBegin + 1;
 
-        m_commandTotalSize = std::get<3>(thisRequest);
+        m_commandTotalSize = m_VecBegin->first;
 
         m_commandCurrentSize = 0;
 
 		m_sendBuf = m_msgBuf.get();
 
         m_recvBuf = m_msgBuf.get() + clientSendLen;
+
+
+        //开始接收mysql查询结果
+            //是否跳过本次请求的标志
+        m_jumpNode = false;
+
+        //检查次数
+        m_checkTime = 0;
+
+        //是否开始获取结果
+        m_getResult = false;
+
+        m_everyCommandResultSum = 0;
 
 		//发送sql请求
         mysqlQuery();       
@@ -165,7 +194,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
 
         return true;
     }
-    */
+    
 }
 
 
@@ -1079,15 +1108,6 @@ void MULTISQLREAD::mysqlQuery()
         }
         else
         {
-            //开始接收mysql查询结果
-            //是否跳过本次请求的标志
-            m_jumpNode = false;
-
-            //检查次数
-            m_checkTime = 0;
-
-            //是否开始获取结果
-            m_getResult = false;
 
             m_readLen = 0;
 
@@ -1174,6 +1194,9 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     //存储命令结束位置
     unsigned char** commandBufEnd{ m_commandBufEnd };
+
+    //指向MYSQLResultTypeSW 第3位vector的迭代器
+    std::vector<std::pair<unsigned int, bool>>::const_iterator vecBegin{ m_VecBegin }, vecEnd{ m_VecEnd };
     ///////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -1191,7 +1214,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     bool queryOK{ true };
 
     //每条查询结果总string_view个数
-    int everyCommandResultSum{};
+    int everyCommandResultSum{m_everyCommandResultSum };
 
     //执行成功           执行失败
     static const std::string_view success{ "success" }, fail{ "fail" };
@@ -1209,6 +1232,9 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
+            m_VecBegin = vecBegin;
+            m_VecEnd = vecEnd;
+            m_everyCommandResultSum = everyCommandResultSum;
             if (sourceBegin != m_recvBuf)
             {
                 std::copy(sourceBegin, sourceEnd, m_recvBuf);
@@ -1237,6 +1263,9 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
+            m_VecBegin = vecBegin;
+            m_VecEnd = vecEnd;
+            m_everyCommandResultSum = everyCommandResultSum;
             if (sourceBegin != m_recvBuf)
             {
                 std::copy(sourceBegin, sourceEnd, m_recvBuf);
