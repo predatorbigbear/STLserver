@@ -1418,6 +1418,8 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                 {
                     getResult = true;
                     everyCommandResultSum = 0;
+                    colLenEnd = colLenBegin;
+                    colLenBegin = colLenArr;
                 }
             }
             else
