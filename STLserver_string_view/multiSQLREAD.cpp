@@ -1164,6 +1164,20 @@ void MULTISQLREAD::recvMysqlResult()
 //解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收  
 int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 {
+
+    enum  	enum_field_types
+    {
+        MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY, MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG,
+        MYSQL_TYPE_FLOAT, MYSQL_TYPE_DOUBLE, MYSQL_TYPE_NULL, MYSQL_TYPE_TIMESTAMP,
+        MYSQL_TYPE_LONGLONG, MYSQL_TYPE_INT24, MYSQL_TYPE_DATE, MYSQL_TYPE_TIME,
+        MYSQL_TYPE_DATETIME, MYSQL_TYPE_YEAR, MYSQL_TYPE_NEWDATE, MYSQL_TYPE_VARCHAR,
+        MYSQL_TYPE_BIT, MYSQL_TYPE_TIMESTAMP2, MYSQL_TYPE_DATETIME2, MYSQL_TYPE_TIME2,
+        MYSQL_TYPE_TYPED_ARRAY, MYSQL_TYPE_VECTOR = 242, MYSQL_TYPE_INVALID = 243, MYSQL_TYPE_BOOL = 244,
+        MYSQL_TYPE_JSON = 245, MYSQL_TYPE_NEWDECIMAL = 246, MYSQL_TYPE_ENUM = 247, MYSQL_TYPE_SET = 248,
+        MYSQL_TYPE_TINY_BLOB = 249, MYSQL_TYPE_MEDIUM_BLOB = 250, MYSQL_TYPE_LONG_BLOB = 251, MYSQL_TYPE_BLOB = 252,
+        MYSQL_TYPE_VAR_STRING = 253, MYSQL_TYPE_STRING = 254, MYSQL_TYPE_GEOMETRY = 255
+    };
+
     if (!bytes_transferred)
         return 3;
 
@@ -1218,6 +1232,15 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     //执行成功           执行失败
     static const std::string_view success{ "success" }, fail{ "fail" };
+
+    const unsigned char* lengthOfFixed{};
+
+    //column_length 数组，直接分配足够大空间   每两位  第一位表示 column_length  第二位表示decimals
+    unsigned int colLenArr[256]{};
+
+    unsigned int* colLenBegin{}, * colLenEnd{}, * colLenMax{ colLenArr + 256 };
+
+    unsigned char enumType{};
 
 
     while (sourceBegin != sourceEnd)
@@ -1289,6 +1312,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                 //select语句执行成功
                 queryOK = true;
 
+                colLenBegin = colLenEnd = colLenArr;
                 break;
             case 0:
                 //update  insert  delete语句执行成功
@@ -1318,7 +1342,44 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
         {
             if (!getResult)
             {
-                if (*strBegin == 0xfe)
+                if (*strBegin != 0xfe)
+                {
+                   //https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_text_resultset_column_definition.html
+                    //解析列定义包，因为前面的是数据库名 列名，不是很需要，直接定位到	length of fixed length fields
+
+                    lengthOfFixed = std::find(strBegin + 1, strEnd, 0x0c);
+                   //character_set  暂时不是很需要，跳过
+                    lengthOfFixed += 2;
+
+                    //column_length
+                    if (colLenBegin == colLenArr)
+                    {
+                        //出错处理
+                    }
+
+                    *colLenBegin++= static_cast<unsigned int>(*(lengthOfFixed)) + static_cast<unsigned int>(*(lengthOfFixed + 1)) * 256 +
+                        static_cast<unsigned int>(*(lengthOfFixed + 2)) * 65536 + static_cast<unsigned int>(*(lengthOfFixed + 3)) * 16777216;
+
+                    //
+                    lengthOfFixed += 4;
+
+                    enumType = *lengthOfFixed;
+
+                    //flags 暂时跳过
+                    lengthOfFixed += 2;
+
+                    if (std::distance(lengthOfFixed, strEnd) == 2)
+                    {
+                        *colLenBegin++ = 0;
+                    }
+                    else
+                    {
+                        //待测试decimals情况
+                    }
+
+
+                }
+                else
                 {
                     getResult = true;
                     everyCommandResultSum = 0;
