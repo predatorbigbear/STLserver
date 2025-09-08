@@ -1242,6 +1242,8 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     unsigned char enumType{};
 
+    unsigned int len{};
+
 
     while (sourceBegin != sourceEnd)
     {
@@ -1344,37 +1346,70 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
             {
                 if (*strBegin != 0xfe)
                 {
-                   //https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_text_resultset_column_definition.html
-                    //解析列定义包，因为前面的是数据库名 列名，不是很需要，直接定位到	length of fixed length fields
+                    //https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_text_resultset_column_definition.html
+                    len = *strBegin;
+                    //catalog
+                    lengthOfFixed = strBegin + len + 1;
 
-                    lengthOfFixed = std::find(strBegin + 1, strEnd, 0x0c);
-                   //character_set  暂时不是很需要，跳过
+                    len = *lengthOfFixed;
+                    //schema
+                    lengthOfFixed += len + 1;
+
+                    len = *lengthOfFixed;
+                    //table
+                    lengthOfFixed += len + 1;
+
+                    len = *lengthOfFixed;
+                    //org_table
+                    lengthOfFixed += len + 1;
+
+                    len = *lengthOfFixed;
+                    //name
+                    lengthOfFixed += len + 1;
+
+                    len = *lengthOfFixed;
+                    //org_name
+                    lengthOfFixed += len + 1;
+
+
+                    //	length of fixed length fields
+                    ++lengthOfFixed;
+                    //character_set  暂时不是很需要，跳过
                     lengthOfFixed += 2;
 
                     //column_length
-                    if (colLenBegin == colLenArr)
+
+                    if (colLenBegin == colLenMax)
                     {
                         //出错处理
                     }
 
-                    *colLenBegin++= static_cast<unsigned int>(*(lengthOfFixed)) + static_cast<unsigned int>(*(lengthOfFixed + 1)) * 256 +
+                    *colLenBegin++ = static_cast<unsigned int>(*(lengthOfFixed)) + static_cast<unsigned int>(*(lengthOfFixed + 1)) * 256 +
                         static_cast<unsigned int>(*(lengthOfFixed + 2)) * 65536 + static_cast<unsigned int>(*(lengthOfFixed + 3)) * 16777216;
 
                     //
                     lengthOfFixed += 4;
 
                     enumType = *lengthOfFixed;
+                    ++lengthOfFixed;
 
-                    //flags 暂时跳过
+                    //flags
                     lengthOfFixed += 2;
 
-                    if (std::distance(lengthOfFixed, strEnd) == 2)
+
+                    //decimals
+                    *colLenBegin++ = *lengthOfFixed;
+
+                    ++lengthOfFixed;
+
+
+                    //reserved
+                    lengthOfFixed += 2;
+
+                    if (std::distance(lengthOfFixed, strEnd))
                     {
-                        *colLenBegin++ = 0;
-                    }
-                    else
-                    {
-                        //待测试decimals情况
+                        len = *lengthOfFixed;
+                        //lengthOfFixed + 1,strEnd   default value
                     }
 
 
