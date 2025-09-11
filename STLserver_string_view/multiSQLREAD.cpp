@@ -1164,6 +1164,7 @@ void MULTISQLREAD::recvMysqlResult()
 //解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收  
 int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 {
+#define 	NOT_NULL_FLAG   1
 
     enum  	enum_field_types
     {
@@ -1231,12 +1232,13 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     int everyCommandResultSum{m_everyCommandResultSum };
 
     //执行成功           执行失败
-    static const std::string_view success{ "success" }, fail{ "fail" };
+    static const std::string_view success{ "success" }, fail{ "fail" }, emptyView{};
 
     const unsigned char* lengthOfFixed{};
 
-    //column_length 数组，直接分配足够大空间   每两位  第一位表示 column_length  第二位表示decimals
-    unsigned int colLenArr[256]{};
+    //column_length 数组，直接分配足够大空间   
+    // 每四位  第一位表示 column_length   第二位表示enumType   第三位表示flags    第四位表示decimals 
+    unsigned int colLenArr[512]{};
 
     unsigned int* colLenBegin{}, * colLenEnd{}, * colLenMax{ colLenArr + 256 };
 
@@ -1306,8 +1308,22 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
        
         //目前仅对int  varchar短字符串类型进行处理  其他情况待测试    (update  insert  delete select等已经支持)
         
+        /*
+    0执行命令string_view集
+    1执行命令个数
+    2每条命令的string_view个数（方便进行拼接）
+
+    3 first 每条命令获取结果个数，second 是否为事务语句  （因为比如一些事务操作可能不一定有结果返回，利用second
+    可以在事务中发生错误时快速跳转指针指向）、
+
+    4返回结果string_view
+    5每个结果的string_view个数
+
+    6回调函数
+    */
+        MYSQLResultTypeSW& thisRequest{**waitMessageListBegin };
         if (!checkTime)
-        {
+        {    
             switch (*strBegin)
             {
             case 10:
@@ -1320,7 +1336,64 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                 //update  insert  delete语句执行成功
                 queryOK = true;
 
-                ++commandBufBegin;
+                try
+                {
+                    if (!jumpNode)
+                    {
+                        std::get<4>(thisRequest).get().emplace_back(success);
+                        std::get<5>(thisRequest).get().emplace_back(1);
+                    }
+
+                }
+                catch (const std::exception& e)
+                {
+                    //出错处理，内存不足，不再往里面插入数据
+                    jumpNode = true;
+                }
+
+                if (++commandCurrentSize == commandTotalSize)
+                {
+                    do
+                    {
+                        //遍历查找定位有结果的命令
+                        while (++vecBegin != vecEnd)
+                        {
+                            ++commandBufBegin;
+                            if (vecBegin->first)
+                                break;
+                        }
+                        if (vecBegin != vecEnd)
+                        {
+                            commandTotalSize = vecBegin->first;
+                            commandCurrentSize = 0;
+                            break;
+                        }
+                        //根据是否发生过内存不足问题进行回调
+                        if (!jumpNode)
+                        {
+                            std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+                        }
+                        else
+                        {
+                            std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
+                        }
+                        if (++waitMessageListBegin == waitMessageListEnd)
+                            break;
+                        //将内存不足标志位复位
+                        jumpNode = false;
+                        vecBegin = std::get<3>(**waitMessageListBegin).get().cbegin();
+                        vecEnd = std::get<3>(**waitMessageListBegin).get().cend();
+                        if (vecBegin->first)
+                        {
+                            ++commandBufBegin;
+                            commandTotalSize = vecBegin->first;
+                            commandCurrentSize = 0;
+                            break;
+                        }
+                    } while (true);
+                }
+
+                
                 sourceBegin = strEnd;
                 continue;
                 break;
@@ -1328,7 +1401,65 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                 //update  insert  delete  select语句执行失败
                 queryOK = false;
 
-                ++commandBufBegin;
+
+                try
+                {
+                    if (!jumpNode)
+                    {
+                        std::get<4>(thisRequest).get().emplace_back(fail);
+                        std::get<5>(thisRequest).get().emplace_back(1);
+                    }
+
+                }
+                catch (const std::exception& e)
+                {
+                    //出错处理，内存不足，不再往里面插入数据
+                    jumpNode = true;
+                }
+
+                if (++commandCurrentSize == commandTotalSize)
+                {
+                    do
+                    {
+                        //遍历查找定位有结果的命令
+                        while (++vecBegin != vecEnd)
+                        {
+                            ++commandBufBegin;
+                            if (vecBegin->first)
+                                break;
+                        }
+                        if (vecBegin != vecEnd)
+                        {
+                            commandTotalSize = vecBegin->first;
+                            commandCurrentSize = 0;
+                            break;
+                        }
+                        //根据是否发生过内存不足问题进行回调
+                        if (!jumpNode)
+                        {
+                            std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
+                        }
+                        else
+                        {
+                            std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
+                        }
+                        if (++waitMessageListBegin == waitMessageListEnd)
+                            break;
+                        //将内存不足标志位复位
+                        jumpNode = false;
+                        vecBegin = std::get<3>(**waitMessageListBegin).get().cbegin();
+                        vecEnd = std::get<3>(**waitMessageListBegin).get().cend();
+                        if (vecBegin->first)
+                        {
+                            ++commandBufBegin;
+                            commandTotalSize = vecBegin->first;
+                            commandCurrentSize = 0;
+                            break;
+                        }
+                    } while (true);
+                }
+
+               
                 sourceBegin = strEnd;
                 continue;
                 break;
@@ -1391,7 +1522,14 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                     lengthOfFixed += 4;
 
                     enumType = *lengthOfFixed;
+
+                    //enumType
+                    *colLenBegin++ = enumType;
+
                     ++lengthOfFixed;
+
+                    //flags
+                    *colLenBegin++ = static_cast<unsigned int>(*(lengthOfFixed)) + static_cast<unsigned int>(*(lengthOfFixed + 1)) * 256;
 
                     //flags
                     lengthOfFixed += 2;
@@ -1437,23 +1575,53 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                     {
                         papaLen = *strBegin;
 
-                        if (papaLen != 251)
+                        if (*colLenBegin < 256)
                         {
-                            //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
-                            
-                            
-                            strBegin += papaLen + 1;
+                            if (papaLen != 251)
+                            {
+                                //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+
+                                strBegin += papaLen + 1;
+                            }
+                            else
+                            {
+                                if (*(colLenBegin + 2) & NOT_NULL_FLAG)
+                                {
+                                    //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+
+                                    strBegin += papaLen + 1;
+                                }
+                                else
+                                {
+                                    if (std::distance(strBegin + 1, strEnd) > 251)
+                                    {
+                                        //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+
+                                        strBegin += papaLen + 1;
+                                    }
+                                    else
+                                    {
+                                        //存储空string_view
+
+                                        ++strBegin;
+                                    }
+                                }
+                            }     
                         }
                         else
                         {
-                            //存储空string_view
-                            
-                            ++strBegin;
+                            //大型字符串待处理
+
+
+
+
                         }
+
                         ++everyCommandResultSum;
+                        
                     }
 
-                    
+                    colLenBegin += 4;
                 }
             }
         }
@@ -1475,6 +1643,31 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     {
         //检查出错的命令是否已经是最后一个命令，否则需要构建请求包发送
 
+    }
+    else
+    {
+        //如果处理完已经达到最后一个处理节点
+        if (waitMessageListBegin == waitMessageListEnd)
+        {
+            m_seqID = seqID;
+            return 1;
+        }
+        else
+        {
+            m_commandBufBegin = commandBufBegin;
+            m_commandBufEnd = commandBufEnd;
+            m_waitMessageListBegin = waitMessageListBegin;
+            m_commandTotalSize = commandTotalSize;
+            m_commandCurrentSize = commandCurrentSize;
+            m_checkTime = checkTime;
+            m_getResult = getResult;
+            m_jumpNode = jumpNode;
+            m_VecBegin = vecBegin;
+            m_VecEnd = vecEnd;
+            m_everyCommandResultSum = everyCommandResultSum;
+            m_readLen = 0;
+            return 3;
+        }
     }
 
     m_seqID = seqID;
