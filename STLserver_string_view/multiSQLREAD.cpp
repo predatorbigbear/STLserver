@@ -1346,7 +1346,6 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                     if (!jumpNode)
                     {
                         std::get<4>(thisRequest).get().emplace_back(success);
-                        std::get<5>(thisRequest).get().emplace_back(1);
                     }
 
                 }
@@ -1358,6 +1357,18 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
                 if (++commandCurrentSize == commandTotalSize)
                 {
+                    try
+                    {
+                        if (!jumpNode)
+                        {
+                            std::get<5>(thisRequest).get().emplace_back(commandCurrentSize);
+                        }
+                    }
+                    catch (const std::exception& e)
+                    {
+                        //出错处理，内存不足，不再往里面插入数据
+                        jumpNode = true;
+                    }
                     do
                     {
                         //遍历查找定位有结果的命令
@@ -1412,7 +1423,6 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                     if (!jumpNode)
                     {
                         std::get<4>(thisRequest).get().emplace_back(fail);
-                        std::get<5>(thisRequest).get().emplace_back(1);
                     }
 
                 }
@@ -1424,6 +1434,19 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
                 if (++commandCurrentSize == commandTotalSize)
                 {
+                    try
+                    {
+                        if (!jumpNode)
+                        {
+                            std::get<5>(thisRequest).get().emplace_back(commandCurrentSize);
+                        }
+                    }
+                    catch (const std::exception& e)
+                    {
+                        //出错处理，内存不足，不再往里面插入数据
+                        jumpNode = true;
+                    }
+
                     //失败时检查是否是事务语句
                     isTransaction = vecBegin->second;
                     do
@@ -1444,10 +1467,10 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                                         {
                                             for (i = 0; i != vecBegin->first; ++i)
                                             {
-                                                std::get<4>(thisRequest).get().emplace_back(fail);
+                                                std::get<4>(**waitMessageListBegin).get().emplace_back(fail);
 
                                             }
-                                            std::get<5>(thisRequest).get().emplace_back(vecBegin->first);
+                                            std::get<5>(**waitMessageListBegin).get().emplace_back(vecBegin->first);
                                         }
                                         catch (const std::exception& e)
                                         {
