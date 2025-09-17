@@ -1369,43 +1369,58 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                         //出错处理，内存不足，不再往里面插入数据
                         jumpNode = true;
                     }
+
+
+                    //优化处理，先处理本次waitMessageListBegin内的情况，
+                    // 不满足条件才进入循环处理
+                    //遍历查找定位有结果的命令
+                    while (++vecBegin != vecEnd)
+                    {
+                        ++commandBufBegin;
+                        if (vecBegin->first)
+                            break;
+                    }
+                    if (vecBegin != vecEnd)
+                    {
+                        commandTotalSize = vecBegin->first;
+                        commandCurrentSize = 0;
+                        sourceBegin = strEnd;
+                        continue;
+                    }
+
+                    //根据是否发生过内存不足问题进行回调
+                    if (!jumpNode)
+                    {
+                        std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+                    }
+                    else
+                    {
+                        std::get<6>(thisRequest)(false, ERRORMESSAGE::STD_BADALLOC);
+                    }
+
+                    //将内存不足标志位复位
+                    jumpNode = false;
+                    //进入循环处理
                     do
                     {
-                        //遍历查找定位有结果的命令
-                        while (++vecBegin != vecEnd)
+                        if (++waitMessageListBegin == waitMessageListEnd)
+                            break;
+                        vecBegin = std::get<3>(**waitMessageListBegin).get().cbegin();
+                        vecEnd = std::get<3>(**waitMessageListBegin).get().cend();
+                        do
                         {
                             ++commandBufBegin;
                             if (vecBegin->first)
                                 break;
-                        }
+                        } while (++vecBegin != vecEnd);
+
                         if (vecBegin != vecEnd)
                         {
                             commandTotalSize = vecBegin->first;
                             commandCurrentSize = 0;
                             break;
                         }
-                        //根据是否发生过内存不足问题进行回调
-                        if (!jumpNode)
-                        {
-                            std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
-                        }
-                        else
-                        {
-                            std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
-                        }
-                        if (++waitMessageListBegin == waitMessageListEnd)
-                            break;
-                        //将内存不足标志位复位
-                        jumpNode = false;
-                        vecBegin = std::get<3>(**waitMessageListBegin).get().cbegin();
-                        vecEnd = std::get<3>(**waitMessageListBegin).get().cend();
-                        if (vecBegin->first)
-                        {
-                            ++commandBufBegin;
-                            commandTotalSize = vecBegin->first;
-                            commandCurrentSize = 0;
-                            break;
-                        }
+                        std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
                     } while (true);
                 }
 
@@ -1448,73 +1463,85 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                     }
 
                     //失败时检查是否是事务语句
+                    //优化处理，先处理本次waitMessageListBegin内的情况，
+                    // 不满足条件才进入循环处理
                     isTransaction = vecBegin->second;
+
+                    while (++vecBegin != vecEnd)
+                    {
+                        ++commandBufBegin;
+                        if (vecBegin->first)
+                        {
+                            //如果是事务语句，则需要将中间跳过的语句全部返回失败
+                            if (isTransaction && vecBegin->second)
+                            {
+                                if (!jumpNode)
+                                {
+                                    try
+                                    {
+                                        for (i = 0; i != vecBegin->first; ++i)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(fail);
+
+                                        }
+                                        std::get<5>(thisRequest).get().emplace_back(vecBegin->first);
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                isTransaction = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (vecBegin != vecEnd)
+                    {
+                        commandTotalSize = vecBegin->first;
+                        commandCurrentSize = 0;
+                        sourceBegin = strEnd;
+                        continue;
+                    }
+                    //根据是否发生过内存不足问题进行回调
+                    if (!jumpNode)
+                    {
+                        std::get<6>(thisRequest)(true, ERRORMESSAGE::OK);
+                    }
+                    else
+                    {
+                        std::get<6>(thisRequest)(false, ERRORMESSAGE::STD_BADALLOC);
+                    }
+                    isTransaction = false;
+
+
+                    //将内存不足标志位复位
+                    jumpNode = false;
+                    //进入循环处理
                     do
                     {
-                        //遍历查找定位有结果的命令
-						
-                        while (++vecBegin != vecEnd)
+                        if (++waitMessageListBegin == waitMessageListEnd)
+                            break;
+                        vecBegin = std::get<3>(**waitMessageListBegin).get().cbegin();
+                        vecEnd = std::get<3>(**waitMessageListBegin).get().cend();
+                        do
                         {
                             ++commandBufBegin;
                             if (vecBegin->first)
-                            {
-								//如果是事务语句，则需要将中间跳过的语句全部返回失败
-                                if (isTransaction && vecBegin->second)
-                                {
-                                    if (!jumpNode)
-                                    {
-                                        try
-                                        {
-                                            for (i = 0; i != vecBegin->first; ++i)
-                                            {
-                                                std::get<4>(**waitMessageListBegin).get().emplace_back(fail);
+                                break;
+                        } while (++vecBegin != vecEnd);
 
-                                            }
-                                            std::get<5>(**waitMessageListBegin).get().emplace_back(vecBegin->first);
-                                        }
-                                        catch (const std::exception& e)
-                                        {
-                                            //出错处理，内存不足，不再往里面插入数据
-                                            jumpNode = true;
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    isTransaction = false;
-                                    break;
-                                }
-                            }
-                        }
                         if (vecBegin != vecEnd)
                         {
                             commandTotalSize = vecBegin->first;
                             commandCurrentSize = 0;
                             break;
                         }
-                        //根据是否发生过内存不足问题进行回调
-                        if (!jumpNode)
-                        {
-                            std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
-                        }
-                        else
-                        {
-                            std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
-                        }
-                        isTransaction = false;
-                        if (++waitMessageListBegin == waitMessageListEnd)
-                            break;
-                        //将内存不足标志位复位
-                        jumpNode = false;
-                        vecBegin = std::get<3>(**waitMessageListBegin).get().cbegin();
-                        vecEnd = std::get<3>(**waitMessageListBegin).get().cend();
-                        if (vecBegin->first)
-                        {
-                            ++commandBufBegin;
-                            commandTotalSize = vecBegin->first;
-                            commandCurrentSize = 0;
-                            break;
-                        }
+                        std::get<6>(**waitMessageListBegin)(true, ERRORMESSAGE::OK);
                     } while (true);
                 }
 
@@ -1639,7 +1666,19 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                             if (papaLen != 251)
                             {
                                 //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                    }
 
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
                                 strBegin += papaLen + 1;
                             }
                             else
@@ -1647,7 +1686,19 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                                 if (*(colLenBegin + 2) & NOT_NULL_FLAG)
                                 {
                                     //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                        }
 
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
                                     strBegin += papaLen + 1;
                                 }
                                 else
@@ -1655,13 +1706,37 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                                     if (std::distance(strBegin + 1, strEnd) > 251)
                                     {
                                         //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+                                        try
+                                        {
+                                            if (!jumpNode)
+                                            {
+                                                std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                            }
 
+                                        }
+                                        catch (const std::exception& e)
+                                        {
+                                            //出错处理，内存不足，不再往里面插入数据
+                                            jumpNode = true;
+                                        }
                                         strBegin += papaLen + 1;
                                     }
                                     else
                                     {
                                         //存储空string_view
+                                        try
+                                        {
+                                            if (!jumpNode)
+                                            {
+                                                std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                            }
 
+                                        }
+                                        catch (const std::exception& e)
+                                        {
+                                            //出错处理，内存不足，不再往里面插入数据
+                                            jumpNode = true;
+                                        } 
                                         ++strBegin;
                                     }
                                 }
