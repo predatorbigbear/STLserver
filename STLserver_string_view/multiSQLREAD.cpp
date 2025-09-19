@@ -2004,8 +2004,176 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
 void MULTISQLREAD::readyMysqlMessage()
 {
+    //每个MYSQLResultTypeSW请求内容的字符串总长度
+    unsigned int everyTotalLen{};
 
 
+    //客户端接收消息单个数据包最大大小
+    const unsigned int clientBufMaxSize{ m_clientBufMaxSize - 4 };
+
+    std::shared_ptr<MYSQLResultTypeSW>* waitMessageListBegin{};
+
+    std::shared_ptr<MYSQLResultTypeSW>* waitMessageListEnd{};
+
+    unsigned int thisClientSendLen{};
+
+
+    //////////////////////////////////
+
+
+    unsigned char* buffer{ m_msgBuf.get() + 4 };
+    int index{ 0 };
+    std::vector<unsigned int>::const_iterator sqlNumIter{ };
+
+    *buffer++ = 0x03; //com_query
+
+    //存储命令起始位置
+    unsigned char** commandBufBegin{};
+
+
+
+    ////////////////////////////////////
+
+
+    while (true)
+    {
+        thisClientSendLen = 0;
+        waitMessageListBegin = m_waitMessageList.get();
+        waitMessageListEnd = waitMessageListBegin + m_commandMaxSize;
+
+
+        //从m_messageList中获取元素到m_waitMessageList中
+
+        do
+        {
+            if (!m_messageList.try_dequeue(*waitMessageListBegin))
+                break;
+            ++waitMessageListBegin;
+        } while (waitMessageListBegin != waitMessageListEnd);
+        if (waitMessageListBegin == m_waitMessageList.get())
+        {
+            m_queryStatus.store(1);
+            break;
+        }
+
+
+        //尝试计算总命令个数  命令字符串所需要总长度,不用检查非空问题
+        waitMessageListEnd = waitMessageListBegin;
+        waitMessageListBegin = m_waitMessageList.get();
+        everyTotalLen = 0;
+
+
+        //这里采用根据redis模块改进的写法，先计算每个MYSQLResultTypeSW内的字符串总长度
+        //再判断clientSendLen + everyTotalLen 是否大于 m_clientBufMaxSize - 4
+        //改进之后可以直接在一次循环内实现判断字符串长度是否超出缓冲区大小并同时组装字符串
+        //后面测试好之后再去改进redis模块实现，让性能更上一层楼
+
+
+        buffer = m_msgBuf.get() + 4 ;
+       
+        *buffer++ = 0x03; //com_query
+
+        commandBufBegin = m_commandBuf.get();
+
+        do
+        {
+            MYSQLResultTypeSW& thisRequest{ **waitMessageListBegin };
+
+            everyTotalLen = std::accumulate(std::get<0>(thisRequest).get().cbegin(), std::get<0>(thisRequest).get().cend(), 0, [](auto& sum, auto const sw)
+            {
+                return sum += sw.size();
+            });
+            everyTotalLen += std::get<1>(thisRequest) + 1;
+
+            if (thisClientSendLen + everyTotalLen > clientBufMaxSize)
+                break;
+
+            thisClientSendLen += everyTotalLen;
+
+
+            ///////////////////////////////////////////////////////////////////
+
+            sqlNumIter = std::get<2>(thisRequest).get().cbegin();
+            index = 0;
+
+
+            *commandBufBegin++ = buffer;
+            for (auto sw : std::get<0>(thisRequest).get())
+            {
+                std::copy(sw.cbegin(), sw.cend(), buffer);
+                buffer += sw.size();
+                if (++index == *sqlNumIter)
+                {
+                    index = 0;
+                    ++sqlNumIter;
+                    *buffer++ = ';';
+                    *commandBufBegin++ = buffer;
+                }
+            }
+
+
+        } while (++waitMessageListBegin != waitMessageListEnd);
+
+
+        if (waitMessageListBegin == m_waitMessageList.get())
+        {
+            //返回错误提示
+
+
+        }
+
+
+        m_commandBufEnd = commandBufBegin;
+        m_commandBufBegin = m_commandBuf.get();
+
+        MYSQLResultTypeSW& thisRequest{ **m_waitMessageList.get() };
+
+        m_VecBegin = std::get<3>(thisRequest).get().cbegin();
+        m_VecEnd = std::get<3>(thisRequest).get().cbegin();
+
+        do
+        {
+            if (m_VecBegin->first)
+                break;
+            ++m_commandBufBegin;
+        } while (++m_VecBegin != m_VecEnd);
+
+        clientBegin = m_msgBuf.get();
+        *clientBegin = thisClientSendLen % 256;
+        *(clientBegin + 1) = thisClientSendLen / 256 % 256;
+        *(clientBegin + 2) = thisClientSendLen / 65536 % 256;
+
+        if (firstQuery)
+        {
+            firstQuery = false;
+            *(clientBegin + 3) = m_seqID = 0;
+        }
+        else
+            *(clientBegin + 3) = ++m_seqID;
+
+        thisClientSendLen += 4;
+
+        clientSendLen = thisClientSendLen;
+
+        m_msgBufNowSize = clientSendLen;
+
+        m_waitMessageListNowSize = 1;
+
+        m_waitMessageListEnd = waitMessageListBegin;
+
+        m_waitMessageListBegin = m_waitMessageList.get();
+
+        m_commandTotalSize = m_VecBegin->first;
+
+        m_commandCurrentSize = 0;
+
+        m_sendBuf = m_msgBuf.get();
+
+        m_recvBuf = m_msgBuf.get() + clientSendLen;
+
+
+
+    }
 
 }
 
