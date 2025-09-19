@@ -223,6 +223,11 @@ private:
 
 	unsigned int m_commandCurrentSize{};              //本次节点结果数当前计数
 
+	//column_length 数组，直接分配足够大空间   
+	// 每四位  第一位表示 column_length   第二位表示enumType   第三位表示flags    第四位表示decimals 
+	std::unique_ptr<unsigned int[]>m_colLenArr{};
+
+	const unsigned int m_colLenMax{ 512 };
 
 	///////////////////////////////////////////////////////////////////
 	// 
@@ -330,6 +335,10 @@ private:
 
 	//解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收   
 	int parseMysqlResult(const std::size_t bytes_transferred);
+
+
+	//发送给mysql-server的命令拼装函数
+	void readyMysqlMessage();
 };
 
 

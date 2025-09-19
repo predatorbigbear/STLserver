@@ -21,7 +21,10 @@ MULTISQLREAD::MULTISQLREAD(const std::shared_ptr<boost::asio::io_context>& ioc, 
 
     m_waitMessageListMaxSize = m_commandMaxSize;
 
+
     m_commandBuf.reset(new unsigned char*[commandMaxSize * commandMaxSize]);
+
+    m_colLenArr.reset(new unsigned int[m_colLenMax]);
 
 	connectMysql();
 }
@@ -1139,7 +1142,7 @@ void MULTISQLREAD::recvMysqlResult()
 
                 break;
             case 1:
-
+                readyMysqlMessage();
 
                 break;
             case 2:
@@ -1238,9 +1241,9 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     //column_length 数组，直接分配足够大空间   
     // 每四位  第一位表示 column_length   第二位表示enumType   第三位表示flags    第四位表示decimals 
-    unsigned int colLenArr[512]{};
+    unsigned int *colLenArr{ m_colLenArr.get()};
 
-    unsigned int* colLenBegin{}, * colLenEnd{}, * colLenMax{ colLenArr + 256 };
+    unsigned int* colLenBegin{}, * colLenEnd{}, * colLenMax{ colLenArr + m_colLenMax };
 
     unsigned char enumType{};
 
@@ -1251,7 +1254,87 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     int i{};
 
+    /*
+    
+    MySQL 8.0中不同编码类型的长度值及占用空间如下：
 
+数值类型
+整数类型‌：
+
+TINYINT：1字节，范围-128~127（有符号）或0~255（无符号）
+1
+SMALLINT：2字节，范围-32768~32767（有符号）或0~65535（无符号）
+1
+MEDIUMINT：3字节，范围-8388608~8388607（有符号）或0~16777215（无符号）
+1
+INT/INTEGER：4字节，范围-2147483648~2147483647（有符号）或0~4294967295（无符号）
+1
+3
+BIGINT：8字节，范围-2~2-1（有符号）或0~2-1（无符号）
+1
+3
+浮点类型‌：
+
+FLOAT：4字节，单精度浮点数
+1
+3
+DOUBLE：8字节，双精度浮点数
+1
+3
+DECIMAL(M,D)：可变长度，M为总位数，D为小数位数，占用空间为(M+2)字节
+3
+14
+日期/时间类型
+DATE：3字节（格式yyyy-mm-dd）
+1
+TIME：3~6字节（格式HH:MM）
+1
+YEAR：1字节（格式yyyy）
+1
+DATETIME：5~8字节（格式yyyy-mm-dd HH:MM）
+1
+TIMESTAMP：4~7字节（范围1970-2038年）
+1
+字符串类型
+定长字符串‌：
+
+CHAR(M)：固定占用M×字符集字节数（UTF8MB4为4字节/字符）
+8
+9
+BINARY(M)：固定占用M字节
+9
+变长字符串‌：
+
+VARCHAR(M)：
+占用空间 = 实际字符数×字符集字节数 + 长度头（1或2字节）
+长度≤255字符时用1字节记录长度，否则用2字节
+7
+9
+VARBINARY(M)：同VARCHAR但存储二进制数据
+9
+大文本类型‌：
+
+TINYTEXT/TINYBLOB：最大255字节，1字节长度头
+9
+TEXT/BLOB：最大65,535字节，2字节长度头
+9
+MEDIUMTEXT/MEDIUMBLOB：最大16MB，3字节长度头
+9
+LONGTEXT/LONGBLOB：最大4GB，4字节长度头
+9
+特殊类型
+BIT(M)：占用(M+7)/8字节
+1
+ENUM/SET：根据选项数量占用1~8字节
+9
+JSON：类似LONGTEXT存储，额外支持JSON验证
+4
+编码影响
+UTF8MB4编码下，每个字符最多占4字节，VARCHAR最大可定义16,383字符（因行限制65,535字节）
+7
+GBK编码下中文占2字节，UTF8编码下中文占3字节
+    
+    */
     while (sourceBegin != sourceEnd)
     {
         if (std::distance(sourceBegin, sourceEnd) < 4)
@@ -1729,10 +1812,11 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                 {
                     while (strBegin != strEnd)
                     {
-                        papaLen = *strBegin;
 
                         if (*colLenBegin < 256)
                         {
+                            papaLen = *strBegin;
+
                             if (papaLen != 251)
                             {
                                 //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
@@ -1814,10 +1898,24 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
                         }
                         else
                         {
-                            //大型字符串待处理
+                            //大型字符串待处理   目前仅对int短值和varchar 两种类型进行处理，其他类型后续添加，先跑通全程看看
 
+                            papaLen = static_cast<unsigned int>(*(strBegin)) + static_cast<unsigned int>(*(strBegin + 1)) * 256;
 
+                            try
+                            {
+                                if (!jumpNode)
+                                {
+                                    std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 2)), papaLen));
+                                }
 
+                            }
+                            catch (const std::exception& e)
+                            {
+                                //出错处理，内存不足，不再往里面插入数据
+                                jumpNode = true;
+                            }
+                            strBegin += papaLen + 2;
 
                         }
 
@@ -1835,8 +1933,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
 
 
-        
-
+      
 
         ++checkTime;
         sourceBegin = strEnd;
@@ -1899,6 +1996,16 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     m_seqID = seqID;
     return 1;
+
+}
+
+
+
+
+void MULTISQLREAD::readyMysqlMessage()
+{
+
+
 
 }
 

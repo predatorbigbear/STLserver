@@ -3181,10 +3181,15 @@ void MULTIREDISREADCOPY::readyMessage()
 	static const int divisor{ 10 };
 	int totalLen{}, everyLen{}, index{}, temp{}, thisStrLen{};
 
+	std::shared_ptr<redisResultTypeSW>* waitMessageListBegin{};
+
+	std::shared_ptr<redisResultTypeSW>* waitMessageListEnd{};
+
+
 	while (true)
 	{
-		m_waitMessageListBegin = m_waitMessageList.get();
-		m_waitMessageListEnd = m_waitMessageList.get() + m_commandMaxSize;
+		waitMessageListBegin = m_waitMessageList.get();
+		waitMessageListEnd = waitMessageListBegin + m_commandMaxSize;
 
 
 		//从m_messageList中获取元素到m_waitMessageList中
@@ -3192,11 +3197,11 @@ void MULTIREDISREADCOPY::readyMessage()
 
 		do
 		{
-			if (!m_messageList.try_dequeue(*m_waitMessageListBegin))
+			if (!m_messageList.try_dequeue(*waitMessageListBegin))
 				break;
-			++m_waitMessageListBegin;
-		} while (m_waitMessageListBegin != m_waitMessageListEnd);
-		if (m_waitMessageListBegin == m_waitMessageList.get())
+			++waitMessageListBegin;
+		} while (waitMessageListBegin != waitMessageListEnd);
+		if (waitMessageListBegin == m_waitMessageList.get())
 		{
 			m_queryStatus.store(1);
 			break;
@@ -3204,14 +3209,14 @@ void MULTIREDISREADCOPY::readyMessage()
 
 
 		//尝试计算总命令个数  命令字符串所需要总长度,不用检查非空问题
-		m_waitMessageListEnd = m_waitMessageListBegin;
-		m_waitMessageListBegin = m_waitMessageList.get();
+		waitMessageListEnd = waitMessageListBegin;
+		waitMessageListBegin = m_waitMessageList.get();
 		totalLen = 0;
 
 
 		do
 		{
-			redisResultTypeSW& request{ **m_waitMessageListBegin };
+			redisResultTypeSW& request{ **waitMessageListBegin };
 
 			std::vector<std::string_view>& sourceVec = std::get<0>(request).get();
 			std::vector<unsigned int>& lenVec = std::get<2>(request).get();
@@ -3243,7 +3248,7 @@ void MULTIREDISREADCOPY::readyMessage()
 					}
 				}
 			} while (++lenBegin != lenEnd);
-		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
+		} while (++waitMessageListBegin != waitMessageListEnd);
 
 
 
@@ -3260,12 +3265,12 @@ void MULTIREDISREADCOPY::readyMessage()
 			{
 				m_messageBufferMaxSize = 0;
 
-				m_waitMessageListBegin = m_waitMessageList.get();
+				waitMessageListBegin = m_waitMessageList.get();
 				do
 				{
-					std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
+					std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::STD_BADALLOC);
 
-				} while (++m_waitMessageListBegin != m_waitMessageListEnd);
+				} while (++waitMessageListBegin != waitMessageListEnd);
 				continue;
 			}
 		}
@@ -3276,11 +3281,11 @@ void MULTIREDISREADCOPY::readyMessage()
 
 		/////////生成请求命令字符串
 
-		m_waitMessageListBegin = m_waitMessageList.get();
+		waitMessageListBegin = m_waitMessageList.get();
 		messageIter = m_messageBuffer.get();
 		do
 		{
-			redisResultTypeSW& request{ **m_waitMessageListBegin };
+			redisResultTypeSW& request{ **waitMessageListBegin };
 
 			std::vector<std::string_view>& sourceVec = std::get<0>(request).get();
 			std::vector<unsigned int>& lenVec = std::get<2>(request).get();
@@ -3359,7 +3364,7 @@ void MULTIREDISREADCOPY::readyMessage()
 					}
 				}
 			} while (++lenBegin != lenEnd);
-		} while (++m_waitMessageListBegin != m_waitMessageListEnd);
+		} while (++waitMessageListBegin != waitMessageListEnd);
 
 
 
@@ -3372,9 +3377,11 @@ void MULTIREDISREADCOPY::readyMessage()
 
 		m_waitMessageListBegin = m_waitMessageList.get();
 
+		m_waitMessageListEnd = waitMessageListEnd;
+
 		m_jumpNode = false;
 
-		m_commandTotalSize = std::get<3>(**m_waitMessageListBegin);
+		m_commandTotalSize = std::get<3>(**m_waitMessageList.get());
 
 		m_commandCurrentSize = 0;
 		//////////////////////////////////////////////////////
