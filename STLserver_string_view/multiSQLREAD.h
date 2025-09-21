@@ -250,6 +250,9 @@ private:
 
 	std::shared_ptr<MYSQLResultTypeSW> *m_waitMessageListEnd{};
 
+	//每次m_waitMessageList开始检查节点
+	std::shared_ptr<MYSQLResultTypeSW>* m_waitMessageListStart{};
+
 	///////////////////////////////////////////////////////////
 
 

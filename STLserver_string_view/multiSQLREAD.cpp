@@ -2075,6 +2075,8 @@ void MULTISQLREAD::readyMysqlMessage()
 
         commandBufBegin = m_commandBuf.get();
 
+        m_waitMessageListStart = waitMessageListBegin;
+
         do
         {
             MYSQLResultTypeSW& thisRequest{ **waitMessageListBegin };
@@ -2085,8 +2087,28 @@ void MULTISQLREAD::readyMysqlMessage()
             });
             everyTotalLen += std::get<1>(thisRequest) + 1;
 
+            //检查waitMessageListStart是否等于waitMessageListBegin
+            //如果等于，返回错误，跳转到下一个节点
             if (thisClientSendLen + everyTotalLen > clientBufMaxSize)
-                break;
+            {
+                if (waitMessageListBegin == m_waitMessageListStart)
+                {
+                    std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::MYSQL_QUERY_LEN_TOO_LONG);
+                    m_waitMessageListStart = ++waitMessageListBegin;
+                    if (waitMessageListBegin != waitMessageListEnd)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
 
             thisClientSendLen += everyTotalLen;
 
@@ -2115,18 +2137,17 @@ void MULTISQLREAD::readyMysqlMessage()
         } while (++waitMessageListBegin != waitMessageListEnd);
 
 
-        if (waitMessageListBegin == m_waitMessageList.get())
+        //所有节点均长度超长的情况，跳转到循环开始处重新处理
+        if (m_waitMessageListStart == waitMessageListEnd)
         {
-            //返回错误提示
-
-
+            continue;
         }
 
 
         m_commandBufEnd = commandBufBegin;
         m_commandBufBegin = m_commandBuf.get();
 
-        MYSQLResultTypeSW& thisRequest{ **m_waitMessageList.get() };
+        MYSQLResultTypeSW& thisRequest{ **m_waitMessageListStart };
 
         m_VecBegin = std::get<3>(thisRequest).get().cbegin();
         m_VecEnd = std::get<3>(thisRequest).get().cbegin();
@@ -2161,7 +2182,7 @@ void MULTISQLREAD::readyMysqlMessage()
 
         m_waitMessageListEnd = waitMessageListBegin;
 
-        m_waitMessageListBegin = m_waitMessageList.get();
+        m_waitMessageListBegin = m_waitMessageListStart;
 
         m_commandTotalSize = m_VecBegin->first;
 
@@ -2172,6 +2193,23 @@ void MULTISQLREAD::readyMysqlMessage()
         m_recvBuf = m_msgBuf.get() + clientSendLen;
 
 
+
+        //开始接收mysql查询结果
+           //是否跳过本次请求的标志
+        m_jumpNode = false;
+
+        //检查次数
+        m_checkTime = 0;
+
+        //是否开始获取结果
+        m_getResult = false;
+
+        m_everyCommandResultSum = 0;
+
+        //发送sql请求
+        mysqlQuery();
+
+        break;
 
     }
 

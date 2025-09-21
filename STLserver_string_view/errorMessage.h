@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 enum class ERRORMESSAGE
@@ -26,6 +26,8 @@ enum class ERRORMESSAGE
 	REDIS_READY_QUERY_ERROR,
 
 	STD_BADALLOC,
+
+	MYSQL_QUERY_LEN_TOO_LONG,
 
 	NO_KEY,
 
