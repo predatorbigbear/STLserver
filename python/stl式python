@@ -1,0 +1,26 @@
+//最近开始学AI开发，发觉python是可以写成stl的
+
+sourceStr="""POST /api/login HTTP/1.1\r\n
+Host: example.com\r\n
+Content-Type: application/json\r\n
+Authorization: Bearer abc123xyz\r\n
+User-Agent: Mozilla/5.0\r\n
+Content-Length: 56\r\n\r\n
+{"username":"testuser","password":"P@ssw0rd123"}""";
+
+sourceLen= len(sourceStr);
+funBegin=0;
+funEnd=sourceStr.find(" ",funBegin,sourceLen);
+if funEnd==-1:
+    exit();
+print(funEnd);
+
+urlBegin=sourceStr.find("/",funEnd+1,sourceLen);
+if urlBegin==-1:
+    exit();
+print(urlBegin);
+
+urlEnd=sourceStr.find(" ",urlBegin+1,sourceLen);
+if urlEnd==-1:
+    exit();
+print(urlEnd);
