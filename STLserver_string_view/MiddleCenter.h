@@ -7,6 +7,7 @@
 #include "listener.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
+#include "multiSQLREADPool.h"
 #include "multiRedisReadPool.h"
 #include "multiRedisReadCopyPool.h"
 #include "multiRedisWritePool.h"
@@ -98,6 +99,13 @@ struct MiddleCenter
 		const unsigned int commandMaxSize = 50, const int bufferNum = 1);
 
 
+
+	void setMultiSqlRead(const std::shared_ptr<IOcontextPool>& ioPool, bool& success, const std::string& SQLHOST,
+		const std::string& SQLUSER,
+		const std::string& SQLPASSWORD, const std::string& SQLDB, const unsigned int SQLPORT,
+		const int bufferNum = 1, const unsigned int commandMaxSize = 50, const unsigned int bufferSize = 67108864);
+
+
 	void initMysql(bool& success);
 	
 	void freeMysql();
@@ -155,6 +163,7 @@ private:
 
 	std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   主数据库写入连接池
 	std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   主数据库读取连接池
+	std::shared_ptr<MULTISQLREADPOOL>m_multiSqlReadPoolMaster{};               //   新mysql读取连接池
 
 	std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
 	std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池

@@ -3,8 +3,9 @@
 MULTISQLREAD::MULTISQLREAD(const std::shared_ptr<boost::asio::io_context>& ioc, const std::shared_ptr<std::function<void()>>& unlockFun,
 	const std::shared_ptr<STLTimeWheel>& timeWheel, const std::shared_ptr<ASYNCLOG>& log, 
 	const std::string& SQLHOST, const std::string& SQLUSER, const std::string& SQLPASSWORD,
-	const std::string& SQLDB, const unsigned int& SQLPORT, 
-    const unsigned int commandMaxSize, bool& success, const unsigned int bufferSize) :m_ioc(ioc), m_unlockFun(unlockFun),
+	const std::string& SQLDB, const unsigned int SQLPORT, 
+    bool& success,
+    const unsigned int commandMaxSize, const unsigned int bufferSize) :m_ioc(ioc), m_unlockFun(unlockFun),
     m_timeWheel(timeWheel), m_log(log), m_host(SQLHOST), m_user(SQLUSER), m_passwd(SQLPASSWORD), m_db(SQLDB),
     m_port(SQLPORT), m_commandMaxSize(commandMaxSize), m_msgBufMaxSize(bufferSize * 6), m_clientBufMaxSize(bufferSize),
     m_success(&success),m_messageList(commandMaxSize * 6)
@@ -676,6 +677,7 @@ void MULTISQLREAD::recvAuthResult1()
                 {
                     if (firstConnect)
                     {
+                        std::cout << "new mysql module auth success\n";
                         *m_success = true;
                         (*m_unlockFun)();
                     }
@@ -798,6 +800,7 @@ void MULTISQLREAD::recvAuthOKPacket()
             {
                 if (firstConnect)
                 {
+                    std::cout << "new mysql module auth success\n";
                     *m_success = true;
                     (*m_unlockFun)();
                 }
@@ -2094,9 +2097,9 @@ void MULTISQLREAD::readyMysqlMessage()
                 if (waitMessageListBegin == m_waitMessageListStart)
                 {
                     std::get<6>(**waitMessageListBegin)(false, ERRORMESSAGE::MYSQL_QUERY_LEN_TOO_LONG);
-                    m_waitMessageListStart = ++waitMessageListBegin;
-                    if (waitMessageListBegin != waitMessageListEnd)
+                    if (++waitMessageListBegin != waitMessageListEnd)
                     {
+                        m_waitMessageListStart = waitMessageListBegin;
                         continue;
                     }
                     else

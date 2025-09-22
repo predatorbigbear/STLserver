@@ -330,8 +330,6 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 
 		if (!m_hasSetListener && m_logPool)
 		{
-			//m_test.reset(new MULTISQLREAD(ioPool->getIoNext(), m_unlockFun, m_timeWheel, m_logPool->getLogNext(), "127.0.0.1",
-			//	"root", "884378abc", "serversql", 3306, 50, success));
 			m_randomCode.reset(new RandomCodeGenerator());
 			m_webListener.reset(new WEBSERVICELISTENER(ioPool, m_multiSqlReadSWPoolMaster,
 				m_multiRedisReadPoolMaster, m_multiRedisReadCopyPoolMaster, m_multiRedisWritePoolMaster,
@@ -459,6 +457,34 @@ void MiddleCenter::setMultiSqlWriteSW(const std::shared_ptr<IOcontextPool> &ioPo
 		m_mutex.unlock();
 	}
 }
+
+
+
+
+void MiddleCenter::setMultiSqlRead(const std::shared_ptr<IOcontextPool>& ioPool, bool& success,
+	const std::string& SQLHOST, const std::string& SQLUSER, const std::string& SQLPASSWORD, const std::string& SQLDB, 
+	const unsigned int SQLPORT, const int bufferNum, const unsigned int commandMaxSize, const unsigned int bufferSize)
+{
+	try
+	{
+		m_mutex.lock();
+		if (!success)
+		{
+			m_mutex.unlock();
+			return;
+		}
+		m_multiSqlReadPoolMaster.reset(new MULTISQLREADPOOL(ioPool, m_unlockFun, m_timeWheel, m_logPool ,
+			SQLHOST, SQLUSER, SQLPASSWORD, SQLDB, SQLPORT, success, commandMaxSize, bufferSize , bufferNum));
+		success = true;
+	}
+	catch (const std::exception& e)
+	{
+		cout << e.what() << "   ,please restart server\n";
+		success = false;
+		m_mutex.unlock();
+	}
+}
+
 
 
 //加载mysql库文件，在调用mysql C api之前调用

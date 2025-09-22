@@ -75,8 +75,9 @@ struct MULTISQLREAD
 		const std::shared_ptr<STLTimeWheel>& timeWheel,
 		const std::shared_ptr<ASYNCLOG>& log,
 		const std::string &SQLHOST, const std::string &SQLUSER,
-		const std::string &SQLPASSWORD, const std::string &SQLDB, const unsigned int &SQLPORT, 
-		const unsigned int commandMaxSize, bool& success, const unsigned int bufferSize = 67108864);
+		const std::string &SQLPASSWORD, const std::string &SQLDB, const unsigned int SQLPORT, 
+		bool& success,
+		const unsigned int commandMaxSize, const unsigned int bufferSize = 67108864);
 
 
 	//插入请求，首先判断是否连接mysql服务器成功，

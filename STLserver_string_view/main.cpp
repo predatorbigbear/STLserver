@@ -1,4 +1,6 @@
-﻿#include "IOcontextPool.h"
+﻿
+
+#include "IOcontextPool.h"
 #include "MiddleCenter.h"
 #include "MyReqView.h"
 
@@ -66,6 +68,15 @@ int main()
 			m1.freeMysql();
 			return -8;
 		}
+
+		//设置mysql  连接地址   用户名  密码  连接数据库名称  端口
+		m1.setMultiSqlRead(ioPool, success, "127.0.0.1", "root", "884378abc", "serversql", 3306);
+		if (!success)
+		{
+			m1.freeMysql();
+			return -8;
+		}
+
 
 		//绑定8085端口  http默认网页文件夹   1024处理对象   60s内超时        网页端文件存储目录需要存在
 		//{}填入想要缓存起来的文件，内部会调用gzip预先进行压缩
