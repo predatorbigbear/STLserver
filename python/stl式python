@@ -1,4 +1,4 @@
-//最近开始学AI开发，发觉python是可以写成stl的
+
 
 sourceStr="""POST /api/login HTTP/1.1\r\n
 Host: example.com\r\n
@@ -29,8 +29,7 @@ while index!=sourceLen:
     else:
         index+=1;
 
-
-if index==-1:
+if index==sourceLen:
     exit();
 
 urlEnd=0;
@@ -69,7 +68,7 @@ while True:
         else:
             index+=1;
 
-    if index==-1:
+    if index==sourceLen:
         break;
 
     if index-lastIndex >3:
@@ -85,7 +84,7 @@ while True:
         if sourceStr[index] != " ":
             break;
 
-    if index==-1:
+    if index==sourceLen:
         break;
 
     valueBegin = index;
@@ -97,3 +96,26 @@ while True:
 
 
 print("parse success\n");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
