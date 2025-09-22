@@ -8,19 +8,92 @@ User-Agent: Mozilla/5.0\r\n
 Content-Length: 56\r\n\r\n
 {"username":"testuser","password":"P@ssw0rd123"}""";
 
+
 sourceLen= len(sourceStr);
 funBegin=0;
 funEnd=sourceStr.find(" ",funBegin,sourceLen);
 if funEnd==-1:
     exit();
-print(funEnd);
+
 
 urlBegin=sourceStr.find("/",funEnd+1,sourceLen);
 if urlBegin==-1:
     exit();
-print(urlBegin);
 
-urlEnd=sourceStr.find(" ",urlBegin+1,sourceLen);
-if urlEnd==-1:
+
+index=urlBegin+1;
+#似乎python缺乏find_if这样的操作，只能上手while循环解决了
+while index!=sourceLen:
+    if sourceStr[index]=="?" or sourceStr[index]==" ":
+        break;
+    else:
+        index+=1;
+
+
+if index==-1:
     exit();
-print(urlEnd);
+
+urlEnd=0;
+#查找？到“ ”的位置
+if sourceStr[index]=="?":
+    urlEnd = sourceStr.find(" ", urlBegin + 1, sourceLen);
+    if urlEnd == -1:
+        exit();
+else:
+    urlEnd=index;
+
+
+httpBegin = sourceStr.find("HTTP/",urlEnd+1,sourceLen);
+if httpBegin == -1:
+    exit();
+
+versionBegin =httpBegin+5;
+
+versionEnd = sourceStr.find("\r",versionBegin,sourceLen);
+if versionEnd == -1:
+    exit();
+
+index = versionEnd;
+lastIndex=0;
+headerBegin = 0;
+headerEnd=0;
+valueBegin = 0;
+valueEnd =0;
+
+#循环解析header 和value
+while True:
+    lastIndex = index;
+    while index != sourceLen:
+        if sourceStr[index] != "\r" and sourceStr[index] != "\n" and sourceStr[index]!=" ":
+            break;
+        else:
+            index+=1;
+
+    if index==-1:
+        break;
+
+    if index-lastIndex >3:
+        break;
+
+    headerBegin=index;
+    headerEnd=sourceStr.find(":",headerBegin+1,sourceLen);
+    if headerEnd == -1:
+        break;
+
+    index= headerEnd;
+    while ++index != sourceLen:
+        if sourceStr[index] != " ":
+            break;
+
+    if index==-1:
+        break;
+
+    valueBegin = index;
+    valueEnd = sourceStr.find("\r",valueBegin+1,sourceLen);
+    if valueEnd == -1:
+        break;
+
+    index = valueEnd;
+
+
+print("parse success\n");
