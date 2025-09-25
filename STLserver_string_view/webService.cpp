@@ -12,6 +12,7 @@ WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
 	const std::shared_ptr<MULTIREDISREADCOPY>& multiRedisReadCopyMaster,
 	const std::shared_ptr<MULTIREDISWRITE>& multiRedisWriteMaster,
 	const std::shared_ptr<MULTISQLWRITESW>& multiSqlWriteSWMaster,
+	const std::shared_ptr<MULTISQLREAD>& multiSqlReadMaster,
 	const std::shared_ptr<STLTimeWheel>& timeWheel,
 	const std::shared_ptr<std::vector<std::string>>& fileVec,
 	const std::shared_ptr<std::vector<std::string>>& BGfileVec,
@@ -26,7 +27,7 @@ WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
 	m_multiSqlReadSWMaster(multiSqlReadSWMaster), m_fileVec(fileVec), m_clearFunction(cleanFun),
 	m_multiRedisReadMaster(multiRedisReadMaster), m_multiRedisWriteMaster(multiRedisWriteMaster), m_multiSqlWriteSWMaster(multiSqlWriteSWMaster),
 	m_timeOut(timeOut), m_timeWheel(timeWheel), m_maxReadLen(bufNum), m_defaultReadLen(bufNum), m_serviceNum(serviceNum),
-	m_multiRedisReadCopyMaster(multiRedisReadCopyMaster), m_verifyCode(verifyCode)
+	m_multiRedisReadCopyMaster(multiRedisReadCopyMaster), m_verifyCode(verifyCode), m_multiSqlReadMaster(multiSqlReadMaster)
 {
 	try
 	{
@@ -38,6 +39,8 @@ WEBSERVICE::WEBSERVICE(const std::shared_ptr<io_context>& ioc,
 			throw std::runtime_error("timeOut is invaild");
 		if (!multiSqlReadSWMaster)
 			throw std::runtime_error("multiSqlReadSWMaster is nullptr");
+		if (!multiSqlReadMaster)
+			throw std::runtime_error("multiSqlReadMaster is nullptr");
 		if (!multiRedisReadMaster)
 			throw std::runtime_error("multiRedisReadMaster is nullptr");
 		if (!multiRedisWriteMaster)
@@ -106,14 +109,17 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 		m_port = remote_ep.port();
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
 		//判断是否是中国境内公网ip地址，不是则启动回收socket操作
-		if (m_checkIP->is_china_ipv4(m_IP))
+
+		run();
+		/*if (m_checkIP->is_china_ipv4(m_IP))
 		{
 			run();
 		}
 		else
 		{
 			clean();
-		}	
+		}
+		*/
 	}
 	else
 	{
@@ -282,6 +288,10 @@ void WEBSERVICE::switchPOSTInterface()
 		getUserInfoExamine();
 		break;
 
+		//测试新mysql模块
+	case WEBSERVICEINTERFACE::web_testMysql:
+		testMysql();
+		break;
 
 		//默认，不匹配任何接口情况
 	default:
@@ -551,6 +561,10 @@ void WEBSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 		break;
 
 	case ERRORMESSAGE::SQL_RESULT_TOO_LAGGE:
+		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+		break;
+
+	case ERRORMESSAGE::MYSQL_QUERY_LEN_TOO_LONG:
 		startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 		break;
 
@@ -853,11 +867,12 @@ void WEBSERVICE::prepare()
 	m_MemoryPool.reset();
 
 
-	int i = -1, j{}, z{};
+	int i = -1, j{}, z{}, y{};
 
-	m_stringViewVec.resize(15, std::vector<std::string_view>{});
+	m_stringViewVec.resize(22, std::vector<std::string_view>{});
 	m_mysqlResVec.resize(3, std::vector<MYSQL_RES*>{});
-	m_unsignedIntVec.resize(15, std::vector<unsigned int>{});
+	m_unsignedIntVec.resize(22, std::vector<unsigned int>{});
+	m_unsignedIntBoolVec.resize(3, std::vector<std::pair<unsigned int, bool>>{});
 
 	while (++i != 4)
 	{
@@ -867,12 +882,13 @@ void WEBSERVICE::prepare()
 
 
 
-	i = -1, j = -1, z = -1;
+	i = -1, j = -1, z = -1,y=-1;
 	while (++i != 3)
 	{
 		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));
 		m_multiRedisRequestSWVec.emplace_back(std::make_shared<redisResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], 0, m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, m_MemoryPool));
 		m_multiRedisWriteSWVec.emplace_back(std::make_shared<redisWriteTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z]));
+		m_multiSqlRequestVec.emplace_back(std::make_shared<MYSQLResultTypeSW>(m_stringViewVec[++j], 0, m_unsignedIntVec[++z], m_unsignedIntBoolVec[++y], m_stringViewVec[++j], m_unsignedIntVec[++z], nullptr, m_MemoryPool));
 	}
 
 	keyVec.resize(10, {});
@@ -6033,6 +6049,107 @@ void WEBSERVICE::handlegetUserInfoExamine(bool result, ERRORMESSAGE em)
 		handleERRORMESSAGE(em);
 	}
 
+}
+
+
+/*
+在serversql下使用以下建表语句创建表user进行测试
+
+ CREATE TABLE `user` (
+  `account` varchar(20) NOT NULL COMMENT '账号名',
+  `password` varchar(30) NOT NULL COMMENT '密码',
+  `phone` varchar(15) NOT NULL COMMENT '手机号',
+  `email` varchar(50) DEFAULT NULL COMMENT '邮箱',
+  `name` varchar(45) DEFAULT NULL COMMENT '姓名',
+  `height` int DEFAULT NULL COMMENT '身高',
+  `age` int DEFAULT NULL COMMENT '年龄',
+  `province` int DEFAULT NULL COMMENT '省份',
+  `city` int DEFAULT NULL COMMENT '城市',
+  `examine` int DEFAULT '0',
+  PRIMARY KEY (`account`),
+  UNIQUE KEY `account_UNIQUE` (`account`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+*/
+
+
+
+//测试新mysql模块
+void WEBSERVICE::testMysql()
+{
+	std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
+
+	MYSQLResultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& everyCommandNum{ std::get<2>(thisRequest).get() };
+
+	std::vector<std::pair<unsigned int, bool>>& resultTypeVec{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
+
+
+	command.clear();
+	everyCommandNum.clear();
+	resultTypeVec.clear();
+	result.clear();
+	sqlNum.clear();
+
+
+	try
+	{
+		
+		command.emplace_back(std::string_view(SQLCOMMAND::testMysql, SQLCOMMAND::testMysqlLen));
+
+		//执行命令个数
+		std::get<1>(thisRequest) = 1;
+		everyCommandNum.emplace_back(1);
+		resultTypeVec.emplace_back(std::make_pair(1, false));
+
+		
+		std::get<6>(thisRequest) = std::bind(&WEBSERVICE::handletestMysql, this, std::placeholders::_1, std::placeholders::_2);
+
+
+		if (!m_multiSqlReadMaster->insertMysqlRequest(sqlRequest))
+			startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+			
+          
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+	}
+
+}
+
+
+
+void WEBSERVICE::handletestMysql(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
+
+		MYSQLResultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+		std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
+
+		if(result.size()!=10)
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+		startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
 }
 
 

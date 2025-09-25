@@ -7,6 +7,7 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(const std::shared_ptr<IOcontextPool> &ioP
 	const std::shared_ptr<MULTIREDISREADCOPYPOOL>& multiRedisReadCopyPoolMaster,
 	const std::shared_ptr<MULTIREDISWRITEPOOL> &multiRedisWritePoolMaster,
 	const std::shared_ptr<MULTISQLWRITESWPOOL> &multiSqlWriteSWPoolMaster,
+	const std::shared_ptr<MULTISQLREADPOOL>& multiSqlReadPoolMaster,
 	const std::string &tcpAddress, const std::string &doc_root,
 	const std::shared_ptr<LOGPOOL> &logPool,
 	const std::shared_ptr<std::vector<std::string>> &fileVec,
@@ -23,11 +24,13 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(const std::shared_ptr<IOcontextPool> &ioP
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster),m_checkIP(checkIP), m_logPool(logPool),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
 	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_randomCode(randomCode),
-	m_multiRedisReadCopyPoolMaster(multiRedisReadCopyPoolMaster), m_verifyCode(verifyCode)
+	m_multiRedisReadCopyPoolMaster(multiRedisReadCopyPoolMaster), m_verifyCode(verifyCode),
+	m_multiSqlReadPoolMaster(multiSqlReadPoolMaster)
 {
 	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 && checkSecond && m_timeWheel
 		&& m_multiSqlReadSWPoolMaster && m_fileVec && m_BGfileVec && m_randomCode && multiRedisReadCopyPoolMaster
 		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster && m_checkIP && m_verifyCode
+		&& multiSqlReadPoolMaster
 		)
 	{
 		m_log = m_logPool->getLogNext();
@@ -56,7 +59,8 @@ WEBSERVICELISTENER::WEBSERVICELISTENER(const std::shared_ptr<IOcontextPool> &ioP
 		
 		m_httpServicePool.reset(new FixedWEBSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster, m_multiRedisReadCopyPoolMaster, m_multiRedisWritePoolMaster,
-			m_multiSqlWriteSWPoolMaster, m_startFunction, m_logPool, m_timeWheel, m_fileVec, m_BGfileVec,
+			m_multiSqlWriteSWPoolMaster, m_multiSqlReadPoolMaster ,
+			m_startFunction, m_logPool, m_timeWheel, m_fileVec, m_BGfileVec,
 			m_timeOut, m_clearFunction, m_checkIP, m_randomCode, m_verifyCode,
 			m_socketNum));
 		if (!m_httpServicePool->ready())

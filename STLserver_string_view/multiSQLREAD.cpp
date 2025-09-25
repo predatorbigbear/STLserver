@@ -79,7 +79,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         {
             return sum += sw.size();
         });
-        clientSendLen += std::get<1>(thisRequest) + 1;
+        clientSendLen += std::get<1>(thisRequest);
 
         if (clientSendLen > (m_clientBufMaxSize - 4))
         {
@@ -130,7 +130,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         m_commandBufBegin = m_commandBuf.get();
 
         m_VecBegin = std::get<3>(thisRequest).get().cbegin();
-        m_VecEnd = std::get<3>(thisRequest).get().cbegin();
+        m_VecEnd = std::get<3>(thisRequest).get().cend();
 
         do
         {
@@ -1141,7 +1141,7 @@ void MULTISQLREAD::recvMysqlResult()
             switch(parseMysqlResult(bytes_transferred))
             {
             case 0:
-
+                std::cout << "parseMysqlResult   0\n";
 
                 break;
             case 1:
@@ -1149,15 +1149,15 @@ void MULTISQLREAD::recvMysqlResult()
 
                 break;
             case 2:
-
+                std::cout << "parseMysqlResult   2\n";
 
                 break;
             case 3:
-
-
+                recvMysqlResult();
                 break;
            
             default:
+                std::cout << "parseMysqlResult   unknown\n";
 
                 break;
             }
@@ -1186,7 +1186,10 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     };
 
     if (!bytes_transferred)
+    {
+        m_readLen = 0;
         return 3;
+    }
 
     //总接收数据
     const unsigned char* sourceBegin{ m_recvBuf }, * sourceEnd{ m_recvBuf + bytes_transferred };
@@ -1976,7 +1979,9 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
         //如果处理完已经达到最后一个处理节点
         if (waitMessageListBegin == waitMessageListEnd)
         {
-            m_seqID = seqID;
+            //全部处理完毕后序列号归0
+            firstQuery = true;
+            m_seqID = 0;
             return 1;
         }
         else
@@ -2080,6 +2085,8 @@ void MULTISQLREAD::readyMysqlMessage()
 
         m_waitMessageListStart = waitMessageListBegin;
 
+        *commandBufBegin++ = buffer;
+
         do
         {
             MYSQLResultTypeSW& thisRequest{ **waitMessageListBegin };
@@ -2088,7 +2095,7 @@ void MULTISQLREAD::readyMysqlMessage()
             {
                 return sum += sw.size();
             });
-            everyTotalLen += std::get<1>(thisRequest) + 1;
+            everyTotalLen += std::get<1>(thisRequest);
 
             //检查waitMessageListStart是否等于waitMessageListBegin
             //如果等于，返回错误，跳转到下一个节点
@@ -2122,7 +2129,6 @@ void MULTISQLREAD::readyMysqlMessage()
             index = 0;
 
 
-            *commandBufBegin++ = buffer;
             for (auto sw : std::get<0>(thisRequest).get())
             {
                 std::copy(sw.cbegin(), sw.cend(), buffer);
@@ -2135,7 +2141,6 @@ void MULTISQLREAD::readyMysqlMessage()
                     *commandBufBegin++ = buffer;
                 }
             }
-
 
         } while (++waitMessageListBegin != waitMessageListEnd);
 
@@ -2153,7 +2158,7 @@ void MULTISQLREAD::readyMysqlMessage()
         MYSQLResultTypeSW& thisRequest{ **m_waitMessageListStart };
 
         m_VecBegin = std::get<3>(thisRequest).get().cbegin();
-        m_VecEnd = std::get<3>(thisRequest).get().cbegin();
+        m_VecEnd = std::get<3>(thisRequest).get().cend();
 
         do
         {
@@ -2161,6 +2166,8 @@ void MULTISQLREAD::readyMysqlMessage()
                 break;
             ++m_commandBufBegin;
         } while (++m_VecBegin != m_VecEnd);
+
+       
 
         clientBegin = m_msgBuf.get();
         *clientBegin = thisClientSendLen % 256;
@@ -2181,7 +2188,7 @@ void MULTISQLREAD::readyMysqlMessage()
 
         m_msgBufNowSize = clientSendLen;
 
-        m_waitMessageListNowSize = 1;
+        m_waitMessageListNowSize = std::distance(m_waitMessageListStart, waitMessageListBegin);
 
         m_waitMessageListEnd = waitMessageListBegin;
 

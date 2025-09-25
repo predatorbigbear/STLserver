@@ -1,5 +1,5 @@
-﻿
-/*
+﻿/*
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -39,10 +39,13 @@ int main()
 
     return 0;
 }
-*/
+
 
 
 //使用搜狗workflow最简单的Hello World例子与我的接口4性能在单核环节下进行对比
 //为了测试更准确，每次编译完后重启再进行测试
 //测试的虚拟机上装有mysql 和  redis
 //接下来使用这个测试文件 用wrk进行测试    26348 ，接下来看我的接口4恐怖性能吧 
+
+
+*/

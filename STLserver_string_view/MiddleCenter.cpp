@@ -333,7 +333,7 @@ void MiddleCenter::setWebserviceServer(const std::shared_ptr<IOcontextPool> &ioP
 			m_randomCode.reset(new RandomCodeGenerator());
 			m_webListener.reset(new WEBSERVICELISTENER(ioPool, m_multiSqlReadSWPoolMaster,
 				m_multiRedisReadPoolMaster, m_multiRedisReadCopyPoolMaster, m_multiRedisWritePoolMaster,
-				m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
+				m_multiSqlWriteSWPoolMaster, m_multiSqlReadPoolMaster,tcpAddress, doc_root, m_logPool,
 				m_webFileVec, m_webBGFileVec,
 				socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey, m_checkIP, m_randomCode, m_verifyCode));
 			m_hasSetListener = true;

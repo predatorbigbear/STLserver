@@ -5,6 +5,7 @@
 #include "readBuffer.h"
 #include "ASYNCLOG.h"
 #include "multiSQLREADSW.h"
+#include "multiSQLREAD.h"
 #include "sqlCommand.h"
 #include "mysql/mysql.h"
 #include "httpinterface.h"
@@ -39,6 +40,7 @@ struct WEBSERVICE
 		const std::shared_ptr<MULTIREDISREADCOPY>& multiRedisReadCopyMaster,
 		const std::shared_ptr<MULTIREDISWRITE> &multiRedisWriteMaster, 
 		const std::shared_ptr<MULTISQLWRITESW> &multiSqlWriteSWMaster,
+		const std::shared_ptr<MULTISQLREAD>& multiSqlReadMaster,
 		const std::shared_ptr<STLTimeWheel> &timeWheel,
 		const std::shared_ptr<std::vector<std::string>> &fileVec,
 		const std::shared_ptr<std::vector<std::string>> &BGfileVec,
@@ -132,6 +134,31 @@ private:
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+	/*
+	0执行命令string_view集
+	1执行命令个数
+	2每条命令的string_view个数（方便进行拼接）
+
+	3 first 每条命令获取结果个数，second 是否为事务语句  （因为比如一些事务操作可能不一定有结果返回，利用second
+	可以在事务中发生错误时快速跳转指针指向）、
+
+
+	4返回结果string_view
+	5每个结果的string_view个数
+
+	6回调函数
+	*/
+	// 
+	using MYSQLResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int,
+		std::reference_wrapper<std::vector<unsigned int>>,
+		std::reference_wrapper<std::vector<std::pair<unsigned int, bool>>>,
+		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
+
+
+
+
 	/*
 	执行命令string_view集,string_view集中不需要加;   多条sql语句应分开多条string_view传入
 	获取的结果个数
@@ -183,11 +210,13 @@ private:
 
 
 	//每次使用前先进行清空操作
-	std::vector<std::vector<std::string_view>>m_stringViewVec{};     //stringView分配vec
+	std::vector<std::vector<std::string_view>>m_stringViewVec{};                    //stringView分配vec
 
-	std::vector<std::vector<MYSQL_RES*>>m_mysqlResVec;             //mysql_Res* 分配的vec
+	std::vector<std::vector<MYSQL_RES*>>m_mysqlResVec;                              //mysql_Res* 分配的vec
 
-	std::vector<std::vector<unsigned int>>m_unsignedIntVec;        //unsigned int 分配的vector
+	std::vector<std::vector<unsigned int>>m_unsignedIntVec;                         //unsigned int 分配的vector
+
+	std::vector<std::vector<std::pair<unsigned int, bool>>>m_unsignedIntBoolVec;   // std::pair<unsigned int,bool> 分配的vector
 
 	std::vector<STLtreeFast>m_STLtreeFastVec;
 
@@ -203,6 +232,9 @@ private:
 	std::vector<std::shared_ptr<resultTypeSW>> m_multiSqlRequestSWVec;
 
 
+	std::vector<std::shared_ptr<MYSQLResultTypeSW>> m_multiSqlRequestVec;
+
+
 	std::vector<std::shared_ptr<redisResultTypeSW>> m_multiRedisRequestSWVec;
 
 
@@ -214,6 +246,8 @@ private:
 
 
 	const std::shared_ptr<MULTISQLREADSW>m_multiSqlReadSWMaster{};
+
+	const std::shared_ptr<MULTISQLREAD> m_multiSqlReadMaster{};
 
 	const std::shared_ptr<MULTIREDISREAD>m_multiRedisReadMaster{};
 
@@ -695,7 +729,11 @@ private:
 	void handlegetUserInfoExamine(bool result, ERRORMESSAGE em);
 
 
+	//测试新mysql模块
+	void testMysql();
 
+
+	void handletestMysql(bool result, ERRORMESSAGE em);
 
 
 

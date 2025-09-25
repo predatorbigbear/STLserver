@@ -309,7 +309,9 @@ enum WEBSERVICEINTERFACE
 
 	web_getUserInfo = 10,
 
-	web_getUserInfoExamine = 11
+	web_getUserInfoExamine = 11,
+
+	web_testMysql =12
 
 };
 

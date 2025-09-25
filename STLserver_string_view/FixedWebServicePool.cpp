@@ -8,6 +8,7 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(const std::shared_ptr<IOcontextPool> &i
 	const std::shared_ptr<MULTIREDISREADCOPYPOOL>& multiRedisReadCopyPoolMaster,
 	const std::shared_ptr<MULTIREDISWRITEPOOL> &multiRedisWritePoolMaster, 
 	const std::shared_ptr<MULTISQLWRITESWPOOL> &multiSqlWriteSWPoolMaster,
+	const std::shared_ptr<MULTISQLREADPOOL>& multiSqlReadPoolMaster,
 	const std::shared_ptr<std::function<void()>> &reAccept,
 	const std::shared_ptr<LOGPOOL> &logPool, 
 	const std::shared_ptr<STLTimeWheel> &timeWheel,
@@ -23,7 +24,8 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(const std::shared_ptr<IOcontextPool> &i
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_fileVec(fileVec), m_BGfileVec(BGfileVec), m_verifyCode(verifyCode),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster), m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
 	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_multiRedisReadCopyPoolMaster(multiRedisReadCopyPoolMaster),
-	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun), m_checkIP(checkIP)
+	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun), m_checkIP(checkIP),
+	m_multiSqlReadPoolMaster(multiSqlReadPoolMaster)
 {
 	try
 	{
@@ -39,6 +41,8 @@ FixedWEBSERVICEPOOL::FixedWEBSERVICEPOOL(const std::shared_ptr<IOcontextPool> &i
 			throw std::runtime_error("timeOut is invaild");
 		if (!multiSqlReadSWPoolMaster)
 			throw std::runtime_error("multiSqlReadSWPoolMaster is null");
+		if (!multiSqlReadPoolMaster)
+			throw std::runtime_error("multiSqlReadPoolMaster is null");
 		if (!multiRedisReadPoolMaster)
 			throw std::runtime_error("multiRedisReadPoolMaster is null");
 		if (!multiRedisWritePoolMaster)
@@ -88,6 +92,7 @@ bool FixedWEBSERVICEPOOL::ready()
 					m_multiRedisReadPoolMaster->getRedisNext(),
 					m_multiRedisReadCopyPoolMaster->getRedisNext(),
 					m_multiRedisWritePoolMaster->getRedisNext(), m_multiSqlWriteSWPoolMaster->getSqlNext(),
+					m_multiSqlReadPoolMaster->getSqlNext(),
 					m_timeWheel,m_fileVec, m_BGfileVec,
 					m_timeOut, m_success,i+1, m_cleanFun, m_checkIP, m_randomCode, m_verifyCode
 					);
