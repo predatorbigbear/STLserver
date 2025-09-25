@@ -154,10 +154,6 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
 
         clientSendLen += 4;
 
-        m_msgBufNowSize = clientSendLen;
-
-        m_waitMessageListNowSize = 1;
-
         *(m_waitMessageList.get()) = mysqlRequest;
 
         m_waitMessageListBegin = m_waitMessageList.get();
@@ -2185,10 +2181,6 @@ void MULTISQLREAD::readyMysqlMessage()
         thisClientSendLen += 4;
 
         clientSendLen = thisClientSendLen;
-
-        m_msgBufNowSize = clientSendLen;
-
-        m_waitMessageListNowSize = std::distance(m_waitMessageListStart, waitMessageListBegin);
 
         m_waitMessageListEnd = waitMessageListBegin;
 
