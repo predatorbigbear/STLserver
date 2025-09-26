@@ -110,8 +110,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port);
 		//判断是否是中国境内公网ip地址，不是则启动回收socket操作
 
-		run();
-		/*if (m_checkIP->is_china_ipv4(m_IP))
+		if (m_checkIP->is_china_ipv4(m_IP))
 		{
 			run();
 		}
@@ -119,7 +118,6 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 		{
 			clean();
 		}
-		*/
 	}
 	else
 	{
@@ -882,7 +880,7 @@ void WEBSERVICE::prepare()
 
 
 
-	i = -1, j = -1, z = -1,y=-1;
+	i = -1, j = -1, z = -1, y = -1;
 	while (++i != 3)
 	{
 		m_multiSqlRequestSWVec.emplace_back(std::make_shared<resultTypeSW>(m_stringViewVec[++j], 0, m_mysqlResVec[i], m_unsignedIntVec[++z], m_stringViewVec[++j], nullptr, m_unsignedIntVec[++z]));

@@ -16,6 +16,7 @@
 #include "STLTimeWheel.h"
 #include "httpResult.h"
 #include "commonStruct.h"
+#include "multiSQLREAD.h"
 
 
 #include<ctype.h>
@@ -29,6 +30,7 @@ struct HTTPSERVICE
 		const std::shared_ptr<MULTIREDISREAD> &multiRedisReadMaster,
 		const std::shared_ptr<MULTIREDISWRITE> &multiRedisWriteMaster, 
 		const std::shared_ptr<MULTISQLWRITESW> &multiSqlWriteSWMaster,
+		const std::shared_ptr<MULTISQLREAD> &multiSqlReadMaster,
 		const std::shared_ptr<STLTimeWheel> &timeWheel,
 		const std::shared_ptr<std::unordered_map<std::string_view, std::string>> &fileMap,
 		const unsigned int timeOut, bool& success, const unsigned int serviceNum,
@@ -140,12 +142,40 @@ private:
 	using redisWriteTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int, std::reference_wrapper<std::vector<unsigned int>>>;
 
 
+
+	/*
+	0执行命令string_view集
+	1执行命令个数
+	2每条命令的string_view个数（方便进行拼接）
+
+	3 first 每条命令获取结果个数，second 是否为事务语句  （因为比如一些事务操作可能不一定有结果返回，利用second
+	可以在事务中发生错误时快速跳转指针指向）、
+
+
+	4返回结果string_view
+	5每个结果的string_view个数
+
+	6回调函数
+	*/
+	// 
+	using MYSQLResultTypeSW = std::tuple<std::reference_wrapper<std::vector<std::string_view>>, unsigned int,
+		std::reference_wrapper<std::vector<unsigned int>>,
+		std::reference_wrapper<std::vector<std::pair<unsigned int, bool>>>,
+		std::reference_wrapper<std::vector<std::string_view>>, std::reference_wrapper<std::vector<unsigned int>>,
+		std::function<void(bool, enum ERRORMESSAGE)>, MEMORYPOOL<>&>;
+
+
+
+
+
 	//每次使用前先进行清空操作
 	std::vector<std::vector<std::string_view>>m_stringViewVec{};     //stringView分配vec
 
 	std::vector<std::vector<MYSQL_RES*>>m_mysqlResVec;             //mysql_Res* 分配的vec
 
 	std::vector<std::vector<unsigned int>>m_unsignedIntVec;        //unsigned int 分配的vector
+
+	std::vector<std::vector<std::pair<unsigned int, bool>>>m_unsignedIntBoolVec;   // std::pair<unsigned int,bool> 分配的vector
 
 	std::vector<STLtreeFast>m_STLtreeFastVec;
 
@@ -159,6 +189,9 @@ private:
 
 
 	std::vector<std::shared_ptr<resultTypeSW>> m_multiSqlRequestSWVec;
+
+
+	std::vector<std::shared_ptr<MYSQLResultTypeSW>> m_multiSqlRequestVec;
 
 
 	std::vector<std::shared_ptr<redisResultTypeSW>> m_multiRedisRequestSWVec;
@@ -178,6 +211,8 @@ private:
 	const std::shared_ptr<MULTIREDISWRITE>m_multiRedisWriteMaster{};
 
 	const std::shared_ptr<MULTISQLWRITESW>m_multiSqlWriteSWMaster{};
+
+	const std::shared_ptr<MULTISQLREAD> m_multiSqlReadMaster{};
 
 
 
@@ -595,6 +630,10 @@ private:
 	void testFirstTime();
 
 
+	//测试新mysql客户端
+	void testHttpMysql();
+
+	void handletestHttpMysql(bool result, ERRORMESSAGE em);
 
 	//////////////////////////////////////////////////////////////////////
 

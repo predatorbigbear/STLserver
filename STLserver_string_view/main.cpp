@@ -83,14 +83,14 @@ int main()
 		//{}是一个vector，可以为空
 		
 		//启动HTTP示例,测试接口4性能开启setHTTPServer，注释setCheckIP  setVerifyCode    setWebserviceServer即可
-		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
+		m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", {"webfile"}, 1024, 30);
 		
 		//启动HTTPS可以仿照以下示例
 		//m1.setHTTPServer(ioPool, success, "0.0.0.0:8085", "/home/webHttp/httpDir", { "webfile" }, 1024, 30, 
 		//	false, "/home/certs/web.crt", "/home/certs/web.key");
 
 
-		
+		/*
 		m1.setCheckIP(ioPool, "ftp.apnic.net", "80", "CN", "/home/download/ipRecord.txt", success);
 		if (!success)
 		{
@@ -110,7 +110,7 @@ int main()
 		
 		m1.setWebserviceServer(ioPool, success, "0.0.0.0:8085", "/home/kongweb", { "0","1","2","3","4" },
 			"/home/backWeb", { "0","1","2","3" }, 50, 60, "/home/certs/web.crt", "/home/certs/web.key");
-			
+			*/
 
 		if (!success)
 		{

@@ -152,7 +152,7 @@ void MiddleCenter::setHTTPServer(const std::shared_ptr<IOcontextPool> &ioPool, b
 			{
 				m_listener.reset(new listener(ioPool, m_multiSqlReadSWPoolMaster,
 					m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
-					m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
+					m_multiSqlWriteSWPoolMaster, m_multiSqlReadPoolMaster, tcpAddress, doc_root, m_logPool,
 					m_fileMap,
 					socketNum, timeOut, m_checkSecond, m_timeWheel));
 			}
@@ -160,7 +160,7 @@ void MiddleCenter::setHTTPServer(const std::shared_ptr<IOcontextPool> &ioPool, b
 			{
 				m_httpsListener.reset(new HTTPSlistener(ioPool, m_multiSqlReadSWPoolMaster,
 					m_multiRedisReadPoolMaster, m_multiRedisWritePoolMaster,
-					m_multiSqlWriteSWPoolMaster, tcpAddress, doc_root, m_logPool,
+					m_multiSqlWriteSWPoolMaster, m_multiSqlReadPoolMaster ,tcpAddress, doc_root, m_logPool,
 					m_fileMap,
 					socketNum, timeOut, m_checkSecond, m_timeWheel, cert, privateKey));
 			}

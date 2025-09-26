@@ -279,7 +279,9 @@ enum INTERFACE
 
 	testmultiSqlReadUpdateSW = 22,
 
-	testInsertHttpHeader = 23
+	testInsertHttpHeader = 23,
+
+	testHttpMysql = 24
 };
 
 

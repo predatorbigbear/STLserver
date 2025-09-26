@@ -7,6 +7,7 @@ FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(const std::shared_ptr<IOcontextPool>&
 	const std::shared_ptr<MULTIREDISREADPOOL>& multiRedisReadPoolMaster,
 	const std::shared_ptr<MULTIREDISWRITEPOOL>& multiRedisWritePoolMaster,
 	const std::shared_ptr<MULTISQLWRITESWPOOL>& multiSqlWriteSWPoolMaster,
+	const std::shared_ptr<MULTISQLREADPOOL>& multiSqlReadPoolMaster,
 	const std::shared_ptr<std::function<void()>>& reAccept,
 	const std::shared_ptr<LOGPOOL>& logPool,
 	const std::shared_ptr<STLTimeWheel>& timeWheel,
@@ -17,7 +18,7 @@ FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(const std::shared_ptr<IOcontextPool>&
 	m_ioPool(ioPool), m_reAccept(reAccept), m_logPool(logPool), m_doc_root(doc_root),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_fileMap(fileMap),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster), m_multiRedisWritePoolMaster(multiRedisWritePoolMaster), m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster),
-	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun)
+	m_timeOut(timeOut), m_beginSize(beginSize), m_timeWheel(timeWheel), m_cleanFun(cleanFun), m_multiSqlReadPoolMaster(multiSqlReadPoolMaster)
 {
 	try
 	{
@@ -39,6 +40,8 @@ FixedHTTPSERVICEPOOL::FixedHTTPSERVICEPOOL(const std::shared_ptr<IOcontextPool>&
 			throw std::runtime_error("multiRedisWritePoolMaster is null");
 		if (!multiSqlWriteSWPoolMaster)
 			throw std::runtime_error("multiSqlWriteSWPoolMaster is null");
+		if(!multiSqlReadPoolMaster)
+			throw std::runtime_error("multiSqlReadPoolMaster is null");
 		if (doc_root.empty())
 			throw std::runtime_error("doc_root is empty");
 		if(!timeWheel)
@@ -73,6 +76,7 @@ bool FixedHTTPSERVICEPOOL::ready()
 					m_multiSqlReadSWPoolMaster->getSqlNext(),
 					m_multiRedisReadPoolMaster->getRedisNext(),
 					m_multiRedisWritePoolMaster->getRedisNext(), m_multiSqlWriteSWPoolMaster->getSqlNext(),
+					m_multiSqlReadPoolMaster->getSqlNext(),
 					m_timeWheel,m_fileMap,
 					m_timeOut, m_success,i+1, m_cleanFun
 					);

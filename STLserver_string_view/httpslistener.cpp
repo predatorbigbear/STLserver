@@ -6,6 +6,7 @@ HTTPSlistener::HTTPSlistener(const std::shared_ptr<IOcontextPool>& ioPool,
 	const std::shared_ptr<MULTIREDISREADPOOL>& multiRedisReadPoolMaster,
 	const std::shared_ptr<MULTIREDISWRITEPOOL>& multiRedisWritePoolMaster,
 	const std::shared_ptr<MULTISQLWRITESWPOOL>& multiSqlWriteSWPoolMaster,
+	const std::shared_ptr<MULTISQLREADPOOL>& multiSqlReadPoolMaster,
 	const std::string& tcpAddress,
 	const std::string& doc_root,
 	const std::shared_ptr<LOGPOOL>& logPool,
@@ -18,10 +19,10 @@ HTTPSlistener::HTTPSlistener(const std::shared_ptr<IOcontextPool>& ioPool,
 	m_doc_root(doc_root), m_tcpAddress(tcpAddress), m_fileMap(fileMap),
 	m_multiSqlReadSWPoolMaster(multiSqlReadSWPoolMaster), m_logPool(logPool),
 	m_multiRedisReadPoolMaster(multiRedisReadPoolMaster),m_multiRedisWritePoolMaster(multiRedisWritePoolMaster),
-	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster)
+	m_multiSqlWriteSWPoolMaster(multiSqlWriteSWPoolMaster), m_multiSqlReadPoolMaster(multiSqlReadPoolMaster)
 {
 	if (m_ioPool &&  !doc_root.empty() && !tcpAddress.empty() && logPool && m_timeOut > 0 && checkSecond && m_timeWheel
-		&& m_multiSqlReadSWPoolMaster 
+		&& m_multiSqlReadSWPoolMaster && m_multiSqlReadPoolMaster
 		&& m_multiRedisReadPoolMaster && m_multiRedisWritePoolMaster && multiSqlWriteSWPoolMaster
 		)
 	{
@@ -51,7 +52,7 @@ HTTPSlistener::HTTPSlistener(const std::shared_ptr<IOcontextPool>& ioPool,
 		
 		m_httpServicePool.reset(new FixedHTTPSSERVICEPOOL(m_ioPool, m_doc_root, m_multiSqlReadSWPoolMaster,
 			m_multiRedisReadPoolMaster ,m_multiRedisWritePoolMaster,
-			m_multiSqlWriteSWPoolMaster,m_startFunction, m_logPool, m_timeWheel, m_fileMap,
+			m_multiSqlWriteSWPoolMaster, m_multiSqlReadPoolMaster ,m_startFunction, m_logPool, m_timeWheel, m_fileMap,
 			m_timeOut, m_clearFunction,
 			m_socketNum));
 		if (!m_httpServicePool->ready())

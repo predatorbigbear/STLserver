@@ -8,6 +8,7 @@
 #include "fixedTemplateSafeList.h"
 #include "logPool.h"
 #include "multiSqlReadSWPool.h"
+#include "multiSQLREADPool.h"
 #include "multiRedisReadPool.h"
 #include "multiRedisWritePool.h"
 #include "multiSqlWriteSWPool.h"
@@ -26,6 +27,7 @@ struct HTTPSlistener
 		const std::shared_ptr<MULTIREDISREADPOOL> &multiRedisReadPoolMaster,
 		const std::shared_ptr<MULTIREDISWRITEPOOL> &multiRedisWritePoolMaster, 
 		const std::shared_ptr<MULTISQLWRITESWPOOL> &multiSqlWriteSWPoolMaster,
+		const std::shared_ptr<MULTISQLREADPOOL>& multiSqlReadPoolMaster,
 		const std::string &tcpAddress, 
 		const std::string &doc_root , 
 		const std::shared_ptr<LOGPOOL> &logPool ,
@@ -78,6 +80,7 @@ private:
 
 	const std::shared_ptr<MULTISQLWRITESWPOOL>m_multiSqlWriteSWPoolMaster{};         //   主数据库写入连接池
 	const std::shared_ptr<MULTISQLREADSWPOOL>m_multiSqlReadSWPoolMaster{};           //   主数据库读取连接池
+	const std::shared_ptr<MULTISQLREADPOOL> m_multiSqlReadPoolMaster{};              //   新mysql连接池
 
 	const std::shared_ptr<MULTIREDISWRITEPOOL>m_multiRedisWritePoolMaster{};         //   主redis写入连接池
 	const std::shared_ptr<MULTIREDISREADPOOL>m_multiRedisReadPoolMaster{};           //   主redis读取连接池
