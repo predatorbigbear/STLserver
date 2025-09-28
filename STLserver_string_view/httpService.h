@@ -635,6 +635,12 @@ private:
 
 	void handletestHttpMysql(bool result, ERRORMESSAGE em);
 
+
+	//测试新mysql客户端insert错误情况
+	void testMysqlDuplicate();
+
+	void handletestHttpMysqlDuplicate(bool result, ERRORMESSAGE em);
+
 	//////////////////////////////////////////////////////////////////////
 
 

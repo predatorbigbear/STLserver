@@ -267,6 +267,11 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
+	case INTERFACE::testMysqlDuplicate:
+		testMysqlDuplicate();
+		break;
+
+
 		//默认，不匹配任何接口情况
 	default:
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -1442,21 +1447,18 @@ void HTTPSERVICE::testHttpMysql()
 
 	try
 	{
-
 		command.emplace_back(std::string_view(SQLCOMMAND::testMysql, SQLCOMMAND::testMysqlLen));
 
 		//执行命令个数
 		std::get<1>(thisRequest) = 1;
-		everyCommandNum.emplace_back(1);
-		resultTypeVec.emplace_back(std::make_pair(1, false));
+		everyCommandNum.emplace_back(1);	
 
+		resultTypeVec.emplace_back(std::make_pair(1, false));
 
 		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handletestHttpMysql, this, std::placeholders::_1, std::placeholders::_2);
 
-
 		if (!m_multiSqlReadMaster->insertMysqlRequest(sqlRequest))
 			startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
-
 
 	}
 	catch (const std::exception& e)
@@ -1473,7 +1475,6 @@ void HTTPSERVICE::handletestHttpMysql(bool result, ERRORMESSAGE em)
 {
 	if (result)
 	{
-
 		std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
 
 		MYSQLResultTypeSW& thisRequest{ *sqlRequest };
@@ -1483,6 +1484,83 @@ void HTTPSERVICE::handletestHttpMysql(bool result, ERRORMESSAGE em)
 		std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
 
 		if (result.size() != 10)
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+		startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
+}
+
+
+
+
+void HTTPSERVICE::testMysqlDuplicate()
+{
+	std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
+
+	MYSQLResultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& everyCommandNum{ std::get<2>(thisRequest).get() };
+
+	std::vector<std::pair<unsigned int, bool>>& resultTypeVec{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
+
+
+	command.clear();
+	everyCommandNum.clear();
+	resultTypeVec.clear();
+	result.clear();
+	sqlNum.clear();
+
+
+	try
+	{
+		command.emplace_back(std::string_view(SQLCOMMAND::testMysqlDuplicate, SQLCOMMAND::testMysqlDuplicateLen));
+
+		//执行命令个数
+		std::get<1>(thisRequest) = 1;
+		everyCommandNum.emplace_back(1);
+
+		resultTypeVec.emplace_back(std::make_pair(1, false));
+
+		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handletestHttpMysqlDuplicate, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadMaster->insertMysqlRequest(sqlRequest))
+			startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+	}
+
+}
+
+
+void HTTPSERVICE::handletestHttpMysqlDuplicate(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
+
+		MYSQLResultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+		std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
+
+		if (result.size() != 1)
 			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 
 		startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());

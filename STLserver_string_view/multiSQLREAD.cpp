@@ -1133,6 +1133,7 @@ void MULTISQLREAD::recvMysqlResult()
         }
         else
         {
+
             //解析mysql查询结果   0 解析协议出错    1  成功(全部解析处理完毕)   2  执行命令出错     3结果集未完毕，需要继续接收 
             switch(parseMysqlResult(bytes_transferred))
             {
@@ -1145,7 +1146,28 @@ void MULTISQLREAD::recvMysqlResult()
 
                 break;
             case 2:
-                std::cout << "parseMysqlResult   2\n";
+
+                // m_commandBufEnd -1 指向最末尾的 ; ,加上一位0x03 ，所以加1，最后一位的;发不发意义不大 
+                clientSendLen = std::distance(*m_commandBufBegin, *(m_commandBufEnd - 1)) + 1;
+
+                //倒退一位设置0x03 ，再倒退4位设置长度和序列号
+                //然后复用现有字符串继续发送查询请求
+                *(*m_commandBufBegin - 1) = 0x03;
+
+                *m_commandBufBegin -= 4;
+
+
+                **m_commandBufBegin = clientSendLen % 256;
+                *(*m_commandBufBegin + 1) = clientSendLen / 256 % 256;
+                *(*m_commandBufBegin + 2) = clientSendLen / 65536 % 256;
+
+                firstQuery = false;
+                *(*m_commandBufBegin + 3) = m_seqID = 0;
+
+                clientSendLen += 4;
+
+                m_sendBuf = *m_commandBufBegin;
+                mysqlQuery();
 
                 break;
             case 3:
@@ -1212,8 +1234,6 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     //存储命令起始位置
     unsigned char** commandBufBegin{ m_commandBufBegin };
 
-    //存储命令结束位置
-    unsigned char** commandBufEnd{ m_commandBufEnd };
 
     //指向MYSQLResultTypeSW 第3位vector的迭代器
     std::vector<std::pair<unsigned int, bool>>::const_iterator vecBegin{ m_VecBegin }, vecEnd{ m_VecEnd };
@@ -1342,7 +1362,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
         if (std::distance(sourceBegin, sourceEnd) < 4)
         {
             m_commandBufBegin = commandBufBegin;
-            m_commandBufEnd = commandBufEnd;
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
@@ -1373,7 +1392,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
         if (std::distance(sourceBegin, sourceEnd) < messageLen + 4)
         {
             m_commandBufBegin = commandBufBegin;
-            m_commandBufEnd = commandBufEnd;
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
@@ -1944,17 +1962,16 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
     if (!queryOK)
     {
-        firstQuery = true;
-        m_seqID = 0;
         //检查出错的命令是否已经是最后一个命令，否则需要构建请求包发送
         if (waitMessageListBegin == waitMessageListEnd)
         {
+            firstQuery = true;
+            m_seqID = 0;
             return 1;
         }
         else
         {
             m_commandBufBegin = commandBufBegin;
-            m_commandBufEnd = commandBufEnd;
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
@@ -1964,9 +1981,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_VecBegin = vecBegin;
             m_VecEnd = vecEnd;
             m_everyCommandResultSum = everyCommandResultSum;
-            m_readLen = 0;
             return 2;
-
         }
 
     }
@@ -1983,7 +1998,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
         else
         {
             m_commandBufBegin = commandBufBegin;
-            m_commandBufEnd = commandBufEnd;
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;

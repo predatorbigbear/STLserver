@@ -47,6 +47,9 @@ namespace SQLCOMMAND
 
 	static const char* testMysql{ "select account,password,phone,email,name,height,age,province,city,examine from user limit 1" };
 
+	static const char* testMysqlDuplicate{ "insert into user(account,password,phone) value('ddj','123456Ab','13525889613')" };
+
+
 
 
 	static const int testSqlReadLen{ strlen(testSqlRead) };
@@ -56,6 +59,8 @@ namespace SQLCOMMAND
 	static const int testTestLoginSQLLen{ strlen(testTestLoginSQL) };
 
 	static const int testMysqlLen{ strlen(testMysql) };
+
+	static const int testMysqlDuplicateLen{ strlen(testMysqlDuplicate) };
 
 
 	

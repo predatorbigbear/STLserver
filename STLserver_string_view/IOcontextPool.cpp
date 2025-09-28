@@ -1,4 +1,4 @@
-#include "IOcontextPool.h"
+﻿#include "IOcontextPool.h"
 
 IOcontextPool::IOcontextPool()
 {
@@ -19,6 +19,7 @@ void IOcontextPool::setThreadNum(bool& success, const size_t threadNum)
 				num = std::thread::hardware_concurrency();
 			}
 			m_threadNum = num;
+
 			for (size_t i = 0; i != num; ++i)
 			{
 				std::shared_ptr<boost::asio::io_context> io{ new boost::asio::io_context() };

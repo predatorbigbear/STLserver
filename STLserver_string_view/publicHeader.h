@@ -281,7 +281,9 @@ enum INTERFACE
 
 	testInsertHttpHeader = 23,
 
-	testHttpMysql = 24
+	testHttpMysql = 24,
+
+	testMysqlDuplicate = 25
 };
 
 
