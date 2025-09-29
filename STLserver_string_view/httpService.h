@@ -641,6 +641,14 @@ private:
 
 	void handletestHttpMysqlDuplicate(bool result, ERRORMESSAGE em);
 
+
+	//测试mysql客户端处理事务
+	void testMysqlTRANSACTION();
+
+	void handletestMysqlTRANSACTION(bool result, ERRORMESSAGE em);
+
+
+
 	//////////////////////////////////////////////////////////////////////
 
 

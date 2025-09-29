@@ -1265,7 +1265,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     // 每四位  第一位表示 column_length   第二位表示enumType   第三位表示flags    第四位表示decimals 
     unsigned int *colLenArr{ m_colLenArr.get()};
 
-    unsigned int* colLenBegin{}, * colLenEnd{}, * colLenMax{ colLenArr + m_colLenMax };
+    unsigned int* colLenBegin{}, * colLenMax{ colLenArr + m_colLenMax };
 
     unsigned char enumType{};
 
@@ -1275,6 +1275,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     bool isTransaction{ };
 
     int i{};
+
 
     /*
     
@@ -1365,6 +1366,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
+            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
+            //设置该检查修复这个问题
+            if (checkTime == -1)
+                ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -1395,6 +1400,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
+            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
+            //设置该检查修复这个问题
+            if (checkTime == -1)
+                ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -1435,11 +1444,21 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             switch (*strBegin)
             {
             case 10:
+                //非事务中执行select，成功时第一个包返回0x10
                 //select语句执行成功
                 queryOK = true;
 
-                colLenBegin = colLenEnd = colLenArr;
+                colLenBegin = colLenArr;
                 break;
+
+                //在事务中执行select，成功时第一个包返回0x01
+            case 0x01:
+                //select语句执行成功
+                queryOK = true;
+
+                colLenBegin = colLenArr;
+                break;
+
             case 0:
                 //update  insert  delete语句执行成功
                 queryOK = true;
@@ -1652,8 +1671,14 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 sourceBegin = strEnd;
                 continue;
                 break;
+
+   
+
+
+
             default:
                 //未知情况
+
                 sourceBegin = strEnd;
                 continue;
                 break;
@@ -1745,8 +1770,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 {
                     getResult = true;
                     everyCommandResultSum = 0;
-                    colLenEnd = colLenBegin;
-                    colLenBegin = colLenArr;
                 }
             }
             else
@@ -1757,6 +1780,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                     //将everyCommandResultSum 存储起来
                     checkTime = -1;
                     ++commandBufBegin;
+                    colLenBegin = colLenArr;
 
                     if (++commandCurrentSize == commandTotalSize)
                     {
@@ -1830,6 +1854,8 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 }
                 else
                 {
+                    colLenBegin = colLenArr;
+
                     while (strBegin != strEnd)
                     {
 
@@ -1940,10 +1966,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                         }
 
                         ++everyCommandResultSum;
-                        
+                        colLenBegin += 4;
                     }
 
-                    colLenBegin += 4;
+                    
                 }
             }
         }
@@ -1975,6 +2001,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
+            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
+            //设置该检查修复这个问题
+            if (checkTime == -1)
+                ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -2001,6 +2031,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
+            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
+            //设置该检查修复这个问题
+            if (checkTime == -1)
+                ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;

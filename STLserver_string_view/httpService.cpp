@@ -272,6 +272,11 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
+	case INTERFACE::testMysqlTRANSACTION:
+		testMysqlTRANSACTION();
+		break;
+
+
 		//默认，不匹配任何接口情况
 	default:
 		startWrite(HTTPRESPONSEREADY::http11invaild, HTTPRESPONSEREADY::http11invaildLen);
@@ -1483,7 +1488,7 @@ void HTTPSERVICE::handletestHttpMysql(bool result, ERRORMESSAGE em)
 
 		std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
 
-		if (result.size() != 10)
+		if (!result.empty() && result.size() % 10)
 			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 
 		startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
@@ -1570,6 +1575,107 @@ void HTTPSERVICE::handletestHttpMysqlDuplicate(bool result, ERRORMESSAGE em)
 	{
 		handleERRORMESSAGE(em);
 	}
+
+}
+
+
+
+void HTTPSERVICE::testMysqlTRANSACTION()
+{
+	std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
+
+	MYSQLResultTypeSW& thisRequest{ *sqlRequest };
+
+	std::vector<std::string_view>& command{ std::get<0>(thisRequest).get() };
+
+	std::vector<unsigned int>& everyCommandNum{ std::get<2>(thisRequest).get() };
+
+	std::vector<std::pair<unsigned int, bool>>& resultTypeVec{ std::get<3>(thisRequest).get() };
+
+	std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+	std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
+
+
+	command.clear();
+	everyCommandNum.clear();
+	resultTypeVec.clear();
+	result.clear();
+	sqlNum.clear();
+
+
+	try
+	{
+		static std::string_view test1{ "START TRANSACTION" };
+		//static std::string_view test2{ "SAVEPOINT before_transfer" };
+		static std::string_view test3{ "select account from user limit 2" };
+		static std::string_view test4{ "update user set account='liuyshao2' where account='liuyshao1'" };
+		static std::string_view test5{ "COMMIT" };
+		
+
+
+		command.emplace_back(test1);
+		//command.emplace_back(test2);
+		command.emplace_back(test3);
+		command.emplace_back(test4);
+		command.emplace_back(test5);
+
+
+		//执行命令个数
+		std::get<1>(thisRequest) = 4;
+		everyCommandNum.emplace_back(1);
+		everyCommandNum.emplace_back(1);
+		everyCommandNum.emplace_back(1);
+		everyCommandNum.emplace_back(1);
+		//everyCommandNum.emplace_back(1);
+
+
+		resultTypeVec.emplace_back(std::make_pair(1, true));
+		resultTypeVec.emplace_back(std::make_pair(1, true));
+		resultTypeVec.emplace_back(std::make_pair(1, true));
+		resultTypeVec.emplace_back(std::make_pair(1, true));
+		//resultTypeVec.emplace_back(std::make_pair(1, true));
+
+		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handletestMysqlTRANSACTION, this, std::placeholders::_1, std::placeholders::_2);
+
+		if (!m_multiSqlReadMaster->insertMysqlRequest(sqlRequest))
+			startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+	}
+	catch (const std::exception& e)
+	{
+		startWrite(WEBSERVICEANSWER::result2stl.data(), WEBSERVICEANSWER::result2stl.size());
+	}
+
+
+}
+
+
+
+void HTTPSERVICE::handletestMysqlTRANSACTION(bool result, ERRORMESSAGE em)
+{
+	if (result)
+	{
+
+		std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
+
+		MYSQLResultTypeSW& thisRequest{ *sqlRequest };
+
+		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
+
+		std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
+
+		if (result.size() < 3)
+			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
+
+		startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
+
+	}
+	else
+	{
+		handleERRORMESSAGE(em);
+	}
+
 
 }
 

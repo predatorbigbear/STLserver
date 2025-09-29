@@ -45,7 +45,7 @@ namespace SQLCOMMAND
 
 	static const char *testTestLoginSQL{ "select password from user where username='" };
 
-	static const char* testMysql{ "select account,password,phone,email,name,height,age,province,city,examine from user limit 1" };
+	static const char* testMysql{ "select account,password,phone,email,name,height,age,province,city,examine from user limit 2" };
 
 	static const char* testMysqlDuplicate{ "insert into user(account,password,phone) value('ddj','123456Ab','13525889613')" };
 
