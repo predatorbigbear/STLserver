@@ -134,7 +134,7 @@ void WEBSERVICE::setReady(std::shared_ptr<WEBSERVICE>& other)
 std::shared_ptr<WEBSERVICE>* WEBSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
-	return mySelfIter.load();
+	return mySelfIter.load(std::memory_order_relaxed);
 }
 
 
@@ -149,7 +149,7 @@ void WEBSERVICE::setListIter(std::shared_ptr<WEBSERVICE>* iter)
 
 void WEBSERVICE::checkTimeOut()
 {
-	if (!m_hasRecv.load())
+	if (!m_hasRecv.load(std::memory_order_relaxed))
 	{
 		clean();
 	}
@@ -608,7 +608,7 @@ void WEBSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 void WEBSERVICE::clean()
 {
 	//cout << "start clean\n";
-	if (!m_hasClean.load())
+	if (!m_hasClean.load(std::memory_order_relaxed))
 	{
 		m_hasClean.store(true);
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum, m_IP, m_port, m_requestTime);

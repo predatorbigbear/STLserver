@@ -86,7 +86,7 @@ void HTTPSERVICE::setReady(std::shared_ptr<HTTPSERVICE>& other)
 std::shared_ptr<HTTPSERVICE>* HTTPSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
-	return mySelfIter.load();
+	return mySelfIter.load(std::memory_order_relaxed);
 }
 
 void HTTPSERVICE::setListIter(std::shared_ptr<HTTPSERVICE>* iter)
@@ -100,7 +100,7 @@ void HTTPSERVICE::setListIter(std::shared_ptr<HTTPSERVICE>* iter)
 
 void HTTPSERVICE::checkTimeOut()
 {
-	if (!m_hasRecv.load())
+	if (!m_hasRecv.load(std::memory_order_relaxed))
 	{
 		clean();
 	}
@@ -2129,7 +2129,7 @@ void HTTPSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 void HTTPSERVICE::clean()
 {
 	//cout << "start clean\n";
-	if (!m_hasClean.load())
+	if (!m_hasClean.load(std::memory_order_relaxed))
 	{
 		m_hasClean.store(true);
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);

@@ -321,7 +321,7 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 	}
 
 
-	int status{ m_queryStatus.load() };
+	int status{ m_queryStatus.load(std::memory_order_relaxed) };
 	if (!status)
 	{
 		return false;

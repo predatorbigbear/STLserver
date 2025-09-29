@@ -84,7 +84,7 @@ void HTTPSSERVICE::setReady(std::shared_ptr<HTTPSSERVICE>& other)
 std::shared_ptr<HTTPSSERVICE>* HTTPSSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
-	return mySelfIter.load();
+	return mySelfIter.load(std::memory_order_relaxed);
 }
 
 
@@ -99,7 +99,7 @@ void HTTPSSERVICE::setListIter(std::shared_ptr<HTTPSSERVICE>* iter)
 
 void HTTPSSERVICE::checkTimeOut()
 {
-	if (!m_hasRecv.load())
+	if (!m_hasRecv.load(std::memory_order_relaxed))
 	{
 		clean();
 	}
@@ -1942,7 +1942,7 @@ void HTTPSSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 void HTTPSSERVICE::clean()
 {
 	//cout << "start clean\n";
-	if (!m_hasClean.load())
+	if (!m_hasClean.load(std::memory_order_relaxed))
 	{
 		m_hasClean.store(true);
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);

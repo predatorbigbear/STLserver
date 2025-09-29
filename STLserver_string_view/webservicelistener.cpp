@@ -234,14 +234,14 @@ void WEBSERVICELISTENER::startAccept()
 		}
 		else
 		{
-			m_log->writeLog(__FILE__, __LINE__, "notifySocketPool  ");
+			m_log->writeLog(" WEBSERVICELISTENER::startAccept  notifySocketPool ");
 			notifySocketPool();
 		}
 	}
 	catch (const std::exception &e)
 	{
 		//m_log->writeLog(__FILE__, __LINE__, e.what());
-		m_log->writeLog(__FILE__, __LINE__, "restartAccept  ");
+		m_log->writeLog(" WEBSERVICELISTENER::startAccept  restartAccept  ");
 		restartAccept();
 	}
 }
@@ -255,7 +255,7 @@ void WEBSERVICELISTENER::handleStartAccept(std::shared_ptr<WEBSERVICE> httpServi
 	
 	if (err)
 	{
-		m_log->writeLog(__FILE__, __LINE__, err.value(), err.message());
+		m_log->writeLog(" WEBSERVICELISTENER::handleStartAccept ", err.value(), err.message());
 	}
 	else
 	{
@@ -269,7 +269,7 @@ void WEBSERVICELISTENER::handleStartAccept(std::shared_ptr<WEBSERVICE> httpServi
 			}
 			else
 			{
-				m_log->writeLog(__FILE__, __LINE__, "!httpServiceTemp");
+				m_log->writeLog(" WEBSERVICELISTENER::handleStartAccept ", " !httpServiceTemp ");
 				m_httpServicePool->getBackElem(httpServiceTemp);
 			}
 		}
@@ -290,7 +290,7 @@ void WEBSERVICELISTENER::getBackHTTPSERVICE(std::shared_ptr<WEBSERVICE> &tempHs)
 
 void WEBSERVICELISTENER::restartAccept()
 {
-	if (m_startAccept.load())
+	if (m_startAccept.load(std::memory_order_relaxed))
 	{
 		startAccept();
 	}

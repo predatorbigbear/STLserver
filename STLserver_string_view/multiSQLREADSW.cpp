@@ -94,7 +94,7 @@ MULTISQLREADSW::~MULTISQLREADSW()
 
 void MULTISQLREADSW::FreeConnect()
 {
-	if (m_queryStatus.load())
+	if (m_queryStatus.load(std::memory_order_relaxed))
 	{
 		mysql_close(m_mysql);
 		m_queryStatus.store(0);
@@ -105,7 +105,7 @@ void MULTISQLREADSW::FreeConnect()
 
 void MULTISQLREADSW::ConnectDatabase()
 {
-	if (!m_queryStatus.load())
+	if (!m_queryStatus.load(std::memory_order_relaxed))
 	{
 		ConnectDatabaseLoop();
 	}

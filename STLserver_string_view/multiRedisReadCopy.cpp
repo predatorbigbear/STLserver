@@ -81,7 +81,7 @@ bool MULTIREDISREADCOPY::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& 
 		)
 		return false;
 
-	int status{ m_queryStatus.load() };
+	int status{ m_queryStatus.load(std::memory_order_relaxed) };
 	if (!status)
 	{
 		return false;

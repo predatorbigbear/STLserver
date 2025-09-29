@@ -83,11 +83,11 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 		)
 		return false;
 
-	if (!m_connect.load())
+	if (!m_connect.load(std::memory_order_relaxed))
 	{
 		return false;
 	}
-	if (!m_queryStatus.load())
+	if (!m_queryStatus.load(std::memory_order_relaxed))
 	{
 		m_queryStatus.store(true);
 

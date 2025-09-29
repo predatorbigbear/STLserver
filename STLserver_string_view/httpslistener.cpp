@@ -282,7 +282,7 @@ void HTTPSlistener::getBackHTTPSERVICE(std::shared_ptr<HTTPSSERVICE> &tempHs)
 
 void HTTPSlistener::restartAccept()
 {
-	if (m_startAccept.load())
+	if (m_startAccept.load(std::memory_order_relaxed))
 	{
 		startAccept();
 	}

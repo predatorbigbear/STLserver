@@ -64,7 +64,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
     })== std::get<3>(thisRequest).get().cend())
         return false;
 
-    int status{ m_queryStatus.load() };
+    int status{ m_queryStatus.load(std::memory_order_relaxed) };
     if (!status)
     {
         return false;

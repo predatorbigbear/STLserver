@@ -186,7 +186,7 @@ inline bool VERIFYCODE::insertVerifyCode(const char* verifyCode, const unsigned 
 			return false;
 	}
 
-	int status = m_queryStatus.load();
+	int status = m_queryStatus.load(std::memory_order_relaxed);
 	if (!status)
 		return false;
 
