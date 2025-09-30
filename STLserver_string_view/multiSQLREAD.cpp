@@ -1265,7 +1265,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     // 每四位  第一位表示 column_length   第二位表示enumType   第三位表示flags    第四位表示decimals 
     unsigned int *colLenArr{ m_colLenArr.get()};
 
-    unsigned int* colLenBegin{}, * colLenMax{ colLenArr + m_colLenMax };
+    unsigned int* colLenBegin{}, *colLenMax{ colLenArr + m_colLenMax };
 
     unsigned char enumType{};
 
@@ -1368,8 +1368,8 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_commandCurrentSize = commandCurrentSize;
             //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
             //设置该检查修复这个问题
-            if (checkTime == -1)
-                ++checkTime;
+            //if (checkTime == -1)
+            //    ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -1402,8 +1402,8 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_commandCurrentSize = commandCurrentSize;
             //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
             //设置该检查修复这个问题
-            if (checkTime == -1)
-                ++checkTime;
+            //if (checkTime == -1)
+            //    ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -1769,7 +1769,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 else
                 {
                     getResult = true;
-                    everyCommandResultSum = 0;
+                    everyCommandResultSum = std::get<5>(thisRequest).get().size();
                 }
             }
             else
@@ -1780,7 +1780,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                     //将everyCommandResultSum 存储起来
                     checkTime = -1;
                     ++commandBufBegin;
-                    colLenBegin = colLenArr;
+                    //colLenBegin = colLenArr;
 
                     if (++commandCurrentSize == commandTotalSize)
                     {
@@ -1789,7 +1789,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             if (!jumpNode)
                             {
                                 //返回本次select结果总string_view个数，自己根据查询参数用+=获取不同的结果
-                                std::get<5>(thisRequest).get().emplace_back(everyCommandResultSum);
+                                std::get<5>(thisRequest).get().emplace_back(std::get<5>(thisRequest).get().size() - everyCommandResultSum);
                             }
                         }
                         catch (const std::exception& e)
@@ -1813,6 +1813,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             commandTotalSize = vecBegin->first;
                             commandCurrentSize = 0;
                             sourceBegin = strEnd;
+                            checkTime = 0;
                             continue;
                         }
 
@@ -1965,7 +1966,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
                         }
 
-                        ++everyCommandResultSum;
                         colLenBegin += 4;
                     }
 
@@ -2003,8 +2003,8 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_commandCurrentSize = commandCurrentSize;
             //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
             //设置该检查修复这个问题
-            if (checkTime == -1)
-                ++checkTime;
+            //if (checkTime == -1)
+            //   ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -2032,9 +2032,9 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
             //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
-            //设置该检查修复这个问题
-            if (checkTime == -1)
-                ++checkTime;
+           //设置该检查修复这个问题
+           //if (checkTime == -1)
+           //   ++checkTime;
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
