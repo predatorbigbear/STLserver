@@ -643,11 +643,15 @@ private:
 
 
 	//测试mysql客户端处理事务
-	void testMysqlTRANSACTION();
+	void testMysqlTRANSACTION1();
 
-	void handletestMysqlTRANSACTION(bool result, ERRORMESSAGE em);
+	void handletestMysqlTRANSACTION1(bool result, ERRORMESSAGE em);
 
 
+	//测试mysql客户端处理事务2
+	void testMysqlTRANSACTION2();
+
+	void handletestMysqlTRANSACTION2(bool result, ERRORMESSAGE em);
 
 	//////////////////////////////////////////////////////////////////////
 

@@ -272,8 +272,8 @@ void HTTPSERVICE::switchPOSTInterface()
 		break;
 
 
-	case INTERFACE::testMysqlTRANSACTION:
-		testMysqlTRANSACTION();
+	case INTERFACE::testMysqlTRANSACTION1:
+		testMysqlTRANSACTION1();
 		break;
 
 
@@ -1580,7 +1580,7 @@ void HTTPSERVICE::handletestHttpMysqlDuplicate(bool result, ERRORMESSAGE em)
 
 
 
-void HTTPSERVICE::testMysqlTRANSACTION()
+void HTTPSERVICE::testMysqlTRANSACTION1()
 {
 	std::shared_ptr<MYSQLResultTypeSW>& sqlRequest{ m_multiSqlRequestVec[0] };
 
@@ -1606,6 +1606,10 @@ void HTTPSERVICE::testMysqlTRANSACTION()
 
 	try
 	{
+		//因为mysql事务中不支持if then else条件逻辑执行，
+		// 所以基本上都是顺序执行流程，因此事务过程大致验证过不需要解析字符串即可正常处理
+		//后面完善其他数据类型处理逻辑即可
+
 		static std::string_view test1{ "START TRANSACTION" };
 		//static std::string_view test2{ "SAVEPOINT before_transfer" };
 		static std::string_view test3{ "select account from user limit 2" };
@@ -1636,7 +1640,7 @@ void HTTPSERVICE::testMysqlTRANSACTION()
 		resultTypeVec.emplace_back(std::make_pair(1, true));
 		//resultTypeVec.emplace_back(std::make_pair(1, true));
 
-		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handletestMysqlTRANSACTION, this, std::placeholders::_1, std::placeholders::_2);
+		std::get<6>(thisRequest) = std::bind(&HTTPSERVICE::handletestMysqlTRANSACTION1, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (!m_multiSqlReadMaster->insertMysqlRequest(sqlRequest))
 			startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
@@ -1652,7 +1656,7 @@ void HTTPSERVICE::testMysqlTRANSACTION()
 
 
 
-void HTTPSERVICE::handletestMysqlTRANSACTION(bool result, ERRORMESSAGE em)
+void HTTPSERVICE::handletestMysqlTRANSACTION1(bool result, ERRORMESSAGE em)
 {
 	if (result)
 	{
@@ -1676,6 +1680,20 @@ void HTTPSERVICE::handletestMysqlTRANSACTION(bool result, ERRORMESSAGE em)
 		handleERRORMESSAGE(em);
 	}
 
+
+}
+
+void HTTPSERVICE::testMysqlTRANSACTION2()
+{
+	
+
+}
+
+
+
+void HTTPSERVICE::handletestMysqlTRANSACTION2(bool result, ERRORMESSAGE em)
+{
+	
 
 }
 

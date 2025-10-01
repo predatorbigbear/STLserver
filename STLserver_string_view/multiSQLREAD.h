@@ -205,8 +205,8 @@ private:
 
 	bool m_jumpNode{ false };                     //是否跳过本次请求的标志
 
-	//检查次数
-	int m_checkTime{};
+	//是否开始执行检查
+	bool m_checkTime{};
 
 	//是否开始获取结果
 	bool m_getResult{ false };

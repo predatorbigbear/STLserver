@@ -174,7 +174,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         m_jumpNode = false;
 
         //检查次数
-        m_checkTime = 0;
+        m_checkTime = false;
 
         //是否开始获取结果
         m_getResult = false;
@@ -1222,8 +1222,8 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     //本次节点结果数总计                      本次节点结果数当前计数
     unsigned int commandTotalSize{ m_commandTotalSize }, commandCurrentSize{ m_commandCurrentSize };
 
-    //检查次数
-    int checkTime{ m_checkTime };
+    //是否开始执行检查
+    bool checkTime{ m_checkTime };
 
 	//是否开始获取结果
     bool getResult{ m_getResult };
@@ -1449,6 +1449,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 queryOK = true;
 
                 colLenBegin = colLenArr;
+                checkTime = true;
                 break;
 
                 //在事务中执行select，成功时第一个包返回0x01
@@ -1457,6 +1458,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 queryOK = true;
 
                 colLenBegin = colLenArr;
+                checkTime = true;
                 break;
 
             case 0:
@@ -1778,7 +1780,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 {
                     getResult = false;
                     //将everyCommandResultSum 存储起来
-                    checkTime = -1;
+                    checkTime = false;
                     ++commandBufBegin;
                     //colLenBegin = colLenArr;
 
@@ -1813,7 +1815,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             commandTotalSize = vecBegin->first;
                             commandCurrentSize = 0;
                             sourceBegin = strEnd;
-                            checkTime = 0;
                             continue;
                         }
 
@@ -1981,7 +1982,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
       
 
-        ++checkTime;
+       
         sourceBegin = strEnd;
     }
 
@@ -2249,7 +2250,7 @@ void MULTISQLREAD::readyMysqlMessage()
         m_jumpNode = false;
 
         //检查次数
-        m_checkTime = 0;
+        m_checkTime = false;
 
         //是否开始获取结果
         m_getResult = false;

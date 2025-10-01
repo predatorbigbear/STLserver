@@ -285,7 +285,9 @@ enum INTERFACE
 
 	testMysqlDuplicate = 25,
 
-	testMysqlTRANSACTION = 26
+	testMysqlTRANSACTION1 = 26,
+
+	testMysqlTRANSACTION2 = 27,
 };
 
 
