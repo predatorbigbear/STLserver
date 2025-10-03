@@ -1851,6 +1851,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             // 根据官方文档，TINYINT 属于数值类型，其存储范围为 -128 至 127（有符号）或 0 至 255（无符号），
                             // 且其定义允许 NULL 值
                         case MYSQL_TYPE_TINY:
+                            //SMALLINT: 小的整数，有符号范围是-32768到32767，无符号范围是0到65535  支持 NULL 值
+                        case MYSQL_TYPE_SHORT:
+                            //MEDIUMINT: 中等大小的整数，有符号范围是-8388608到8388607，无符号范围是0到16777215。 支持 NULL 值
+                        case MYSQL_TYPE_INT24:
                             papaLen = *strBegin;
 
                             if (papaLen != 251)
@@ -1894,6 +1898,8 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
 
                         default:
+                            std::cout << "enum: " << *(colLenBegin + 1) << "  len: " << *colLenBegin << '\n';
+
                             if (*colLenBegin < 256)
                             {
                                 papaLen = *strBegin;
