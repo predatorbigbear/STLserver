@@ -50,6 +50,17 @@ namespace SQLCOMMAND
 	static const char* testMysqlDuplicate{ "insert into user(account,password,phone) value('ddj','123456Ab','13525889613')" };
 
 
+	/*
+	CREATE TABLE table1 (
+    id1 TINYINT,
+    id2 TINYINT UNSIGNED
+    );
+	*/
+	static const char* testMysqlTINYINT{ "select id1,id2 from table1" };
+
+
+
+
 
 
 	static const int testSqlReadLen{ strlen(testSqlRead) };
@@ -61,6 +72,8 @@ namespace SQLCOMMAND
 	static const int testMysqlLen{ strlen(testMysql) };
 
 	static const int testMysqlDuplicateLen{ strlen(testMysqlDuplicate) };
+
+	static const int testMysqlTINYINTLen{ strlen(testMysqlTINYINT) };
 
 
 	

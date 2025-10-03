@@ -228,7 +228,7 @@ private:
 	// 每四位  第一位表示 column_length   第二位表示enumType   第三位表示flags    第四位表示decimals 
 	std::unique_ptr<unsigned int[]>m_colLenArr{};
 
-	const unsigned int m_colLenMax{ 512 };
+	const unsigned int m_colLenMax{ 1024 };
 
 	///////////////////////////////////////////////////////////////////
 	// 

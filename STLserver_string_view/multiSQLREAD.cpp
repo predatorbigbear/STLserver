@@ -1443,25 +1443,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
         {    
             switch (*strBegin)
             {
-            case 10:
-                //非事务中执行select，成功时第一个包返回0x10
-                //select语句执行成功
-                queryOK = true;
-
-                colLenBegin = colLenArr;
-                checkTime = true;
-                break;
-
-                //在事务中执行select，成功时第一个包返回0x01
-            case 0x01:
-                //select语句执行成功
-                queryOK = true;
-
-                colLenBegin = colLenArr;
-                checkTime = true;
-                break;
-
-            case 0:
+            case 0x00:
                 //update  insert  delete语句执行成功
                 queryOK = true;
 
@@ -1679,10 +1661,13 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
 
             default:
-                //未知情况
+                //执行select，成功时第一个包返回查询参数个数
+                //select语句执行成功
 
-                sourceBegin = strEnd;
-                continue;
+                queryOK = true;
+
+                colLenBegin = colLenArr;
+                checkTime = true;
                 break;
             }
             
@@ -1771,7 +1756,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                 else
                 {
                     getResult = true;
-                    everyCommandResultSum = std::get<5>(thisRequest).get().size();
+                    everyCommandResultSum = std::get<4>(thisRequest).get().size();
                 }
             }
             else
@@ -1791,7 +1776,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             if (!jumpNode)
                             {
                                 //返回本次select结果总string_view个数，自己根据查询参数用+=获取不同的结果
-                                std::get<5>(thisRequest).get().emplace_back(std::get<5>(thisRequest).get().size() - everyCommandResultSum);
+                                std::get<5>(thisRequest).get().emplace_back(std::get<4>(thisRequest).get().size() - everyCommandResultSum);
                             }
                         }
                         catch (const std::exception& e)
@@ -1860,14 +1845,16 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
                     while (strBegin != strEnd)
                     {
-
-                        if (*colLenBegin < 256)
+                        switch (*(colLenBegin + 1))
                         {
+                            //在 MySQL 8.0 中，TINYINT 类型支持 NULL 值。
+                            // 根据官方文档，TINYINT 属于数值类型，其存储范围为 -128 至 127（有符号）或 0 至 255（无符号），
+                            // 且其定义允许 NULL 值
+                        case MYSQL_TYPE_TINY:
                             papaLen = *strBegin;
 
                             if (papaLen != 251)
                             {
-                                //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
                                 try
                                 {
                                     if (!jumpNode)
@@ -1885,7 +1872,33 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             }
                             else
                             {
-                                if (*(colLenBegin + 2) & NOT_NULL_FLAG)
+                                //NULL值
+                                //存储空string_view
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                    }
+
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                ++strBegin;
+                            }
+
+                            break;
+
+
+                        default:
+                            if (*colLenBegin < 256)
+                            {
+                                papaLen = *strBegin;
+
+                                if (papaLen != 251)
                                 {
                                     //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
                                     try
@@ -1905,7 +1918,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                                 }
                                 else
                                 {
-                                    if (std::distance(strBegin + 1, strEnd) > 251)
+                                    if (*(colLenBegin + 2) & NOT_NULL_FLAG)
                                     {
                                         //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
                                         try
@@ -1925,48 +1938,76 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                                     }
                                     else
                                     {
-                                        //存储空string_view
-                                        try
+                                        if (std::distance(strBegin + 1, strEnd) > 251)
                                         {
-                                            if (!jumpNode)
+                                            //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
+                                            try
                                             {
-                                                std::get<4>(thisRequest).get().emplace_back(emptyView);
-                                            }
+                                                if (!jumpNode)
+                                                {
+                                                    std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                                }
 
+                                            }
+                                            catch (const std::exception& e)
+                                            {
+                                                //出错处理，内存不足，不再往里面插入数据
+                                                jumpNode = true;
+                                            }
+                                            strBegin += papaLen + 1;
                                         }
-                                        catch (const std::exception& e)
+                                        else
                                         {
-                                            //出错处理，内存不足，不再往里面插入数据
-                                            jumpNode = true;
-                                        } 
-                                        ++strBegin;
+                                            //存储空string_view
+                                            try
+                                            {
+                                                if (!jumpNode)
+                                                {
+                                                    std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                                }
+
+                                            }
+                                            catch (const std::exception& e)
+                                            {
+                                                //出错处理，内存不足，不再往里面插入数据
+                                                jumpNode = true;
+                                            }
+                                            ++strBegin;
+                                        }
                                     }
                                 }
-                            }     
-                        }
-                        else
-                        {
-                            //大型字符串待处理   目前仅对int短值和varchar 两种类型进行处理，其他类型后续添加，先跑通全程看看
-
-                            papaLen = static_cast<unsigned int>(*(strBegin)) + static_cast<unsigned int>(*(strBegin + 1)) * 256;
-
-                            try
+                            }
+                            else
                             {
-                                if (!jumpNode)
+                                //大型字符串待处理   目前仅对int短值和varchar 两种类型进行处理，其他类型后续添加，先跑通全程看看
+
+                                papaLen = static_cast<unsigned int>(*(strBegin)) + static_cast<unsigned int>(*(strBegin + 1)) * 256;
+
+                                try
                                 {
-                                    std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 2)), papaLen));
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 2)), papaLen));
+                                    }
+
                                 }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                strBegin += papaLen + 2;
 
                             }
-                            catch (const std::exception& e)
-                            {
-                                //出错处理，内存不足，不再往里面插入数据
-                                jumpNode = true;
-                            }
-                            strBegin += papaLen + 2;
 
+
+                            break;
                         }
 
+                        //std::cout << "enum: " << *(colLenBegin + 1) << "  len: " << *colLenBegin << '\n';
+
+
+                  
                         colLenBegin += 4;
                     }
 

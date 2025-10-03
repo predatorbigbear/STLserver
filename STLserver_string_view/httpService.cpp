@@ -1452,7 +1452,7 @@ void HTTPSERVICE::testHttpMysql()
 
 	try
 	{
-		command.emplace_back(std::string_view(SQLCOMMAND::testMysql, SQLCOMMAND::testMysqlLen));
+		command.emplace_back(std::string_view(SQLCOMMAND::testMysqlTINYINT, SQLCOMMAND::testMysqlTINYINTLen));
 
 		//执行命令个数
 		std::get<1>(thisRequest) = 1;
@@ -1487,9 +1487,6 @@ void HTTPSERVICE::handletestHttpMysql(bool result, ERRORMESSAGE em)
 		std::vector<std::string_view>& result{ std::get<4>(thisRequest).get() };
 
 		std::vector<unsigned int>& sqlNum{ std::get<5>(thisRequest).get() };
-
-		if (!result.empty() && result.size() % 10)
-			return startWrite(WEBSERVICEANSWER::result2mysql.data(), WEBSERVICEANSWER::result2mysql.size());
 
 		startWrite(WEBSERVICEANSWER::result1.data(), WEBSERVICEANSWER::result1.size());
 
