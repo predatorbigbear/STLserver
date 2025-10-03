@@ -62,6 +62,30 @@ namespace SQLCOMMAND
 	id2 SMALLINT UNSIGNED
     );
 
+
+	CREATE TABLE table1 (
+	id1 MEDIUMINT,
+	id2 MEDIUMINT UNSIGNED
+    );
+
+
+	CREATE TABLE table1 (
+	id1 INT,
+	id2 INT UNSIGNED
+    );
+
+	CREATE TABLE table1 (
+	id1 INTEGER,
+	id2 INTEGER UNSIGNED
+    );
+
+
+	CREATE TABLE table1 (
+	id1 BIGINT,
+	id2 BIGINT UNSIGNED
+    );
+
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1,id2 from table1" };
 

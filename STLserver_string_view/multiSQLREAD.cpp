@@ -1855,6 +1855,11 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                         case MYSQL_TYPE_SHORT:
                             //MEDIUMINT: 中等大小的整数，有符号范围是-8388608到8388607，无符号范围是0到16777215。 支持 NULL 值
                         case MYSQL_TYPE_INT24:
+                            //INT 或 INTEGER: 标准整数，有符号范围是-2147483648到2147483647，无符号范围是0到4294967295。  支持 NULL 值
+                        case MYSQL_TYPE_LONG:
+                            //BIGINT: 大的整数， 支持 NULL 值
+                        case MYSQL_TYPE_LONGLONG:
+
                             papaLen = *strBegin;
 
                             if (papaLen != 251)
