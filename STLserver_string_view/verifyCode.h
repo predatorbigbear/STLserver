@@ -186,13 +186,13 @@ inline bool VERIFYCODE::insertVerifyCode(const char* verifyCode, const unsigned 
 			return false;
 	}
 
-	int status = m_queryStatus.load(std::memory_order_relaxed);
+	int status = m_queryStatus.load(std::memory_order_acquire);
 	if (!status)
 		return false;
 
 	else if (status == 1)
 	{
-		m_queryStatus.store(2);
+		m_queryStatus.store(2, std::memory_order_release);
 
 		if constexpr (std::is_same_v<T, REALVERIFYCODE>)
 		{

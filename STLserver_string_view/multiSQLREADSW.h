@@ -321,14 +321,14 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 	}
 
 
-	int status{ m_queryStatus.load(std::memory_order_relaxed) };
+	int status{ m_queryStatus.load(std::memory_order_acquire) };
 	if (!status)
 	{
 		return false;
 	}
 	else if (status == 1)
 	{
-		m_queryStatus.store(2);
+		m_queryStatus.store(2, std::memory_order_release);
 
 		m_sendLen = std::accumulate(std::get<0>(*sqlRequest).get().cbegin(), std::get<0>(*sqlRequest).get().cend(), 0, [](auto& sum, auto const sw)
 		{
@@ -345,7 +345,7 @@ inline bool MULTISQLREADSW::insertSqlRequest(std::shared_ptr<resultTypeSW>& sqlR
 		}
 		catch (const std::bad_alloc& e)
 		{
-			m_queryStatus.store(1);
+			m_queryStatus.store(1, std::memory_order_release);
 			return false;
 		}
 

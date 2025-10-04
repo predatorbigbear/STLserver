@@ -81,9 +81,9 @@ void ASYNCLOG::StartCheckLog()
 
 void ASYNCLOG::startWrite()
 {
-	if (!m_write.load(std::memory_order_relaxed))
+	if (!m_write.load(std::memory_order_acquire))
 	{
-		m_write.store(true);
+		m_write.store(true, std::memory_order_release);
 		writeLoop();
 	}
 
@@ -102,7 +102,7 @@ void ASYNCLOG::writeLoop()
 	}
 	else
 	{
-		m_write.store(false);
+		m_write.store(false, std::memory_order_release);
 	}
 }
 

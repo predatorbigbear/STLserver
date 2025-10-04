@@ -94,10 +94,10 @@ MULTISQLREADSW::~MULTISQLREADSW()
 
 void MULTISQLREADSW::FreeConnect()
 {
-	if (m_queryStatus.load(std::memory_order_relaxed))
+	if (m_queryStatus.load(std::memory_order_acquire))
 	{
 		mysql_close(m_mysql);
-		m_queryStatus.store(0);
+		m_queryStatus.store(0, std::memory_order_release);
 	}
 }
 
@@ -105,7 +105,7 @@ void MULTISQLREADSW::FreeConnect()
 
 void MULTISQLREADSW::ConnectDatabase()
 {
-	if (!m_queryStatus.load(std::memory_order_relaxed))
+	if (!m_queryStatus.load(std::memory_order_acquire))
 	{
 		ConnectDatabaseLoop();
 	}
@@ -146,7 +146,7 @@ void MULTISQLREADSW::ConnectDatabaseLoop()
 				}
 				else
 					resetConnect = false;
-				m_queryStatus.store(1);
+				m_queryStatus.store(1, std::memory_order_release);
 				break;
 
 			default:
@@ -245,7 +245,7 @@ void MULTISQLREADSW::firstQuery()
 
 void MULTISQLREADSW::handleAsyncError()
 {
-	m_queryStatus.store(0);
+	m_queryStatus.store(0, std::memory_order_release);
 	
 	std::shared_ptr<resultTypeSW>* request{};
 
@@ -536,7 +536,7 @@ void MULTISQLREADSW::makeMessage()
 		} while (++waitBegin != waitEnd);
 		if (waitBegin == m_waitMessageList.get())
 		{
-			m_queryStatus.store(1);
+			m_queryStatus.store(1, std::memory_order_release);
 			break;
 		}
 
@@ -632,7 +632,7 @@ void MULTISQLREADSW::makeMessage()
 		}
 		else
 		{
-			m_queryStatus.store(1);
+			m_queryStatus.store(1, std::memory_order_release);
 			break;
 		}
 

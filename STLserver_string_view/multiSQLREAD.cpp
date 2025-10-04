@@ -64,14 +64,14 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
     })== std::get<3>(thisRequest).get().cend())
         return false;
 
-    int status{ m_queryStatus.load(std::memory_order_relaxed) };
+    int status{ m_queryStatus.load(std::memory_order_acquire) };
     if (!status)
     {
         return false;
     }
     else if (status == 1)
     {
-        m_queryStatus.store(2);
+        m_queryStatus.store(2, std::memory_order_release);
     
     // 
         //////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
 
         if (clientSendLen > (m_clientBufMaxSize - 4))
         {
-            m_queryStatus.store(1);
+            m_queryStatus.store(1, std::memory_order_release);
             return false;
         }
 
@@ -99,7 +99,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         }
         catch (const std::bad_alloc& e)
         {
-            m_queryStatus.store(1);
+            m_queryStatus.store(1, std::memory_order_release);
             m_msgBufMaxSize = 0;
             return false;
         }
@@ -679,7 +679,7 @@ void MULTISQLREAD::recvAuthResult1()
                     }
                     m_seqID = 0;
                     firstQuery = true;
-                    m_queryStatus.store(1);
+                    m_queryStatus.store(1, std::memory_order_release);
                     m_log->writeLog("connect mysql success");
                 }
             }
@@ -802,7 +802,7 @@ void MULTISQLREAD::recvAuthOKPacket()
                 }
                 m_seqID = 0;
                 firstQuery = true;
-                m_queryStatus.store(1);
+                m_queryStatus.store(1, std::memory_order_release);
                 m_log->writeLog("connect mysql success");
             }
         }
@@ -1087,7 +1087,7 @@ void MULTISQLREAD::recvPubkeyAuth()
                 }
                 m_seqID = 0;
                 firstQuery = true;
-                m_queryStatus.store(1);
+                m_queryStatus.store(1, std::memory_order_release);
                 m_log->writeLog("connect mysql success");
             }
            
@@ -1106,7 +1106,7 @@ void MULTISQLREAD::mysqlQuery()
         if (err)
         {
            //重连  通知所有请求发生错误
-            m_queryStatus.store(0);
+            m_queryStatus.store(0, std::memory_order_release);
         }
         else
         {
@@ -1129,7 +1129,7 @@ void MULTISQLREAD::recvMysqlResult()
         if (err)
         {
             //重连  通知所有请求发生错误
-            m_queryStatus.store(0);
+            m_queryStatus.store(0, std::memory_order_release);
         }
         else
         {
@@ -2157,7 +2157,7 @@ void MULTISQLREAD::readyMysqlMessage()
         } while (waitMessageListBegin != waitMessageListEnd);
         if (waitMessageListBegin == m_waitMessageList.get())
         {
-            m_queryStatus.store(1);
+            m_queryStatus.store(1, std::memory_order_release);
             break;
         }
 

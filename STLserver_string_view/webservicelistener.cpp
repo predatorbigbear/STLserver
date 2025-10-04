@@ -290,7 +290,7 @@ void WEBSERVICELISTENER::getBackHTTPSERVICE(std::shared_ptr<WEBSERVICE> &tempHs)
 
 void WEBSERVICELISTENER::restartAccept()
 {
-	if (m_startAccept.load(std::memory_order_relaxed))
+	if (m_startAccept.load(std::memory_order_acquire))
 	{
 		startAccept();
 	}
@@ -300,7 +300,7 @@ void WEBSERVICELISTENER::restartAccept()
 
 void WEBSERVICELISTENER::notifySocketPool()
 {
-	m_startAccept.store(false);
+	m_startAccept.store(false, std::memory_order_release);
 	m_httpServicePool->setNotifyAccept();
 }
 
@@ -316,7 +316,7 @@ void WEBSERVICELISTENER::startRun()
 
 void WEBSERVICELISTENER::reAccept()
 {
-	m_startAccept.store(true);
+	m_startAccept.store(true, std::memory_order_release);
 	restartAccept();
 }
 

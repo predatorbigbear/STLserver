@@ -71,7 +71,7 @@ void HTTPSSERVICE::setReady(std::shared_ptr<HTTPSSERVICE>& other)
 {
 
 	m_mySelf = other;
-	m_hasClean.store(false);
+	m_hasClean.store(false, std::memory_order_release);
 
 	m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
 
@@ -84,14 +84,14 @@ void HTTPSSERVICE::setReady(std::shared_ptr<HTTPSSERVICE>& other)
 std::shared_ptr<HTTPSSERVICE>* HTTPSSERVICE::getListIter()
 {
 	// TODO: 在此处插入 return 语句
-	return mySelfIter.load(std::memory_order_relaxed);
+	return mySelfIter.load(std::memory_order_acquire);
 }
 
 
 void HTTPSSERVICE::setListIter(std::shared_ptr<HTTPSSERVICE>* iter)
 {
 	if (iter)
-		mySelfIter.store(iter);
+		mySelfIter.store(iter, std::memory_order_release);
 }
 
 
@@ -99,13 +99,13 @@ void HTTPSSERVICE::setListIter(std::shared_ptr<HTTPSSERVICE>* iter)
 
 void HTTPSSERVICE::checkTimeOut()
 {
-	if (!m_hasRecv.load(std::memory_order_relaxed))
+	if (!m_hasRecv.load(std::memory_order_acquire))
 	{
 		clean();
 	}
 	else
 	{
-		m_hasRecv.store(false);
+		m_hasRecv.store(false, std::memory_order_release);
 	}
 }
 
@@ -1942,9 +1942,9 @@ void HTTPSSERVICE::handleERRORMESSAGE(ERRORMESSAGE em)
 void HTTPSSERVICE::clean()
 {
 	//cout << "start clean\n";
-	if (!m_hasClean.load(std::memory_order_relaxed))
+	if (!m_hasClean.load(std::memory_order_acquire))
 	{
-		m_hasClean.store(true);
+		m_hasClean.store(true, std::memory_order_release);
 		m_log->writeLog(__FUNCTION__, __LINE__, m_serviceNum);
 
 
@@ -1970,7 +1970,7 @@ void HTTPSSERVICE::clean()
 
 void HTTPSSERVICE::setRecvTrue()
 {
-	m_hasRecv.store(true);
+	m_hasRecv.store(true, std::memory_order_release);
 }
 
 
@@ -2266,7 +2266,7 @@ void HTTPSSERVICE::startRead()
 			}
 			else
 			{
-				m_hasRecv.store(true);
+				m_hasRecv.store(true, std::memory_order_release);
 				if (size > 0)
 				{
 					std::string_view message{ m_readBuffer + m_startPos, size };

@@ -282,7 +282,7 @@ void HTTPSlistener::getBackHTTPSERVICE(std::shared_ptr<HTTPSSERVICE> &tempHs)
 
 void HTTPSlistener::restartAccept()
 {
-	if (m_startAccept.load(std::memory_order_relaxed))
+	if (m_startAccept.load(std::memory_order_acquire))
 	{
 		startAccept();
 	}
@@ -292,7 +292,7 @@ void HTTPSlistener::restartAccept()
 
 void HTTPSlistener::notifySocketPool()
 {
-	m_startAccept.store(false);
+	m_startAccept.store(false, std::memory_order_release);
 	m_httpServicePool->setNotifyAccept();
 }
 
@@ -308,7 +308,7 @@ void HTTPSlistener::startRun()
 
 void HTTPSlistener::reAccept()
 {
-	m_startAccept.store(true);
+	m_startAccept.store(true, std::memory_order_release);
 	restartAccept();
 }
 

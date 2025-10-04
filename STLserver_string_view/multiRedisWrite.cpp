@@ -83,13 +83,13 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 		)
 		return false;
 
-	if (!m_connect.load(std::memory_order_relaxed))
+	if (!m_connect.load(std::memory_order_acquire))
 	{
 		return false;
 	}
-	if (!m_queryStatus.load(std::memory_order_relaxed))
+	if (!m_queryStatus.load(std::memory_order_acquire))
 	{
-		m_queryStatus.store(true);
+		m_queryStatus.store(true, std::memory_order_release);
 
 
 		//////////////////////////////////////////////////////////////////////
@@ -139,7 +139,7 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 			catch (const std::exception& e)
 			{
 				m_messageBufferMaxSize = 0;
-				m_queryStatus.store(false);
+				m_queryStatus.store(false, std::memory_order_release);
 
 				return false;
 			}
@@ -160,7 +160,7 @@ bool MULTIREDISWRITE::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& red
 			catch (const std::exception& e)
 			{
 				m_logMessageSize = 0;
-				m_queryStatus.store(false);
+				m_queryStatus.store(false, std::memory_order_release);
 
 				return false;
 			}
@@ -413,7 +413,7 @@ void MULTIREDISWRITE::reconnect()
 
 void MULTIREDISWRITE::setConnectSuccess()
 {
-	m_connect.store(true);
+	m_connect.store(true, std::memory_order_release);
 }
 
 
@@ -421,7 +421,7 @@ void MULTIREDISWRITE::setConnectSuccess()
 
 void MULTIREDISWRITE::setConnectFail()
 {
-	m_connect.store(false);
+	m_connect.store(false, std::memory_order_release);
 }
 
 
@@ -3259,7 +3259,7 @@ void MULTIREDISWRITE::readyMessage()
 		} while (m_waitMessageListBegin != m_waitMessageListEnd);
 		if (m_waitMessageListBegin == m_waitMessageList.get())
 		{
-			m_queryStatus.store(false);
+			m_queryStatus.store(false, std::memory_order_release);
 			break;
 		}
 

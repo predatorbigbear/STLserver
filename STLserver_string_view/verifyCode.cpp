@@ -218,7 +218,7 @@ void VERIFYCODE::sendVerifyCode(const std::string& request, bool isRealCode)
         else
         {
             
-            m_queryStatus.store(0);
+            m_queryStatus.store(0, std::memory_order_release);
             //进入回收socket 并重连阶段
             sslShutdown();
    
@@ -291,7 +291,7 @@ void VERIFYCODE::checkList()
 {
     if (!m_messageList.try_dequeue(m_message))
     {
-        m_queryStatus.store(1);
+        m_queryStatus.store(1, std::memory_order_release);
         return;
     }
 
@@ -322,7 +322,7 @@ void VERIFYCODE::runVerifyCode()
 
 void VERIFYCODE::resetQueryStatus()
 {
-    m_queryStatus.store(0);
+    m_queryStatus.store(0, std::memory_order_release);
 }
 
 

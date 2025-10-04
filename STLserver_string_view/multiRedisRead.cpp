@@ -83,14 +83,14 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redi
 		)
 		return false;
 
-	int status{ m_queryStatus.load(std::memory_order_relaxed) };
+	int status{ m_queryStatus.load(std::memory_order_acquire) };
 	if (!status)
 	{
 		return false;
 	}
 	else if (status == 1)
 	{
-		m_queryStatus.store(2);
+		m_queryStatus.store(2, std::memory_order_release);
 
 
 		//////////////////////////////////////////////////////////////////////
@@ -139,7 +139,7 @@ bool MULTIREDISREAD::insertRedisRequest(std::shared_ptr<redisResultTypeSW>& redi
 			catch (const std::exception& e)
 			{
 				m_messageBufferMaxSize = 0;
-				m_queryStatus.store(1);
+				m_queryStatus.store(1, std::memory_order_release);
 
 				return false;
 			}
@@ -351,7 +351,7 @@ void MULTIREDISREAD::reconnect()
 
 void MULTIREDISREAD::setConnectSuccess()
 {
-	m_queryStatus.store(1);
+	m_queryStatus.store(1, std::memory_order_release);
 }
 
 
@@ -359,7 +359,7 @@ void MULTIREDISREAD::setConnectSuccess()
 
 void MULTIREDISREAD::setConnectFail()
 {
-	m_queryStatus.store(0);
+	m_queryStatus.store(0, std::memory_order_release);
 }
 
 
@@ -372,7 +372,7 @@ void MULTIREDISREAD::query()
 	{
 		if (err)  //log
 		{
-			m_queryStatus.store(0);
+			m_queryStatus.store(0, std::memory_order_release);
 			m_log->writeLog(__FUNCTION__, __LINE__, err.what());
 			m_connectStatus = 2;
 
@@ -3100,7 +3100,7 @@ void MULTIREDISREAD::handlelRead(const boost::system::error_code& err, const std
 {
 	if (err)
 	{
-		m_queryStatus.store(0);
+		m_queryStatus.store(0, std::memory_order_release);
 
 		m_log->writeLog(__FILE__, __LINE__, err.what());
 
@@ -3214,7 +3214,7 @@ void MULTIREDISREAD::readyMessage()
 		} while (waitMessageListBegin != waitMessageListEnd);
 		if (waitMessageListBegin == m_waitMessageList.get())
 		{
-			m_queryStatus.store(1);
+			m_queryStatus.store(1, std::memory_order_release);
 			break;
 		}
 
