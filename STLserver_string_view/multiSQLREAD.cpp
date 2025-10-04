@@ -1366,10 +1366,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
-            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
-            //设置该检查修复这个问题
-            //if (checkTime == -1)
-            //    ++checkTime;
+           
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -1400,10 +1397,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
-            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
-            //设置该检查修复这个问题
-            //if (checkTime == -1)
-            //    ++checkTime;
+          
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -1859,6 +1853,14 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                         case MYSQL_TYPE_LONG:
                             //BIGINT: 大的整数， 支持 NULL 值
                         case MYSQL_TYPE_LONGLONG:
+                            //关于负数支持
+                            //默认行为‌：FLOAT类型遵循IEEE 754标准，默认包含有符号范围（ - 3.402823466E+38至3.402823466E+38），无需特殊声明即可存储负值。
+                            //无符号选项‌：可通过UNSIGNED修饰符限制为非负数，此时取值范围变为0至3.402823466E+38。
+                            //从MySQL 8.0.17开始，FLOAT(M,D)语法已被弃用
+                        case MYSQL_TYPE_FLOAT:
+                            //在MySQL 8.0中，DOUBLE类型的默认小数点位数、支持NULL：
+                        case MYSQL_TYPE_DOUBLE:
+                           
 
                             papaLen = *strBegin;
 
@@ -2054,10 +2056,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
-            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
-            //设置该检查修复这个问题
-            //if (checkTime == -1)
-            //   ++checkTime;
+           
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;
@@ -2084,10 +2083,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
             m_waitMessageListBegin = waitMessageListBegin;
             m_commandTotalSize = commandTotalSize;
             m_commandCurrentSize = commandCurrentSize;
-            //在事务中select结束之后，checkTime复位-1时包可能中断，重新进入处理时值为-1会出现检查问题
-           //设置该检查修复这个问题
-           //if (checkTime == -1)
-           //   ++checkTime;
+           
             m_checkTime = checkTime;
             m_getResult = getResult;
             m_jumpNode = jumpNode;

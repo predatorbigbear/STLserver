@@ -86,6 +86,18 @@ namespace SQLCOMMAND
     );
 
 
+	CREATE TABLE table1 (
+	id1 FLOAT,
+	id2 FLOAT UNSIGNED
+    );
+
+
+	CREATE TABLE table1 (
+	id1 DOUBLE,
+	id2 DOUBLE UNSIGNED
+    );
+
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1,id2 from table1" };
 
