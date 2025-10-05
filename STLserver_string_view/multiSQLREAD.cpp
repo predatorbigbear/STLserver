@@ -1860,7 +1860,18 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                         case MYSQL_TYPE_FLOAT:
                             //在MySQL 8.0中，DOUBLE类型的默认小数点位数、支持NULL：
                         case MYSQL_TYPE_DOUBLE:
-                           
+                           //MySQL 8.0的（DECIMAL类型）取值范围和精度由定义时的参数决定：
+                           // 精度与取值范围
+                           // ‌总位数（M）‌：最大65位，默认值10位。
+                           // ‌小数位数（D）‌：最大30位，默认0位。
+                        case MYSQL_TYPE_NEWDECIMAL:
+                            //MySQL的  DATE  类型取值范围为‌1000年1月1日至9999年12月31日‌，支持NULL值。
+                        case MYSQL_TYPE_DATE:
+                            //MySQL 的 ‌TIME 类型‌取值范围为 ‌-838 小时 59 分钟 59 秒至 838 小时 59 分钟 59 秒‌，支持存储 NULL 值
+                            //‌标准格式‌：以 ‌HH:MM:SS‌（小时:分钟:秒）表示，支持包含秒的小数部分（默认精度为秒）。 ‌
+                            //扩展格式‌：允许使用 ‌天数‌（如 D HH:MM:SS）表示超过 24 小时的时间段
+                        case MYSQL_TYPE_TIME:
+
 
                             papaLen = *strBegin;
 

@@ -98,6 +98,25 @@ namespace SQLCOMMAND
     );
 
 
+	CREATE TABLE table1 (
+	id1 DECIMAL(65,30),
+	id2 DECIMAL(65,30) UNSIGNED
+    );
+
+
+	CREATE TABLE table1 (
+	id1 DATE,
+	id2 DATE
+    );
+
+
+	CREATE TABLE table1 (
+	id1 TIME,
+	id2 TIME
+    );
+
+
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1,id2 from table1" };
 
