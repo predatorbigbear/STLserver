@@ -116,6 +116,17 @@ namespace SQLCOMMAND
     );
 
 
+	CREATE TABLE table1 (
+	id1 YEAR,
+	id2 YEAR
+    );
+
+
+	CREATE TABLE table1 (
+	id1 DATETIME,
+	id2 DATETIME
+    );
+
 
 	*/
 	static const char* testMysqlTINYINT{ "select id1,id2 from table1" };

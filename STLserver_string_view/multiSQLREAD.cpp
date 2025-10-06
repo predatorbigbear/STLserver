@@ -1871,6 +1871,12 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             //‌标准格式‌：以 ‌HH:MM:SS‌（小时:分钟:秒）表示，支持包含秒的小数部分（默认精度为秒）。 ‌
                             //扩展格式‌：允许使用 ‌天数‌（如 D HH:MM:SS）表示超过 24 小时的时间段
                         case MYSQL_TYPE_TIME:
+                            //MySQL 8.0中YEAR类型的取值范围为‌1901至2155年‌，占用1个字节   YEAR字段默认允许存储NULL值
+                        case MYSQL_TYPE_YEAR:
+                            //DATETIME 类型在 MySQL 中用来存储日期和时间值，格式为 YYYY-MM-DD HH:MM:SS。
+                            // 其取值范围是从 '1000-01-01 00:00:00' 到 '9999-12-31 23:59:59
+                            // 支持 NULL 值
+                        case MYSQL_TYPE_DATETIME:
 
 
                             papaLen = *strBegin;
