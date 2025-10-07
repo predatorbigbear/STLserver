@@ -1276,7 +1276,6 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     int i{};
 
-
     /*
     
     MySQL 8.0中不同编码类型的长度值及占用空间如下：
@@ -1877,7 +1876,10 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             // 其取值范围是从 '1000-01-01 00:00:00' 到 '9999-12-31 23:59:59
                             // 支持 NULL 值
                         case MYSQL_TYPE_DATETIME:
-
+                            //MySQL 8.0 中 TIMESTAMP 数据类型的取值范围为 '1970-01-01 00:00:01.000000' UTC 到 '2038-01-19 03:14:07.999999' UTC
+                            //可通过显式声明 NULL 约束来允许 NULL 值
+                        case MYSQL_TYPE_TIMESTAMP:
+                           
 
                             papaLen = *strBegin;
 
@@ -1920,6 +1922,77 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
                             break;
 
+
+                            //MySQL 的 CHAR 类型有效长度范围为 ‌0 到 255 个字符‌  NULL 支持‌：默认允许，可通过约束限制。
+                        case MYSQL_TYPE_STRING:
+                           
+                            papaLen = *strBegin;
+
+                            if (papaLen < 251)
+                            {
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                    }
+
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                strBegin += papaLen + 1;
+                            }
+                            else
+                            {
+                                //NULL值
+                                if (papaLen == 251)
+                                {
+                                    //存储空string_view
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    ++strBegin;
+
+                                }
+                                else
+                                {
+                                    //252
+                                    //当长度为252时  strBegin+1为正确长度   strBegin+2 为 0x00  strBegin+3为数据开始位置 
+                                    papaLen = *(strBegin+1);
+
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 3)), papaLen));
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    strBegin += papaLen + 3;
+
+                                }                               
+                            }
+
+                            break;
+                           
 
                         default:
                             std::cout << "enum: " << *(colLenBegin + 1) << "  len: " << *colLenBegin << '\n';
@@ -1968,7 +2041,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                                     }
                                     else
                                     {
-                                        if (std::distance(strBegin + 1, strEnd) > 251)
+                                        if (std::distance(strBegin + 1, strEnd) >= 251)
                                         {
                                             //存储结果string_view  std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen)
                                             try
