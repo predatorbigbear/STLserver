@@ -138,10 +138,25 @@ namespace SQLCOMMAND
 	id1 CHAR(255),
 	id2 CHAR(255)
     );
+
+	//一张表中似乎VARCHAR类型总最大值为65535   UTF8下每个字符占用1-4字节
+	ALTER DATABASE serversql CHARACTER SET latin1 COLLATE latin1_swedish_ci;
+
+	CREATE TABLE table1 (
+	id1 VARCHAR(65532)
+    );
+
+	CREATE TABLE table1 (
+	id1 VARCHAR(65533) NOT NULL
+	);
 	
 
+	CREATE TABLE table1 (
+	id1 TINYTEXT
+    );
+
 	*/
-	static const char* testMysqlTINYINT{ "select id1,id2 from table1" };
+	static const char* testMysqlTINYINT{ "select id1 from table1" };
 
 
 
