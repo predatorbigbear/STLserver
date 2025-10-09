@@ -504,7 +504,7 @@ bool MULTISQLREAD::makeHandshakeResponse41()
     *clientIter++ = m_clientBufMaxSize / 16777216;
 
     //utf8mb4_unicode_ci 
-    *clientIter++ = utf8mb4_unicode_ci;
+    *clientIter++ = utf8mb4_0900_ai_ci;
 
     std::fill(clientIter, clientIter + 23, 0);
     clientIter += 23;
@@ -1200,7 +1200,8 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
         MYSQL_TYPE_TYPED_ARRAY, MYSQL_TYPE_VECTOR = 242, MYSQL_TYPE_INVALID = 243, MYSQL_TYPE_BOOL = 244,
         MYSQL_TYPE_JSON = 245, MYSQL_TYPE_NEWDECIMAL = 246, MYSQL_TYPE_ENUM = 247, MYSQL_TYPE_SET = 248,
         MYSQL_TYPE_TINY_BLOB = 249, MYSQL_TYPE_MEDIUM_BLOB = 250, MYSQL_TYPE_LONG_BLOB = 251, MYSQL_TYPE_BLOB = 252,
-        MYSQL_TYPE_VAR_STRING = 253, MYSQL_TYPE_STRING = 254, MYSQL_TYPE_GEOMETRY = 255
+        MYSQL_TYPE_VAR_STRING = 253, MYSQL_TYPE_STRING = 254, MYSQL_TYPE_GEOMETRY = 255,
+        MYSQL_TYPE_TEXT = 21845
     };
 
     if (!bytes_transferred)
@@ -1754,7 +1755,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                         //lengthOfFixed + 1,strEnd   default value
                     }
 
-
                 }
                 else
                 {
@@ -1935,8 +1935,91 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
                             //MySQL 的 CHAR 类型有效长度范围为 ‌0 到 255 个字符‌  NULL 支持‌：默认允许，可通过约束限制。
                         case MYSQL_TYPE_STRING:
+                            papaLen = *strBegin;
+
+                            if (papaLen < 251)
+                            {
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                    }
+
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                strBegin += papaLen + 1;
+                            }
+                            else
+                            {
+                                //NULL值
+                                if (papaLen == 251)
+                                {
+                                    //存储空string_view
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    ++strBegin;
+
+                                }
+                                else
+                                {
+                                    //252
+                                    //当长度为252时  strBegin+1为正确长度   strBegin+2 为 0x00  strBegin+3为数据开始位置 
+                                    papaLen = *(strBegin + 1);
+
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 3)), papaLen));
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    strBegin += papaLen + 3;
+
+                                }
+                            }
+
+                            break;
+
+
+
+
                             //TINYTEXT在MySQL 8.0中最大支持‌255个字符‌（不是字节，如果是UTF-8编码，最多存储85个汉字），支持NULL值
+
+                            //MySQL 8.0中TEXT类型的取值范围为最大长度65,535个字符（2-1），属于可变长度字符串类型，
+                            // 适用于存储大段文本内容如文章或博客正文
+                            //3。该类型在UTF8MB4字符集下可存储约2万个中文字符，但大JSON串（尤其是含中文较多时）可能超出其容量限制
+                            //关于NULL值支持，TEXT字段默认允许为NULL，表示该字段值未知或不存在。用户可通过显式设置NOT NULL约束来禁止空值存储
+
+                            //TEXT 和 TINYTEXT 共用标志
                         case MYSQL_TYPE_BLOB:
+                            //VARCHAR的最大长度为‌65,535字节‌（对应65,535个字符），
+                           // 但实际存储的字符数量可能因字符集而异。例如，使用UTF-8字符集时，
+                           // 每个字符可能占用1-4字节，因此实际存储的字符数会减少
+                           //VARCHAR字段占用1或2个额外字节记录长度（取决于字符集），加上实际数据长度。
+                           // 例如，存储Latin1字符集时，每个字符占用1字节；UTF-8字符集则可能占用1-4字节
+                        case MYSQL_TYPE_VAR_STRING:
 
                            
                             papaLen = *strBegin;
@@ -1984,7 +2067,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                                 {
                                     //252
                                     //当长度为252时  strBegin+1为正确长度   strBegin+2 为 0x00  strBegin+3为数据开始位置 
-                                    papaLen = *(strBegin+1);
+                                    papaLen = *(strBegin + 1) + *(strBegin + 2) * 256;
 
                                     try
                                     {
@@ -2005,84 +2088,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             }
 
                             break;
-
-
-                            //VARCHAR的最大长度为‌65,535字节‌（对应65,535个字符），
-                            // 但实际存储的字符数量可能因字符集而异。例如，使用UTF-8字符集时，
-                            // 每个字符可能占用1-4字节，因此实际存储的字符数会减少
-                            //VARCHAR字段占用1或2个额外字节记录长度（取决于字符集），加上实际数据长度。
-                            // 例如，存储Latin1字符集时，每个字符占用1字节；UTF-8字符集则可能占用1-4字节
-                        case MYSQL_TYPE_VAR_STRING:
-
-                            papaLen = *strBegin;
-
-
-                            if (papaLen < 251)
-                            {
-                                try
-                                {
-                                    if (!jumpNode)
-                                    {
-                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
-                                    }
-
-                                }
-                                catch (const std::exception& e)
-                                {
-                                    //出错处理，内存不足，不再往里面插入数据
-                                    jumpNode = true;
-                                }
-                                strBegin += papaLen + 1;
-                            }
-                            else
-                            {
-                                //NULL值
-                                if (papaLen == 251)
-                                {
-                                    //存储空string_view
-                                    try
-                                    {
-                                        if (!jumpNode)
-                                        {
-                                            std::get<4>(thisRequest).get().emplace_back(emptyView);
-                                        }
-
-                                    }
-                                    catch (const std::exception& e)
-                                    {
-                                        //出错处理，内存不足，不再往里面插入数据
-                                        jumpNode = true;
-                                    }
-                                    ++strBegin;
-
-                                }
-                                else
-                                {
-                                    //252
-                                    //当长度为252时  strBegin+1 与 strBegin+2 共同表示为实际长度  strBegin+3为数据开始位置 
-                                    papaLen = *(strBegin + 1) + *(strBegin + 2) * 256;
-
-                                    try
-                                    {
-                                        if (!jumpNode)
-                                        {
-                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 3)), papaLen));
-                                        }
-
-                                    }
-                                    catch (const std::exception& e)
-                                    {
-                                        //出错处理，内存不足，不再往里面插入数据
-                                        jumpNode = true;
-                                    }
-                                    strBegin += papaLen + 3;
-
-                                }
-                            }
-
-                            break;
-
-
 
                         default:
                             std::cout << "enum: " << *(colLenBegin + 1) << "  len: " << *colLenBegin << '\n';

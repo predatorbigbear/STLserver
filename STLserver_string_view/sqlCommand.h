@@ -146,6 +146,7 @@ namespace SQLCOMMAND
 	id1 VARCHAR(65532)
     );
 
+
 	CREATE TABLE table1 (
 	id1 VARCHAR(65533) NOT NULL
 	);
@@ -154,6 +155,12 @@ namespace SQLCOMMAND
 	CREATE TABLE table1 (
 	id1 TINYTEXT
     );
+
+
+	CREATE TABLE table1 (
+	id1 TEXT
+    );
+
 
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
