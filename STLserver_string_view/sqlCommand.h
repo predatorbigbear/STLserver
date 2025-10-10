@@ -186,6 +186,11 @@ namespace SQLCOMMAND
 	id1 TINYBLOB
 	);
 
+
+	CREATE TABLE table1 (
+	id1 BLOB
+	);
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 
