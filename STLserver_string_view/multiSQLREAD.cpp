@@ -81,7 +81,7 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         });
         clientSendLen += std::get<1>(thisRequest);
 
-        if (clientSendLen > (m_clientBufMaxSize - 4))
+        if (clientSendLen > (m_clientBufMaxSize - 5))
         {
             m_queryStatus.store(1, std::memory_order_release);
             return false;
@@ -91,10 +91,10 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
         try
         {
             //其实这里是不可能走到的，因为m_msgBufMaxSize大小是m_clientBufMaxSize的6倍
-            if (m_msgBufMaxSize < (clientSendLen + 4))
+            if (m_msgBufMaxSize < (clientSendLen + 5))
             {
-                m_msgBuf.reset(new unsigned char[clientSendLen + 4]);
-                m_msgBufMaxSize = clientSendLen + 4;
+                m_msgBuf.reset(new unsigned char[clientSendLen + 5]);
+                m_msgBufMaxSize = clientSendLen + 5;
             }
         }
         catch (const std::bad_alloc& e)
@@ -139,6 +139,8 @@ bool MULTISQLREAD::insertMysqlRequest(std::shared_ptr<MYSQLResultTypeSW>& mysqlR
             ++m_commandBufBegin;
         }while (++m_VecBegin != m_VecEnd);
 
+        //加上0x03
+        clientSendLen += 1;
         clientBegin = m_msgBuf.get();
         *clientBegin = clientSendLen % 256;
         *(clientBegin + 1) = clientSendLen / 256 % 256;
@@ -1276,6 +1278,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     int i{};
 
+
     /*
     
     MySQL 8.0中不同编码类型的长度值及占用空间如下：
@@ -2011,13 +2014,137 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             //3。该类型在UTF8MB4字符集下可存储约2万个中文字符，但大JSON串（尤其是含中文较多时）可能超出其容量限制
                             //关于NULL值支持，TEXT字段默认允许为NULL，表示该字段值未知或不存在。用户可通过显式设置NOT NULL约束来禁止空值存储
 
-                            //TEXT 和 TINYTEXT 共用标志
+                             //MEDIUMTEXT的最大长度为‌16,777,215个字符
+                            //MEDIUMTEXT字段支持NULL值，即可以存储空值
+
+                            //在MySQL 8.0中，LONGTEXT类型的取值范围为最大长度4294967295个字符
+                            //LONGTEXT列默认允许存储NULL值，除非显式定义为NOT NULL
+                            
+
+                            //TEXT 和 TINYTEXT 和 MEDIUMTEXT 和  LONGTEXT  共用标志
                         case MYSQL_TYPE_BLOB:
+                   
+
+                            papaLen = *strBegin;
+                            
+
+                            if (papaLen < 251)
+                            {
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                    }
+
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                strBegin += papaLen + 1;
+                            }
+                            else
+                            {
+                                switch (papaLen)
+                                {
+                                case 251:
+                                    //存储空string_view
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    ++strBegin;
+                                    break;
+
+                                case 252:
+                                    //252
+                                    //当长度为252时  strBegin+1   strBegin+2为正确长度   strBegin+3为数据开始位置 
+                                    papaLen = *(strBegin + 1) + *(strBegin + 2) * 256;
+
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 3)), papaLen));
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    strBegin += papaLen + 3;
+                                    break;
+
+                                case 253:
+
+                                    //253
+                                    //当长度为253时  strBegin+1 strBegin+2 strBegin+3 为正确长度  strBegin+4为数据开始位置 
+                                    papaLen = *(strBegin + 1) + *(strBegin + 2) * 256 + *(strBegin + 3) * 65536;
+
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 4)), papaLen));
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    strBegin += papaLen + 4;
+                                    break;
+
+                                case 254:
+
+                                    //254
+                                    //当长度为254时  strBegin+1 strBegin+2 strBegin+3 strBegin+4 为正确长度  strBegin+5为数据开始位置 
+                                    papaLen = *(strBegin + 1) + *(strBegin + 2) * 256 + *(strBegin + 3) * 65536 + *(strBegin + 4) * 16777216;
+
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 5)), papaLen));
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    strBegin += papaLen + 5;
+                                    break;
+
+                                default:
+
+                                    break;
+                                };
+                            }
+
+                            break;
+
                             //VARCHAR的最大长度为‌65,535字节‌（对应65,535个字符），
-                           // 但实际存储的字符数量可能因字符集而异。例如，使用UTF-8字符集时，
-                           // 每个字符可能占用1-4字节，因此实际存储的字符数会减少
-                           //VARCHAR字段占用1或2个额外字节记录长度（取决于字符集），加上实际数据长度。
-                           // 例如，存储Latin1字符集时，每个字符占用1字节；UTF-8字符集则可能占用1-4字节
+                          // 但实际存储的字符数量可能因字符集而异。例如，使用UTF-8字符集时，
+                          // 每个字符可能占用1-4字节，因此实际存储的字符数会减少
+                          //VARCHAR字段占用1或2个额外字节记录长度（取决于字符集），加上实际数据长度。
+                          // 例如，存储Latin1字符集时，每个字符占用1字节；UTF-8字符集则可能占用1-4字节
                         case MYSQL_TYPE_VAR_STRING:
 
                            
@@ -2087,6 +2214,8 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             }
 
                             break;
+
+                            
 
                         default:
                             std::cout << "enum: " << *(colLenBegin + 1) << "  len: " << *colLenBegin << '\n';
@@ -2445,7 +2574,8 @@ void MULTISQLREAD::readyMysqlMessage()
         } while (++m_VecBegin != m_VecEnd);
 
        
-
+        //0x03
+        thisClientSendLen += 1;
         clientBegin = m_msgBuf.get();
         *clientBegin = thisClientSendLen % 256;
         *(clientBegin + 1) = thisClientSendLen / 256 % 256;

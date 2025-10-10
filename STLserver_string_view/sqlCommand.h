@@ -162,6 +162,16 @@ namespace SQLCOMMAND
     );
 
 
+	CREATE TABLE table1 (
+	id1 MEDIUMTEXT
+    );
+
+
+	CREATE TABLE table1 (
+	id1 LONGTEXT
+    );
+
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 
