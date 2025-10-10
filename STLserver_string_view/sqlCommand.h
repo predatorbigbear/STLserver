@@ -172,6 +172,11 @@ namespace SQLCOMMAND
     );
 
 
+	CREATE TABLE table1 (
+	id1 BINARY(255)
+    );
+
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 

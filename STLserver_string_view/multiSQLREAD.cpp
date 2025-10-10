@@ -1936,8 +1936,14 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
 
                             //MySQL 的 CHAR 类型有效长度范围为 ‌0 到 255 个字符‌  NULL 支持‌：默认允许，可通过约束限制。
+
+                            //在MySQL 8.0中，BINARY类型是定长二进制字符串类型，其取值范围由创建表时指定的长度参数M决定，最大允许长度为255字节
+                            //关于NULL值的支持，BINARY类型默认允许存储NULL值，除非在列定义时显式指定NOT NULL约束
+
+                            //CHAR  BINARY共用标志
                         case MYSQL_TYPE_STRING:
                             papaLen = *strBegin;
+
 
                             if (papaLen < 251)
                             {
@@ -2344,12 +2350,6 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
 
 
-
-
-
-      
-
-       
         sourceBegin = strEnd;
     }
 
