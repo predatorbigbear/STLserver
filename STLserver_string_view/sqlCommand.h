@@ -177,6 +177,15 @@ namespace SQLCOMMAND
     );
 
 
+	CREATE TABLE table1 (
+	id1 VARBINARY(65532)
+	);
+
+
+	CREATE TABLE table1 (
+	id1 TINYBLOB
+	);
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 

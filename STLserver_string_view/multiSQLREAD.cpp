@@ -2027,6 +2027,12 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             //LONGTEXT列默认允许存储NULL值，除非显式定义为NOT NULL
                             
 
+                            //MySQL 8.0中TINYBLOB类型的取值范围为0到255字节，支持存储NULL值，且‌不支持‌显式定义长度（长度固定为255字节）
+
+
+                            //MySQL 8.0中BLOB类型的取值范围为0到65535字节，支持存储NULL值，且‌不支持‌显式定义长度（长度固定为65535字节）
+
+
                             //TEXT 和 TINYTEXT 和 MEDIUMTEXT 和  LONGTEXT  共用标志
                         case MYSQL_TYPE_BLOB:
                    
@@ -2151,6 +2157,11 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                           // 每个字符可能占用1-4字节，因此实际存储的字符数会减少
                           //VARCHAR字段占用1或2个额外字节记录长度（取决于字符集），加上实际数据长度。
                           // 例如，存储Latin1字符集时，每个字符占用1字节；UTF-8字符集则可能占用1-4字节
+
+
+                           // MySQL 8.0中VARBINARY类型的取值范围为0到65,535字节，具体长度可通过显式定义指定（如VARBINARY(255)），且支持NULL值存储
+                           //对比BINARY‌：与固定长度的BINARY不同，VARBINARY不会用0x00填充剩余空间
+
                         case MYSQL_TYPE_VAR_STRING:
 
                            
