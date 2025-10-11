@@ -2032,9 +2032,25 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
                             //MySQL 8.0中BLOB类型的取值范围为0到65535字节，支持存储NULL值，且‌不支持‌显式定义长度（长度固定为65535字节）
 
+                            //MySQL 8.0 中，MEDIUMBLOB 类型的取值范围是 ‌0 到 16,777,215 字节（约 16MB）‌，
+                            // 适用于存储中等大小的二进制数据，如图片或文档等
+
+
+                            //MySQL 8.0中LONGBLOB类型的取值范围为最大4GB（即4,294,967,295字节），适用于存储大量二进制数据
+                            //该类型支持NULL值，与其他MySQL数据类型一样，若未显式声明NOT NULL约束，则默认允许NULL值
+
+
 
                             //TEXT 和 TINYTEXT 和 MEDIUMTEXT 和  LONGTEXT  共用标志
                         case MYSQL_TYPE_BLOB:
+                            //MySQL 8.0中的JSON类型取值范围受系统变量max_allowed_packet限制，
+                            // 其存储空间与LONGBLOB或LONGTEXT类似，最大长度不超过该变量设置的值
+                            //默认值限制‌：在MySQL 8.0.13之前，JSON列不允许设置非NULL默认值；从8.0.13版本开始，允许默认值为NULL
+                            //MySQL 8.0 默认值‌：64MB（即 67108864 字节）‌
+                            //最小值‌：通常为 1KB（1024 字节）‌
+                            //最大值‌：1GB（1073741824 字节
+                        case MYSQL_TYPE_JSON:
+
                    
 
                             papaLen = *strBegin;
@@ -2231,6 +2247,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             }
 
                             break;
+
 
                             
 

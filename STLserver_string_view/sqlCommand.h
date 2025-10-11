@@ -191,6 +191,21 @@ namespace SQLCOMMAND
 	id1 BLOB
 	);
 
+
+	CREATE TABLE table1 (
+	id1 MEDIUMBLOB
+    );
+
+
+	CREATE TABLE table1 (
+	id1 LONGBLOB
+    );
+
+
+	CREATE TABLE table1 (
+	id1 JSON
+    );
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 
