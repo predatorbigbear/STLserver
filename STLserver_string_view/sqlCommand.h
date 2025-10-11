@@ -206,6 +206,11 @@ namespace SQLCOMMAND
 	id1 JSON
     );
 
+
+	CREATE TABLE table1 (
+	id1 POINT
+	);
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 

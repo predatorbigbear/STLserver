@@ -1934,6 +1934,55 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
 
                             break;
 
+                            //MySQL 8.0中的POINT类型属于空间数据类型，其取值范围由坐标系的数学定义决定，
+                           // 通常支持双精度浮点数表示的坐标值（经度范围-180到180，纬度范围-90到90）
+                           //该类型默认支持NULL值，除非显式定义为NOT NULL约束
+                            //POINT类型需要进一步解析处理，原始返回数据不是直接数据
+                        case MYSQL_TYPE_GEOMETRY:
+
+
+                            papaLen = *strBegin;
+
+                            if (papaLen != 251)
+                            {
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 1)), papaLen));
+                                    }
+
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                strBegin += papaLen + 1;
+                            }
+                            else
+                            {
+                                //NULL值
+                                //存储空string_view
+                                try
+                                {
+                                    if (!jumpNode)
+                                    {
+                                        std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                    }
+
+                                }
+                                catch (const std::exception& e)
+                                {
+                                    //出错处理，内存不足，不再往里面插入数据
+                                    jumpNode = true;
+                                }
+                                ++strBegin;
+                            }
+
+                            break;
+
+
 
                             //MySQL 的 CHAR 类型有效长度范围为 ‌0 到 255 个字符‌  NULL 支持‌：默认允许，可通过约束限制。
 
