@@ -1215,7 +1215,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
     const unsigned char* sourceBegin{ m_recvBuf }, * sourceEnd{ m_recvBuf + bytes_transferred + m_readLen };
 
     //单条数据的首尾位置
-    const unsigned char* strBegin{}, * strEnd{};
+    const unsigned char* strBegin{}, * strEnd{}, * thisStr{};
 
     ///////////////////////////////////////////////////
     std::shared_ptr<MYSQLResultTypeSW>* waitMessageListBegin{ m_waitMessageListBegin };
@@ -1278,6 +1278,7 @@ int MULTISQLREAD::parseMysqlResult(const std::size_t bytes_transferred)
 
     int i{};
 
+    std::string str;
 
     /*
     
@@ -1787,7 +1788,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                         catch (const std::exception& e)
                         {
                             //出错处理，内存不足，不再往里面插入数据
-                            jumpNode = true;
+                            jumpNode = true;//是九二喝是证明品牌子的
                         }
 
 
@@ -1938,10 +1939,26 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                            // 通常支持双精度浮点数表示的坐标值（经度范围-180到180，纬度范围-90到90）
                            //该类型默认支持NULL值，除非显式定义为NOT NULL约束
                             //POINT类型需要进一步解析处理，原始返回数据不是直接数据
+
+                            //LINESTRING类型
+                            // POLYGON类型等
+
+
+                            //在 MySQL 8.0 中，ENUM 类型的范围和 NULL 支持情况如下：
+                            //范围
+                            // 最大值数量‌：ENUM 类型最多支持 65, 535 个不同的元素（即 65, 535 个预定义值）。
+                            // 单个值长度限制‌：每个 ENUM 元素的最大支持长度为 255 个字符（字节）。
+                            // NULL 支持
+                            // 默认行为‌：如果 ENUM 列允许 NULL（这是默认设置），NULL 是该列的有效值，并且默认值为 NULL。
+                            // NOT NULL 约束‌：如果 ENUM 列被声明为 NOT NULL，则默认值为允许值列表的第一个元素。
                         case MYSQL_TYPE_GEOMETRY:
 
 
+                          
+
                             papaLen = *strBegin;
+                            
+
 
                             if (papaLen != 251)
                             {

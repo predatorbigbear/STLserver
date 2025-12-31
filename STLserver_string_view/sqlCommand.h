@@ -211,6 +211,20 @@ namespace SQLCOMMAND
 	id1 POINT
 	);
 
+
+	CREATE TABLE table1 (
+	id1 LINESTRING,
+    );
+
+	CREATE TABLE table1 (
+	id1 POLYGON,
+	);
+
+	CREATE TABLE table1 (
+	id1 ENUM('active', 'inactive', 'pending') NOT NULL
+    );
+
+
 	*/
 	static const char* testMysqlTINYINT{ "select id1 from table1" };
 
