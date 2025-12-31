@@ -212,6 +212,7 @@ vs2022编译选项设置：
 
 
 
+在外面有事情处理，经过了2个月15天，终于回到家里，准备全力学习ai开发，然后再找工作
 
 
 
@@ -258,18 +259,6 @@ vs2022编译选项设置：
 
 
 
-
-
-
-
-
-
-
-日常保健：
-![84C355342C7F9F14B5CC5726E3419B9C](https://github.com/user-attachments/assets/d63c1b6c-30c4-4775-8fb2-0be3e84ac187)
-![a7f5c5af155f667acb1e87829570de8f](https://github.com/user-attachments/assets/68c31d8d-9074-4fb3-9d2c-b05e395a0b59)
-
-![b581b35feccf62ccc995e339dcf4c882](https://github.com/user-attachments/assets/b9beac6f-83b3-4e58-a4f9-ac65ff5469e4)
 
 
 1075716088@qq.com
