@@ -1960,7 +1960,7 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             
 
 
-                            if (papaLen != 251)
+                            if (papaLen < 251)
                             {
                                 try
                                 {
@@ -1981,20 +1981,49 @@ GBK编码下中文占2字节，UTF8编码下中文占3字节
                             {
                                 //NULL值
                                 //存储空string_view
-                                try
+                                if (papaLen == 251)
                                 {
-                                    if (!jumpNode)
+                                    try
                                     {
-                                        std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(emptyView);
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
                                     }
 
+                                    ++strBegin;
                                 }
-                                catch (const std::exception& e)
+                                else
                                 {
-                                    //出错处理，内存不足，不再往里面插入数据
-                                    jumpNode = true;
+                                    //252
+                                    //当长度为252时  strBegin+1为正确长度   strBegin+2 为 0x00  strBegin+3为数据开始位置 
+                                    papaLen = *(strBegin + 1);
+
+                                    try
+                                    {
+                                        if (!jumpNode)
+                                        {
+                                            std::get<4>(thisRequest).get().emplace_back(std::string_view(reinterpret_cast<char*>(const_cast<unsigned char*>(strBegin + 3)), papaLen));
+                                        }
+
+                                    }
+                                    catch (const std::exception& e)
+                                    {
+                                        //出错处理，内存不足，不再往里面插入数据
+                                        jumpNode = true;
+                                    }
+                                    strBegin += papaLen + 3;
+
+
                                 }
-                                ++strBegin;
+
+                                
                             }
 
                             break;
