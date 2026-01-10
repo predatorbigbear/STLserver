@@ -1099,6 +1099,14 @@ void MULTISQLREAD::recvPubkeyAuth()
 
 
 
+//在MySQL 8.0中，设置连接超时可以通过以下两种主要方式实现：
+
+//1. ‌通过SQL语句动态设置（临时生效）‌
+//全局超时设置‌：
+
+//SET GLOBAL interactive_timeout = 300;  --交互式连接超时（单位：秒）
+//SET GLOBAL wait_timeout = 300;         --非交互式连接超时（单位：秒）
+//输入mysql命令行后进入mysql设置后，连接mysql60秒后连接就会超时
 
 void MULTISQLREAD::mysqlQuery()
 {
@@ -1109,6 +1117,7 @@ void MULTISQLREAD::mysqlQuery()
         {
            //重连  通知所有请求发生错误
             m_queryStatus.store(0, std::memory_order_release);
+            std::cout << "mysql timeout";
         }
         else
         {
