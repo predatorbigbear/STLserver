@@ -1118,6 +1118,14 @@ void MULTISQLREAD::mysqlQuery()
            //重连  通知所有请求发生错误
             m_queryStatus.store(0, std::memory_order_release);
             std::cout << "mysql timeout";
+
+            //超时则通知所有处理对象超时信息，并且遍历队列中的所有存储对象发出通知，然后再进行重连变更状态位
+            while (m_waitMessageListBegin!= m_waitMessageListEnd)
+            {
+                std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
+
+                ++m_waitMessageListBegin;
+            }
         }
         else
         {
