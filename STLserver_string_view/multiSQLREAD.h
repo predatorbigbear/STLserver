@@ -393,6 +393,18 @@ private:
 
 	//发送给mysql-server的命令拼装函数
 	void readyMysqlMessage();
+
+	//mysql 关闭连接循环
+	void mysqlShutdownLoop();
+
+
+	void mysqlCancelLoop();
+
+
+	void mysqlCloseLoop();
+
+
+	void resetMysqlSocket();
 };
 
 

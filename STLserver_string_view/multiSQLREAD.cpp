@@ -1117,15 +1117,30 @@ void MULTISQLREAD::mysqlQuery()
         {
            //重连  通知所有请求发生错误
             m_queryStatus.store(0, std::memory_order_release);
-            std::cout << "mysql timeout";
+            m_log->writeLog("mysql timeout");
 
             //超时则通知所有处理对象超时信息，并且遍历队列中的所有存储对象发出通知，然后再进行重连变更状态位
-            while (m_waitMessageListBegin!= m_waitMessageListEnd)
+            do
             {
                 std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
 
                 ++m_waitMessageListBegin;
-            }
+            }while (m_waitMessageListBegin != m_waitMessageListEnd);
+
+            do
+            {
+                if (!m_messageList.try_dequeue(*m_waitMessageListBegin))
+                    break;
+                std::get<6>(**m_waitMessageListBegin)(false, ERRORMESSAGE::SQL_QUERY_ERROR);
+            } while (true);
+
+            firstConnect = false;
+
+
+            m_sock->shutdown(boost::asio::socket_base::shutdown_both, m_err);
+
+            //等待异步shutdown完成
+            m_timeWheel->insert([this]() {mysqlShutdownLoop(); }, 5);
         }
         else
         {
@@ -2780,6 +2795,71 @@ void MULTISQLREAD::readyMysqlMessage()
 
 }
 
+
+
+void MULTISQLREAD::mysqlShutdownLoop()
+{
+    {
+        if (m_err.value() != 107 && m_err.value())
+        {
+            m_log->writeLog("MULTISQLREAD::mysqlShutdownLoop", m_err.value(), m_err.message());
+            m_sock->shutdown(boost::asio::socket_base::shutdown_both, m_err);
+            m_timeWheel->insert([this]() {mysqlShutdownLoop(); }, 5);
+        }
+        else
+        {
+            m_sock->cancel(m_err);
+            //等待异步cancel完成
+            m_timeWheel->insert([this]() {mysqlCancelLoop(); }, 5);
+        }
+    }
+
+}
+
+
+
+void MULTISQLREAD::mysqlCancelLoop()
+{
+    if (m_err.value() != 107 && m_err.value())
+    {
+        m_log->writeLog(" MULTISQLREAD::mysqlCancelLoop", m_err.value(), m_err.message());
+        m_sock->cancel(m_err);
+        m_timeWheel->insert([this]() {mysqlCancelLoop(); }, 5);
+    }
+    else
+    {
+        m_sock->close(m_err);
+        //等待异步cancel完成
+        m_timeWheel->insert([this]() {mysqlCloseLoop(); }, 5);
+    }
+
+}
+
+
+
+void MULTISQLREAD::mysqlCloseLoop()
+{
+    if (m_err.value() != 107 && m_err.value())
+    {
+        m_log->writeLog("MULTISQLREAD::mysqlCloseLoop", m_err.value(), m_err.message());
+        m_sock->close(m_err);
+        m_timeWheel->insert([this]() {mysqlCloseLoop(); }, 5);
+    }
+    else
+    {
+        resetMysqlSocket();
+    }
+}
+
+
+
+void MULTISQLREAD::resetMysqlSocket()
+{
+    m_sock.reset(new boost::asio::ip::tcp::socket(*m_ioc));
+    m_sock->set_option(boost::asio::socket_base::keep_alive(true), m_err);
+
+    connectMysql();
+}
 
 
 
