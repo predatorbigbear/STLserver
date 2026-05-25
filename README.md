@@ -14,7 +14,8 @@ STLserver介绍
  接口4  wrk测试命令为        wrk -t1 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4  
  
 
- 实测接口4性能比搜狗workflow的hello world例子 qps更高，大约高15%道20%之间  
+ 实测接口4性能比搜狗workflow的hello world例子 qps更高，大约高15%道20%之间.接口4实现逻辑为解析一次http请求，处理若干http头，发送一次redis查询，将查询结果json序列化，打包成http响应返回。   
+ 
  
  视频过程链接：https://b23.tv/uBFFsOd  
  
