@@ -1,40 +1,50 @@
-                                                                                                 STLserver介绍
+STLserver介绍  
 
- 源码为string_view文件夹，指针版本已不再维护。  
+源码为string_view文件夹，指针版本已不再维护。  
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
- 今天在单核机器上对搜狗workflow  0.11.10的hello world例子 与经过string-view改造后的实现  接口4进行对比测试（实际上在双核机器上进行测试也能得到类似结果，并且我的程序cpu占用率更低）
-
- 其中，测试workflow的命令为   wrk -t1 -c100 -d60s  -s /home/download/postw.lua http://127.0.0.1:8085/22
-
- 接口4  wrk测试命令为        wrk -t1 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4
-
- 实测接口4性能比搜狗workflow的hello world例子 qps更高，
-
- 视频过程链接：https://b23.tv/uBFFsOd
-
-
+ 今天在单核机器上对搜狗workflow  0.11.10的hello world例子 与经过string-view改造后的实现  接口4进行对比测试（实际上在双核机器上进行测试也能得到类似结果，并且我的程序cpu占用率更低）  
  
+
+ 其中，测试workflow的命令为   wrk -t1 -c100 -d60s  -s /home/download/postw.lua http://127.0.0.1:8085/22  
+ 
+
+ 接口4  wrk测试命令为        wrk -t1 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4  
+ 
+
+ 实测接口4性能比搜狗workflow的hello world例子 qps更高，  
+ 
+
+ 视频过程链接：https://b23.tv/uBFFsOd  
+ 
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
- http处理模块中http头部主要处理了6个，分别是 Host   Transfer_Encoding    Connection    Content_Length    Content_Type     Expect
+ http处理模块中http头部主要处理了6个，分别是 Host   Transfer_Encoding    Connection    Content_Length    Content_Type     Expect  
+ 
 
 
 
- 在main中设置ioPool->setThreadNum(success, 1);         m1.setMultiRedisRead(ioPool, success, "127.0.0.1", 6379, 1);         
+ 在main中设置ioPool->setThreadNum(success, 1);         m1.setMultiRedisRead(ioPool, success, "127.0.0.1", 6379, 1);  
+ 
 
- 使用单核单redis连接测试
+ 使用单核单redis连接测试  
+ 
 
- wrk测试命令如下：
- wrk -t4 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4
+ wrk测试命令如下：  
+ 
+ wrk -t4 -c100 -d60s  -s /home/download/post.lua http://127.0.0.1:8085/4  
+ 
 
- io_context数量和核数保持一致即可，redis查询连接数也和核数保持一致即可，每增加一个io_context,测试连接增加100条即可
+ io_context数量和核数保持一致即可，redis查询连接数也和核数保持一致即可，每增加一个io_context,测试连接增加100条即可  
+ 
 
- post.lua中Transfer-Encoding 如果要设置chunked的话，那么自己需要准备一些数据进行测试，所以我现在post.lua中Transfer-Encoding中改了不带chunked参数
+ post.lua中Transfer-Encoding 如果要设置chunked的话，那么自己需要准备一些数据进行测试，所以我现在post.lua中Transfer-Encoding中改了不带chunked参数  
+ 
 
 
 
@@ -42,35 +52,51 @@
 
 
 
- 视频汇总与编译指南
+ 视频汇总与编译指南  
+ 
 
  
- 20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610
+ 20250629更新  具体编译方法请查看本人boss上的简历   联系电话是135*****610  
+ 
 
 
 
- 20250708   包含头部解析的接口4 wrk测试qps过程视频，经过多次性能优化，qps对比原本没有解析http头部字段的成绩相比，仅仅只是下降了1500-2000：
- https://b23.tv/RyW1sNP
+ 20250708   包含头部解析的接口4 wrk测试qps过程视频，经过多次性能优化，qps对比原本没有解析http头部字段的成绩相比，仅仅只是下降了1500-2000：  
+ 
+ https://b23.tv/RyW1sNP  
+ 
 
 
 
- 旧的测试视频：
+ 旧的测试视频：  
+ 
 
- wrk测试接口4 qps图：
- ![QQ20250630-152617](https://github.com/user-attachments/assets/da3ea4b5-2657-4553-aa7a-e976055663bc)
+ wrk测试接口4 qps图：  
+ 
+ ![QQ20250630-152617](https://github.com/user-attachments/assets/da3ea4b5-2657-4553-aa7a-e976055663bc)  
+ 
 
- 测试视频：
- https://www.bilibili.com/video/BV1pAgCzqEaP
+ 测试视频：  
+ 
+ https://www.bilibili.com/video/BV1pAgCzqEaP  
+ 
 
- 经过优化后的wrk测试接口4  qps图：
- ![屏幕录制 2025-07-01 130647 mp4_20250701_131046711](https://github.com/user-attachments/assets/2b226413-54ba-4e75-bfbc-6b76f7176f50)
+ 经过优化后的wrk测试接口4  qps图：  
+ 
+ ![屏幕录制 2025-07-01 130647 mp4_20250701_131046711](https://github.com/user-attachments/assets/2b226413-54ba-4e75-bfbc-6b76f7176f50)  
+ 
 
- 测试视频：
- https://b23.tv/ENpHX9d
+ 测试视频：  
+ 
+ https://b23.tv/ENpHX9d  
+ 
 
- 主要优化点是将其中几个调用频繁，时间比较长的函数针对性优化了：
- ![profile1](https://github.com/user-attachments/assets/e0a2ae49-6852-4cd9-bad1-dc4382dbe819)
- ![profil2](https://github.com/user-attachments/assets/27e4dcde-9714-4b9a-bf70-a0e8ba0ab7df)
+ 主要优化点是将其中几个调用频繁，时间比较长的函数针对性优化了：  
+ 
+ ![profile1](https://github.com/user-attachments/assets/e0a2ae49-6852-4cd9-bad1-dc4382dbe819)  
+ 
+ ![profil2](https://github.com/user-attachments/assets/27e4dcde-9714-4b9a-bf70-a0e8ba0ab7df)  
+ 
  /////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -107,9 +133,11 @@
 
 
 
-vs2022编译选项设置：
+vs2022编译选项设置：  
 
-库文件为  mysqlclient;pthread;boost_thread;z;ssl;crypto;brotlienc
+
+库文件为  mysqlclient;pthread;boost_thread;z;ssl;crypto;brotlienc  
+
 
 
 ![QQ20250630-075541](https://github.com/user-attachments/assets/e48d1fee-c0fb-440d-bb53-1fc784cbc389)
