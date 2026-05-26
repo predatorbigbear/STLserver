@@ -36,11 +36,47 @@ ASYNCLOG::ASYNCLOG(const char* logFileName, const std::shared_ptr<IOcontextPool>
 			fileTemp.close();
 		}
 
+
+# ifdef __linux__
 		m_file.open(logFileName, std::ios::app);
 		if (!m_file)
 			throw std::runtime_error("can not open " + std::string(logFileName));
 
 		m_asyncFile.reset(new boost::asio::posix::stream_descriptor(*ioPool->getIoNext(), static_cast<__gnu_cxx::stdio_filebuf<char>*>(m_file.rdbuf())->fd()));
+#elif define _WIN32
+
+		// 1. 打开文件
+		// 注意：FILE_FLAG_OVERLAPPED 是必须的
+		// GENERIC_WRITE: 写权限
+		// OPEN_ALWAYS: 如果文件存在则打开，不存在则创建
+		file_handle = ::CreateFileA(
+			logFileName,
+			GENERIC_WRITE,
+			FILE_SHARE_READ, // 允许其他进程读取
+			NULL,
+			OPEN_ALWAYS,
+			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+			NULL
+		);
+
+		if (file_handle == INVALID_HANDLE_VALUE) 
+			throw std::runtime_error(std::string("无法打开文件，错误代码: ") + GetLastError());
+
+		// 2. 获取当前文件大小（用于确定追加位置）
+		LARGE_INTEGER file_size;
+		if (!::GetFileSizeEx(file_handle, &file_size)) 
+		{
+			::CloseHandle(file_handle);
+			throw std::runtime_error(std::string("无法获取文件大小，错误代码: ")+GetLastError());
+			::CloseHandle(file_handle);
+		}
+
+		// 文件末尾的偏移量即为当前文件大小
+		offset = static_cast<uint64_t>(file_size.QuadPart);
+
+		m_asyncFile.reset(new boost::asio::windows::random_access_handle(*ioPool->getIoNext(), file_handle));
+
+#endif
 
 		result = true;
 		StartCheckLog();
@@ -95,10 +131,29 @@ void ASYNCLOG::writeLoop()
 	std::string_view tempView;
 	if (m_messageList.try_dequeue(tempView))
 	{
+# ifdef __linux__
 		boost::asio::async_write(*m_asyncFile, boost::asio::buffer(tempView.data(), tempView.size()), [this](const boost::system::error_code& ec, size_t bytes_written)
 		{
 			writeLoop();
 		});
+#elif define _WIN32
+		GetFileSizeEx(file_handle, &file_size);
+
+		offset = static_cast<uint64_t>(file_size.QuadPart);
+
+		// 5. 发起异步写入到指定偏移量（文件末尾）
+		boost::asio::async_write_at(
+			*m_asyncFile,
+			offset,              // 关键：写入位置设为当前文件大小
+			boost::asio::buffer(tempView.data(), tempView.size()),
+			[this](const boost::system::error_code& ec, std::size_t bytes_written)
+			{
+				writeLoop();
+			}
+		);
+
+#endif
+
 	}
 	else
 	{

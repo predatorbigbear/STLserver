@@ -4,7 +4,12 @@
 
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio.hpp>
+# ifdef __linux__
 #include <ext/stdio_filebuf.h>
+#elif define _WIN32
+#include <boost/asio/windows/random_access_handle.hpp>
+#include <windows.h>
+#endif
 
 
 #include "concurrentqueue.h"
@@ -85,8 +90,16 @@ struct ASYNCLOG
 
 
 private:
+
+# ifdef __linux__
 	std::ofstream m_file;
-	std::unique_ptr<boost::asio::posix::stream_descriptor>m_asyncFile{};           //异步写入文件描述符
+	std::unique_ptr<boost::asio::posix::stream_descriptor>m_asyncFile{};                //linux下异步写入文件描述符
+#elif define _WIN32
+	HANDLE file_handle;
+	LARGE_INTEGER file_size;
+	uint64_t offset;
+	std::unique_ptr<boost::asio::windows::random_access_handle>m_asyncFile{};           //windows下异步写入文件描述符
+#endif
 
 
 
